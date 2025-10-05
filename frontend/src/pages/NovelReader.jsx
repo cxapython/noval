@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { 
-  Card, List, Button, message, Typography, Space, 
+  Card, List, Button, App, Typography, Space, 
   Empty, Modal, Input, Tag, Row, Col, Drawer, Radio,
   Slider, Select, Tooltip, Popover, Badge, Divider, Checkbox
 } from 'antd'
@@ -20,6 +20,7 @@ const { Search } = Input
 const API_BASE = '/api/reader'
 
 function NovelReader() {
+  const { message } = App.useApp() // 使用 App hook 替代静态 message
   const { novelId } = useParams()
   const navigate = useNavigate()
   
@@ -56,6 +57,16 @@ function NovelReader() {
   const [previewMatches, setPreviewMatches] = useState([])
   const [previewLoading, setPreviewLoading] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
+  
+  // 编辑小说信息状态
+  const [editNovelVisible, setEditNovelVisible] = useState(false)
+  const [editingNovel, setEditingNovel] = useState(null)
+  const [editNovelForm, setEditNovelForm] = useState({
+    title: '',
+    author: '',
+    cover_url: ''
+  })
+  const [editNovelLoading, setEditNovelLoading] = useState(false)
   
   // 阅读设置
   const [settings, setSettings] = useState(() => {
@@ -599,6 +610,65 @@ function NovelReader() {
     }
   }
 
+  // 编辑小说信息
+  const handleEditNovel = (novel) => {
+    setEditingNovel(novel)
+    setEditNovelForm({
+      title: novel.title || '',
+      author: novel.author || '',
+      cover_url: novel.cover_url || ''
+    })
+    setEditNovelVisible(true)
+  }
+
+  const handleSaveNovelEdit = async () => {
+    if (!editNovelForm.title.trim()) {
+      message.warning('标题不能为空')
+      return
+    }
+
+    try {
+      setEditNovelLoading(true)
+      const response = await axios.put(`${API_BASE}/novel/${editingNovel.id}`, editNovelForm)
+      
+      if (response.data.success) {
+        message.success('更新成功')
+        setEditNovelVisible(false)
+        setEditingNovel(null)
+        loadNovels() // 刷新列表
+      } else {
+        message.error('更新失败：' + response.data.error)
+      }
+    } catch (error) {
+      message.error('更新失败：' + error.message)
+    } finally {
+      setEditNovelLoading(false)
+    }
+  }
+
+  const handleDeleteNovel = async (novel) => {
+    Modal.confirm({
+      title: '确认删除',
+      content: `确定要删除《${novel.title}》吗？此操作不可恢复！`,
+      okText: '确认',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          const response = await axios.delete(`${API_BASE}/novel/${novel.id}`)
+          if (response.data.success) {
+            message.success('删除成功')
+            loadNovels()
+          } else {
+            message.error('删除失败：' + response.data.error)
+          }
+        } catch (error) {
+          message.error('删除失败：' + error.message)
+        }
+      }
+    })
+  }
+
   // 主题样式
   const themeStyles = {
     light: { background: '#ffffff', color: '#262626' },
@@ -627,36 +697,156 @@ function NovelReader() {
               dataSource={novels}
               renderItem={(novel) => (
                 <List.Item>
-                  <Card
-                    hoverable
-                    onClick={() => navigate(`/reader/${novel.id}`)}
-                    cover={
-                      novel.cover_url && (
-                        <img 
-                          alt={novel.title}
-                          src={novel.cover_url}
-                          style={{ height: 240, objectFit: 'cover' }}
-                        />
-                      )
-                    }
-                  >
-                    <Card.Meta
-                      title={<Text strong>{novel.title}</Text>}
-                      description={
-                        <Space direction="vertical" size="small">
-                          <Text type="secondary">{novel.author}</Text>
-                          <Text type="secondary">
-                            {novel.total_chapters} 章 | {Math.floor(novel.total_words / 10000)} 万字
-                          </Text>
-                        </Space>
+                  <Badge.Ribbon text={`${novel.total_chapters}章`} color="blue">
+                    <Card
+                      hoverable
+                      cover={
+                        <div 
+                          onClick={() => navigate(`/reader/${novel.id}`)}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          {novel.cover_url ? (
+                            <img 
+                              alt={novel.title}
+                              src={novel.cover_url}
+                              style={{ height: 240, objectFit: 'cover' }}
+                            />
+                          ) : (
+                            <div style={{ 
+                              height: 240, 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              justifyContent: 'center',
+                              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                              color: '#fff',
+                              fontSize: 72,
+                              fontWeight: 'bold'
+                            }}>
+                              {novel.title[0]}
+                            </div>
+                          )}
+                        </div>
                       }
-                    />
-                  </Card>
+                      actions={[
+                        <Tooltip title="编辑" key="edit">
+                          <Button 
+                            type="text"
+                            icon={<EditOutlined />}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleEditNovel(novel)
+                            }}
+                          />
+                        </Tooltip>,
+                        <Tooltip title="删除" key="delete">
+                          <Button 
+                            type="text"
+                            danger
+                            icon={<DeleteOutlined />}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeleteNovel(novel)
+                            }}
+                          />
+                        </Tooltip>
+                      ]}
+                    >
+                      <div 
+                        onClick={() => navigate(`/reader/${novel.id}`)}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <Card.Meta
+                          title={<Text strong ellipsis={{ rows: 1 }}>{novel.title}</Text>}
+                          description={
+                            <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                              <Text type="secondary" ellipsis>👤 {novel.author || '未知作者'}</Text>
+                              <Text type="secondary">
+                                📖 {novel.total_chapters || 0} 章 | 📝 {Math.floor((novel.total_words || 0) / 10000)} 万字
+                              </Text>
+                            </Space>
+                          }
+                        />
+                      </div>
+                    </Card>
+                  </Badge.Ribbon>
                 </List.Item>
               )}
             />
           )}
         </Card>
+        
+        {/* 编辑小说信息弹窗 */}
+        <Modal
+          title="编辑小说信息"
+          open={editNovelVisible}
+          onOk={handleSaveNovelEdit}
+          onCancel={() => {
+            setEditNovelVisible(false)
+            setEditingNovel(null)
+          }}
+          confirmLoading={editNovelLoading}
+          okText="保存"
+          cancelText="取消"
+          width={600}
+        >
+          <Space direction="vertical" style={{ width: '100%' }} size="large">
+            <div>
+              <Text strong>小说标题 *</Text>
+              <Input
+                placeholder="请输入小说标题"
+                value={editNovelForm.title}
+                onChange={(e) => setEditNovelForm({ ...editNovelForm, title: e.target.value })}
+                style={{ marginTop: 8 }}
+              />
+            </div>
+            
+            <div>
+              <Text strong>作者</Text>
+              <Input
+                placeholder="请输入作者名称"
+                value={editNovelForm.author}
+                onChange={(e) => setEditNovelForm({ ...editNovelForm, author: e.target.value })}
+                style={{ marginTop: 8 }}
+              />
+            </div>
+            
+            <div>
+              <Text strong>封面URL</Text>
+              <Input
+                placeholder="请输入封面图片URL"
+                value={editNovelForm.cover_url}
+                onChange={(e) => setEditNovelForm({ ...editNovelForm, cover_url: e.target.value })}
+                style={{ marginTop: 8 }}
+              />
+              {editNovelForm.cover_url && (
+                <div style={{ 
+                  marginTop: 12, 
+                  padding: 8, 
+                  border: '1px solid #d9d9d9',
+                  borderRadius: 8,
+                  textAlign: 'center'
+                }}>
+                  <Text type="secondary" style={{ fontSize: 12, marginBottom: 8, display: 'block' }}>
+                    封面预览：
+                  </Text>
+                  <img 
+                    src={editNovelForm.cover_url} 
+                    alt="封面预览" 
+                    style={{ 
+                      maxWidth: '100%', 
+                      maxHeight: 300,
+                      borderRadius: 4
+                    }}
+                    onError={(e) => {
+                      e.target.style.display = 'none'
+                      message.error('封面图片加载失败')
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          </Space>
+        </Modal>
       </div>
     )
   }
@@ -1183,6 +1373,79 @@ function NovelReader() {
           </div>
         </Space>
       </Drawer>
+
+      {/* 编辑小说信息弹窗 */}
+      <Modal
+        title="编辑小说信息"
+        open={editNovelVisible}
+        onOk={handleSaveNovelEdit}
+        onCancel={() => {
+          setEditNovelVisible(false)
+          setEditingNovel(null)
+        }}
+        confirmLoading={editNovelLoading}
+        okText="保存"
+        cancelText="取消"
+        width={600}
+      >
+        <Space direction="vertical" style={{ width: '100%' }} size="large">
+          <div>
+            <Text strong>小说标题 *</Text>
+            <Input
+              placeholder="请输入小说标题"
+              value={editNovelForm.title}
+              onChange={(e) => setEditNovelForm({ ...editNovelForm, title: e.target.value })}
+              style={{ marginTop: 8 }}
+            />
+          </div>
+          
+          <div>
+            <Text strong>作者</Text>
+            <Input
+              placeholder="请输入作者名称"
+              value={editNovelForm.author}
+              onChange={(e) => setEditNovelForm({ ...editNovelForm, author: e.target.value })}
+              style={{ marginTop: 8 }}
+            />
+          </div>
+          
+          <div>
+            <Text strong>封面URL</Text>
+            <Input
+              placeholder="请输入封面图片URL"
+              value={editNovelForm.cover_url}
+              onChange={(e) => setEditNovelForm({ ...editNovelForm, cover_url: e.target.value })}
+              style={{ marginTop: 8 }}
+            />
+            {editNovelForm.cover_url && (
+              <div style={{ 
+                marginTop: 12, 
+                padding: 8, 
+                border: '1px solid #d9d9d9',
+                borderRadius: 8,
+                textAlign: 'center'
+              }}>
+                <Text type="secondary" style={{ fontSize: 12, marginBottom: 8, display: 'block' }}>
+                  封面预览：
+                </Text>
+                <img 
+                  src={editNovelForm.cover_url} 
+                  alt="封面预览" 
+                  style={{ 
+                    maxWidth: '100%', 
+                    maxHeight: 300,
+                    borderRadius: 4
+                  }}
+                  onError={(e) => {
+                    e.target.style.display = 'none'
+                    message.error('封面图片加载失败')
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        </Space>
+      </Modal>
 
       {/* 文字替换面板 */}
       <Drawer
