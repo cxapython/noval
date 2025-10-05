@@ -41,7 +41,7 @@ class ConfigManager:
         errors = []
         
         # 验证顶层必需字段
-        required_top_level = ['site_info', 'parsers', 'url_patterns']
+        required_top_level = ['site_info', 'parsers', 'url_templates']
         for field in required_top_level:
             if field not in self.config:
                 errors.append(f'缺少顶层字段: {field}')
@@ -62,11 +62,15 @@ class ConfigManager:
                 if parser not in parsers:
                     errors.append(f'parsers 缺少 {parser} 字段')
         
-        # 验证 url_patterns
-        if 'url_patterns' in self.config:
-            url_patterns = self.config['url_patterns']
-            if 'book_detail' not in url_patterns:
-                errors.append('url_patterns 缺少 book_detail 字段')
+        # 验证 url_templates
+        if 'url_templates' in self.config:
+            url_templates = self.config['url_templates']
+            if 'book_detail' not in url_templates:
+                errors.append('url_templates 缺少 book_detail 字段')
+            if 'chapter_list_page' not in url_templates:
+                errors.append('url_templates 缺少 chapter_list_page 字段')
+            if 'chapter_content_page' not in url_templates:
+                errors.append('url_templates 缺少 chapter_content_page 字段')
         
         if errors:
             error_msg = '\n'.join(errors)
@@ -84,9 +88,9 @@ class ConfigManager:
         """获取解析器配置"""
         return self.config.get('parsers', {})
     
-    def get_url_patterns(self) -> Dict:
-        """获取URL模式"""
-        return self.config.get('url_patterns', {})
+    def get_url_templates(self) -> Dict:
+        """获取URL模板"""
+        return self.config.get('url_templates', {})
     
     def get_request_config(self) -> Dict:
         """获取请求配置"""
@@ -116,20 +120,31 @@ class ConfigManager:
         """获取最大重试次数"""
         return self._safe_int(self.get_crawler_config().get('max_retries', 20), 20)
     
-    def build_url(self, url_type: str, *args) -> str:
+    def build_url(self, url_type: str, **kwargs) -> str:
         """
         构建URL
-        :param url_type: URL类型 (book_detail, chapter_list等)
-        :param args: URL参数
+        :param url_type: URL类型 (book_detail, chapter_list_page, chapter_content_page)
+        :param kwargs: URL参数（命名参数，如 book_id, chapter_id, page）
         :return: 完整URL
         """
-        url_patterns = self.get_url_patterns()
-        pattern = url_patterns.get(url_type, '')
+        url_templates = self.get_url_templates()
         
-        if not pattern:
-            raise ValueError(f"URL模式 '{url_type}' 未配置")
+        # 检查URL模板是否存在
+        if not url_templates or url_type not in url_templates:
+            raise ValueError(f"URL模板 '{url_type}' 未配置")
         
-        url = pattern.format(*args)
+        pattern = url_templates[url_type]
+        
+        # 如果是comment字段，跳过
+        if url_type.startswith('_comment'):
+            raise ValueError(f"URL模板 '{url_type}' 未配置")
+        
+        # 使用命名参数格式化URL
+        try:
+            url = pattern.format(**kwargs) if kwargs else pattern
+        except KeyError as e:
+            logger.error(f"URL模板格式化失败: {url_type}, pattern: {pattern}, kwargs: {kwargs}, error: {e}")
+            raise ValueError(f"URL模板 '{url_type}' 格式化失败，缺少参数: {e}")
         
         # 如果不是完整URL，添加base_url
         if not url.startswith('http'):

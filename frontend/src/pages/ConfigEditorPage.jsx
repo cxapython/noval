@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { 
   Card, Button, Tabs, Input, InputNumber, Select, 
-  Form, Space, Collapse, Tag, message, Spin, Popconfirm,
+  Form, Space, Collapse, Tag, App, Spin, Popconfirm,
   Modal, Alert, Descriptions, Divider, Typography
 } from 'antd'
 import { 
@@ -20,6 +20,7 @@ const { TextArea } = Input
 const API_BASE = '/api/crawler'
 
 function ConfigEditorPage() {
+  const { message } = App.useApp() // 使用 App hook 替代静态 message
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const filename = searchParams.get('file')
@@ -1006,7 +1007,7 @@ function FormView({ configData, onChange }) {
       padding: '16px 0'
     }}>
       <Collapse 
-        defaultActiveKey={['site_info', 'parsers', 'url_patterns']}
+        defaultActiveKey={['site_info', 'parsers', 'url_templates']}
         style={{ background: '#fff' }}
         size="large"
         items={collapseItems}
@@ -1057,9 +1058,10 @@ function getFieldLabel(key) {
     description: '描述',
     
     // URL模板
-    url_patterns: '🔗 URL模板',
-    book_detail: '小说详情页',
-    chapter_list: '章节列表页',
+    url_templates: '🔗 URL模板',
+    book_detail: '小说详情页（第1页）',
+    chapter_list_page: '章节列表翻页（第2页起）',
+    chapter_content_page: '章节内容翻页（第2页起）',
     
     // 请求配置
     request_config: '🌐 请求配置',
@@ -1144,8 +1146,9 @@ function getFieldHelp(key) {
     description: '网站的简要描述，帮助识别网站用途',
     
     // URL模板
-    book_detail: '小说详情页URL模板，{0}代表小说ID，例如：/book/{0}.html',
-    chapter_list: '章节列表页URL模板，{0}为小说ID，{1}为页码',
+    book_detail: '小说详情页URL模板（第1页）。格式：/book/{book_id}。这是起始页，用于获取小说信息和第一页章节列表',
+    chapter_list_page: '章节列表翻页URL模板（从第2页开始），例如：/book/{book_id}/{page}/ 或 /book/{book_id}_{page}',
+    chapter_content_page: '章节内容翻页URL模板（从第2页开始），例如：/book/{book_id}/{chapter_id}_{page}.html 或 /chapter/{book_id}/{chapter_id}/{page}',
     
     // 请求配置
     timeout: '请求超时时间，单位：秒，建议30-60秒',

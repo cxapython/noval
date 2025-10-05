@@ -346,7 +346,11 @@ def test_parser():
         # 创建临时爬虫实例来使用解析方法
         temp_config = {
             'site_info': {'name': 'test', 'base_url': url},
-            'url_patterns': {},
+            'url_templates': {
+                'book_detail': '/book/{book_id}',
+                'chapter_list_page': '/book/{book_id}/{page}/',
+                'chapter_content_page': '/book/{book_id}/{chapter_id}_{page}.html'
+            },
             'parsers': {}
         }
         
@@ -655,12 +659,12 @@ def test_config():
                 'error': 'site_info 中缺少 base_url 字段'
             }), 400
         
-        # 为测试添加默认的 url_patterns（如果不存在）
-        if 'url_patterns' not in config:
-            config['url_patterns'] = {
-                'book_detail': '/book/{0}',
-                'chapter_list': '/book/{0}/chapters/',
-                'chapter_content': '/chapter/{0}/'
+        # 为测试添加默认的 url_templates（如果不存在）
+        if 'url_templates' not in config:
+            config['url_templates'] = {
+                'book_detail': '/book/{book_id}',
+                'chapter_list_page': '/book/{book_id}/{page}/',
+                'chapter_content_page': '/book/{book_id}/{chapter_id}_{page}.html'
             }
         
         # 写入临时配置文件

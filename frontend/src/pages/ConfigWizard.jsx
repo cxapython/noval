@@ -141,11 +141,11 @@ function ConfigWizard() {
   const [contentNextPageUrlPattern, setContentNextPageUrlPattern] = useState('')
   const [maxPages, setMaxPages] = useState(50)
   
-  // URL模式配置
-  const [urlPatterns, setUrlPatterns] = useState({
-    bookDetail: '/book/{0}',
-    chapterList: '/book/{0}',
-    chapterContent: '/chapter/{0}/{1}'
+  // URL模板配置
+  const [urlTemplates, setUrlTemplates] = useState({
+    bookDetail: '/book/{book_id}',
+    chapterListPage: '/book/{book_id}/{page}/',
+    chapterContentPage: '/book/{book_id}/{chapter_id}_{page}.html'
   })
   
 // 配置预览和保存
@@ -474,10 +474,10 @@ function ConfigWizard() {
         base_url: baseUrl,
         description: `${siteName}小说网站`
       },
-      url_patterns: {
-        book_detail: urlPatterns.bookDetail,
-        chapter_list: urlPatterns.chapterList,
-        chapter_content: urlPatterns.chapterContent
+      url_templates: {
+        book_detail: urlTemplates.bookDetail,
+        chapter_list_page: urlTemplates.chapterListPage,
+        chapter_content_page: urlTemplates.chapterContentPage
       },
       request_config: {
         headers: {
@@ -651,37 +651,46 @@ function ConfigWizard() {
               </Card>
             )}
 
-            {/* URL模式配置（仅在第一步显示） */}
+            {/* URL模板配置（仅在第一步显示） */}
             {currentStep === 0 && (
-              <Card title="URL模式配置（可选）" size="small" style={{ marginBottom: 24, background: '#fffbe6', border: '1px solid #ffe58f' }}>
+              <Card title="URL模板配置" size="small" style={{ marginBottom: 24, background: '#fffbe6', border: '1px solid #ffe58f' }}>
                 <Alert
-                  message="URL模式说明"
-                  description="配置网站的URL格式。使用 {0}, {1} 作为占位符。如果不确定，可以使用默认值，稍后在配置文件中修改。"
+                  message="URL模板说明"
+                  description="配置网站的URL格式。使用命名参数 {book_id}, {chapter_id}, {page} 作为占位符，系统会自动替换这些参数。"
                   type="info"
                   showIcon
                   closable
                   style={{ marginBottom: 16 }}
                 />
                 <Form layout="vertical">
-                  <Form.Item label="小说详情页URL模式" help="例如：/book/{0} 或 /novel/{0}.html">
+                  <Form.Item 
+                    label="书籍详情页URL模板（第1页）" 
+                    help="示例：/book/{book_id} 或 /book/{book_id}.html。这是起始页，用于获取小说信息和第一页章节列表"
+                  >
                     <Input
-                      value={urlPatterns.bookDetail}
-                      onChange={(e) => setUrlPatterns({...urlPatterns, bookDetail: e.target.value})}
-                      placeholder="/book/{0}"
+                      value={urlTemplates.bookDetail}
+                      onChange={(e) => setUrlTemplates({...urlTemplates, bookDetail: e.target.value})}
+                      placeholder="/book/{book_id}"
                     />
                   </Form.Item>
-                  <Form.Item label="章节列表URL模式" help="例如：/book/{0} 或 /chapters/{0}/">
+                  <Form.Item 
+                    label="章节列表翻页URL模板（第2页起）" 
+                    help="示例：/book/{book_id}/{page}/ 或 /book/{book_id}_{page}。从第2页开始使用，{page}≥2"
+                  >
                     <Input
-                      value={urlPatterns.chapterList}
-                      onChange={(e) => setUrlPatterns({...urlPatterns, chapterList: e.target.value})}
-                      placeholder="/book/{0}"
+                      value={urlTemplates.chapterListPage}
+                      onChange={(e) => setUrlTemplates({...urlTemplates, chapterListPage: e.target.value})}
+                      placeholder="/book/{book_id}/{page}/"
                     />
                   </Form.Item>
-                  <Form.Item label="章节内容URL模式" help="例如：/chapter/{0}/{1} 或 /read/{0}/{1}.html">
+                  <Form.Item 
+                    label="章节内容翻页URL模板（第2页起）" 
+                    help="示例：/book/{book_id}/{chapter_id}_{page}.html 或 /chapter/{book_id}/{chapter_id}/{page}。章节内容第2页开始使用"
+                  >
                     <Input
-                      value={urlPatterns.chapterContent}
-                      onChange={(e) => setUrlPatterns({...urlPatterns, chapterContent: e.target.value})}
-                      placeholder="/chapter/{0}/{1}"
+                      value={urlTemplates.chapterContentPage}
+                      onChange={(e) => setUrlTemplates({...urlTemplates, chapterContentPage: e.target.value})}
+                      placeholder="/book/{book_id}/{chapter_id}_{page}.html"
                     />
                   </Form.Item>
                 </Form>

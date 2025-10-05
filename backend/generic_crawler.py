@@ -279,32 +279,25 @@ class GenericNovelCrawler:
         return 1
     
     def _build_pagination_url(self, page: int, pagination_config: Dict) -> str:
-        """构建分页URL"""
-        url_pattern = pagination_config.get('url_pattern', '')
-        return url_pattern.format(base_url=self.base_url, book_id=self.book_id, page=page)
+        """
+        构建章节列表分页URL（从第2页开始）
+        """
+        return self.config_manager.build_url('chapter_list_page', book_id=self.book_id, page=page)
     
     def _build_content_next_page_url(self, chapter_url: str, page: int, next_page_config: Dict) -> str:
         """
-        构建章节内容翻页URL
+        构建章节内容翻页URL（从第2页开始）
         :param chapter_url: 章节URL，用于提取book_id和chapter_id
-        :param page: 页码
+        :param page: 页码（≥2）
         :param next_page_config: next_page配置
-        :return: 下一页URL，如果url_pattern为空则返回None
+        :return: 下一页URL，如果无法构建则返回None
         """
-        url_pattern = next_page_config.get('url_pattern', '').strip()
-        if not url_pattern:
-            # url_pattern为空，使用XPath提取链接
-            return None
-        
         # 从chapter_url中提取book_id和chapter_id
-        # 按照标准顺序: book_id, chapter_id, page
-        import re
+        # 提取所有数字序列（按照在URL中出现的顺序）
+        numbers = re.findall(r'\d+', chapter_url)
         
         book_id = ''
         chapter_id = ''
-        
-        # 提取所有数字序列（按照在URL中出现的顺序）
-        numbers = re.findall(r'\d+', chapter_url)
         
         if len(numbers) >= 2:
             # 标准情况: 至少有两个数字，第一个是book_id，第二个是chapter_id
@@ -318,18 +311,18 @@ class GenericNovelCrawler:
             logger.warning(f"无法从URL提取ID: {chapter_url}")
             return None
         
-        # 构建URL
+        # 使用url_templates.chapter_content_page构建URL
         try:
-            next_url = url_pattern.format(
-                base_url=self.base_url,
+            next_url = self.config_manager.build_url(
+                'chapter_content_page',
                 book_id=book_id,
                 chapter_id=chapter_id,
                 page=page
             )
             logger.debug(f"构建翻页URL: {next_url} (book_id={book_id}, chapter_id={chapter_id}, page={page})")
             return next_url
-        except KeyError as e:
-            logger.error(f"URL模式变量错误: {e}, pattern: {url_pattern}")
+        except Exception as e:
+            logger.error(f"构建翻页URL失败: {e}, chapter_url: {chapter_url}")
             return None
     
     def _parse_chapters_from_page(self, html: str, chapter_list_config: Dict) -> List[Dict]:
@@ -666,7 +659,7 @@ class GenericNovelCrawler:
                 logger.error("❌ 获取章节列表失败")
                 return False
             
-            # 获取小说ID
+            # x获取小说ID
             if not self.db.connect():
                 logger.error("❌ 数据库连接失败")
                 return False
