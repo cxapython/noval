@@ -138,7 +138,7 @@ function ConfigWizard() {
   })
   const [contentCleanRules, setContentCleanRules] = useState([])
   const [contentPaginationEnabled, setContentPaginationEnabled] = useState(true)
-  const [contentNextPageUrlPattern, setContentNextPageUrlPattern] = useState('{base_url}/book/{book_id}/{chapter_id}_{page}.html')
+  const [contentNextPageUrlPattern, setContentNextPageUrlPattern] = useState('')
   const [maxPages, setMaxPages] = useState(50)
   
   // URL模式配置
@@ -1262,12 +1262,12 @@ function ConfigWizard() {
                         </Form.Item>
                         <Form.Item 
                           label="章节内容翻页URL模式（可选）" 
-                          help="可用变量: {base_url}, {book_id}, {chapter_id}, {page}。留空则使用XPath提取的链接"
+                          help="可用变量: {base_url}, {book_id}（小说ID）, {chapter_id}（章节ID）, {page}（页码）。示例: {base_url}/read/{book_id}_{chapter_id}_{page}.html 或 {base_url}/chapter/{book_id}/{chapter_id}/{page}。留空则使用XPath提取的链接"
                         >
                           <Input
                             value={contentNextPageUrlPattern}
                             onChange={(e) => setContentNextPageUrlPattern(e.target.value)}
-                            placeholder="例如：{base_url}/book/{book_id}/{chapter_id}_{page}.html"
+                            placeholder="例如：{base_url}/read/{book_id}_{chapter_id}_{page}.html"
                           />
                         </Form.Item>
                       </>
