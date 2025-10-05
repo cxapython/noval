@@ -692,7 +692,7 @@ def test_config():
 
 @crawler_bp.route('/run-crawler', methods=['POST'])
 def run_crawler():
-    """运行爬虫（异步执行）"""
+    """运行爬虫（通过任务管理器）"""
     try:
         data = request.json
         config_filename = data.get('config_filename', '').strip()
@@ -721,32 +721,77 @@ def run_crawler():
             else:
                 return jsonify({'success': False, 'error': '无法从URL中提取书籍ID'}), 400
         
-        # 在后台线程中运行爬虫
-        import threading
-        from backend.generic_crawler import GenericNovelCrawler
+        # 创建任务
+        task_id = task_manager.create_task(
+            config_filename=config_filename,
+            book_id=book_id,
+            max_workers=max_workers,
+            use_proxy=use_proxy
+        )
         
-        def run_in_background():
-            try:
-                logger.info(f"🚀 开始运行爬虫: {config_filename}, Book ID: {book_id}")
-                crawler = GenericNovelCrawler(
-                    config_file=str(config_path),
-                    book_id=book_id,
-                    max_workers=max_workers,
-                    use_proxy=use_proxy
-                )
-                crawler.run()
-                logger.info(f"✅ 爬虫运行完成: {config_filename}, Book ID: {book_id}")
-            except Exception as e:
-                logger.error(f"❌ 爬虫运行失败: {e}")
+        # 获取socketio实例
+        socketio = get_socketio()
         
-        # 启动后台线程
-        thread = threading.Thread(target=run_in_background, daemon=True)
-        thread.start()
+        # 爬虫工厂函数
+        def crawler_factory(task_obj):
+            def progress_callback(**kwargs):
+                """进度回调"""
+                task_obj.update_progress(**kwargs)
+                # 通过WebSocket推送进度
+                if socketio:
+                    socketio.emit('task_progress', {
+                        'task_id': task_obj.task_id,
+                        'progress': task_obj.to_dict()
+                    })
+            
+            def log_callback(level, message):
+                """日志回调"""
+                task_obj.add_log(level, message)
+                # 通过WebSocket推送日志
+                if socketio:
+                    socketio.emit('task_log', {
+                        'task_id': task_obj.task_id,
+                        'log': {
+                            'level': level,
+                            'message': message
+                        }
+                    })
+            
+            # 创建爬虫实例
+            from backend.generic_crawler import GenericNovelCrawler
+            crawler = GenericNovelCrawler(
+                config_file=str(config_path),
+                book_id=task_obj.book_id,
+                max_workers=task_obj.max_workers,
+                use_proxy=task_obj.use_proxy,
+                progress_callback=progress_callback,
+                log_callback=log_callback,
+                stop_flag=task_obj.stop_flag
+            )
+            
+            # 在解析完小说信息后更新任务信息
+            original_parse_chapter_list = crawler.parse_chapter_list
+            def wrapped_parse_chapter_list():
+                result = original_parse_chapter_list()
+                if result and crawler.novel_info:
+                    task_obj.novel_title = crawler.novel_info.get('title', '')
+                    task_obj.novel_author = crawler.novel_info.get('author', '')
+                return result
+            
+            crawler.parse_chapter_list = wrapped_parse_chapter_list
+            return crawler
         
-        return jsonify({
-            'success': True,
-            'message': f'爬虫已在后台启动，Book ID: {book_id}'
-        })
+        # 启动任务
+        success = task_manager.start_task(task_id, crawler_factory)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'task_id': task_id,
+                'message': f'爬虫任务已启动，Book ID: {book_id}'
+            })
+        else:
+            return jsonify({'success': False, 'error': '任务启动失败'}), 500
         
     except Exception as e:
         logger.error(f"❌ 启动爬虫失败: {e}")

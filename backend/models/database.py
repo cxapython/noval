@@ -101,6 +101,12 @@ class NovelDatabase:
             novel = session.query(Novel).filter(Novel.id == novel_id).first()
             return novel.to_dict() if novel else None
     
+    def get_novel_by_url(self, source_url):
+        """根据来源URL获取小说"""
+        with self.get_session() as session:
+            novel = session.query(Novel).filter(Novel.source_url == source_url).first()
+            return novel.to_dict() if novel else None
+    
     def create_novel(self, title, author=None, cover_url=None, source_url=None):
         """创建小说"""
         with self.get_session() as session:
@@ -140,6 +146,24 @@ class NovelDatabase:
                 return True
             return False
     
+    def insert_novel(self, title, author=None, source_url=None, cover_url=None):
+        """插入小说（兼容旧接口）"""
+        return self.create_novel(title, author, cover_url, source_url)
+    
+    def update_novel_stats(self, novel_id):
+        """更新小说统计信息（总章节数、总字数）"""
+        with self.get_session() as session:
+            novel = session.query(Novel).filter(Novel.id == novel_id).first()
+            if not novel:
+                return False
+            
+            # 统计章节数和总字数
+            chapters = session.query(Chapter).filter(Chapter.novel_id == novel_id).all()
+            novel.total_chapters = len(chapters)
+            novel.total_words = sum(ch.word_count for ch in chapters)
+            
+            return True
+    
     # ==================== 章节管理 ====================
     
     def get_novel_chapters(self, novel_id):
@@ -173,6 +197,10 @@ class NovelDatabase:
             session.add(chapter)
             session.flush()
             return chapter.id
+    
+    def insert_chapter(self, novel_id, chapter_num, title, content, source_url=None):
+        """插入章节（兼容旧接口）"""
+        return self.create_chapter(novel_id, chapter_num, title, content, source_url)
     
     # ==================== 阅读进度管理 ====================
     

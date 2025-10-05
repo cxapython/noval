@@ -1,21 +1,23 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-通用小说爬虫框架 - 配置驱动版
-支持通过JSON配置文件适配不同网站结构
+通用小说爬虫框架 - 模块化版本
+职责拆分：
+- ConfigManager: 配置管理
+- HtmlParser: HTML解析
+- ContentFetcher: HTTP请求
+- GenericNovelCrawler: 核心爬虫逻辑和任务协调
 """
 import re
 import time
-import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
 from urllib.parse import urljoin
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Optional
 
-import requests
 from loguru import logger
 from scrapy import Selector
-from urllib3 import disable_warnings
+from redis import Redis
 
 import sys
 from pathlib import Path
@@ -27,70 +29,16 @@ sys.path.insert(0, str(project_root))
 from shared.utils.config import DB_CONFIG
 from backend.models.database import NovelDatabase
 from shared.utils.proxy_utils import ProxyUtils
-from redis import Redis
-
-disable_warnings()
+from backend.config_manager import ConfigManager
+from backend.parser import HtmlParser
+from backend.content_fetcher import ContentFetcher
 
 REDIS_URL = "redis://@localhost:6379"
 redis_cli = Redis.from_url(REDIS_URL)
 
 
-def safe_int(value, default=0):
-    """
-    安全地将值转换为整数
-    :param value: 要转换的值
-    :param default: 转换失败时的默认值
-    :return: 整数值
-    """
-    if isinstance(value, int):
-        return value
-    if isinstance(value, str):
-        try:
-            return int(value)
-        except (ValueError, TypeError):
-            logger.warning(f"⚠️  无法将 '{value}' 转换为整数，使用默认值 {default}")
-            return default
-    if isinstance(value, float):
-        return int(value)
-    return default
-
-
-def safe_float(value, default=0.0):
-    """
-    安全地将值转换为浮点数
-    :param value: 要转换的值
-    :param default: 转换失败时的默认值
-    :return: 浮点数值
-    """
-    if isinstance(value, (int, float)):
-        return float(value)
-    if isinstance(value, str):
-        try:
-            return float(value)
-        except (ValueError, TypeError):
-            logger.warning(f"⚠️  无法将 '{value}' 转换为浮点数，使用默认值 {default}")
-            return default
-    return default
-
-
-def safe_bool(value, default=False):
-    """
-    安全地将值转换为布尔值
-    :param value: 要转换的值
-    :param default: 转换失败时的默认值
-    :return: 布尔值
-    """
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, str):
-        return value.lower() in ('true', '1', 'yes', 'on')
-    if isinstance(value, (int, float)):
-        return bool(value)
-    return default
-
-
 class GenericNovelCrawler:
-    """通用小说爬虫 - 配置驱动"""
+    """通用小说爬虫 - 模块化版本"""
     
     def __init__(self, config_file: str, book_id: str, max_workers: int = 5, use_proxy: bool = False, 
                  progress_callback=None, log_callback=None, stop_flag=None):
@@ -105,7 +53,6 @@ class GenericNovelCrawler:
         :param stop_flag: 停止标志 (threading.Event)
         """
         self.book_id = book_id
-        self.config = self._load_config(config_file)
         self.max_workers = max_workers
         self.use_proxy = use_proxy
         
@@ -114,24 +61,36 @@ class GenericNovelCrawler:
         self.log_callback = log_callback
         self.stop_flag = stop_flag
         
-        # 从配置文件读取基本信息
-        self.site_name = self.config['site_info']['name']
-        self.base_url = self.config['site_info']['base_url']
-        self.start_url = self._build_url('book_detail', book_id)
-        self.headers = self.config.get('request_config', {}).get('headers', {})
-        self.timeout = safe_int(self.config.get('request_config', {}).get('timeout', 30), 30)
+        # 初始化配置管理器
+        self.config_manager = ConfigManager(config_file)
+        site_info = self.config_manager.get_site_info()
+        
+        self.site_name = site_info.get('name')
+        self.base_url = site_info.get('base_url')
+        self.start_url = self.config_manager.build_url('book_detail', book_id)
+        
+        # 初始化HTML解析器
+        self.parser = HtmlParser(self.base_url)
+        
+        # 初始化代理工具
+        proxy_utils = None
+        if use_proxy:
+            proxy_utils = ProxyUtils()
+            self._log('INFO', "✅ 已启用代理")
+        
+        # 初始化内容获取器
+        self.fetcher = ContentFetcher(
+            headers=self.config_manager.get_headers(),
+            timeout=self.config_manager.get_timeout(),
+            encoding=self.config_manager.get_encoding(),
+            proxy_utils=proxy_utils
+        )
         
         # 数据存储
         self.chapters = []
         self.novel_info = {}
         self.novel_id = None
         self.db = NovelDatabase(**DB_CONFIG)
-        
-        # 代理配置
-        self.proxy_utils = None
-        if use_proxy:
-            self.proxy_utils = ProxyUtils()
-            self._log('INFO', "✅ 已启用代理")
         
         # 并发配置
         self.progress_lock = Lock()
@@ -177,205 +136,6 @@ class GenericNovelCrawler:
         if self.stop_flag and self.stop_flag.is_set():
             return True
         return False
-    
-    def _load_config(self, config_file: str) -> Dict:
-        """加载配置文件"""
-        try:
-            with open(config_file, 'r', encoding='utf-8') as f:
-                config = json.load(f)
-                logger.info(f"✅ 配置文件加载成功: {config_file}")
-                return config
-        except Exception as e:
-            logger.error(f"❌ 配置文件加载失败: {e}")
-            raise
-    
-    def _build_url(self, url_type: str, *args) -> str:
-        """构建URL"""
-        pattern = self.config['url_patterns'].get(url_type, '')
-        if not pattern:
-            raise ValueError(f"URL模式 '{url_type}' 未配置")
-        
-        url = pattern.format(*args)
-        if not url.startswith('http'):
-            url = urljoin(self.base_url, url)
-        return url
-    
-    def _parse_with_config(self, html: str, parser_config: Dict) -> Any:
-        """
-        根据配置解析HTML
-        :param html: HTML内容
-        :param parser_config: 解析器配置
-        :return: 解析结果
-        """
-        # 类型检查
-        if not isinstance(parser_config, dict):
-            logger.warning(f"⚠️  parser_config 应为字典类型，实际为 {type(parser_config).__name__}，值为: {parser_config}")
-            return None
-        
-        parse_type = parser_config.get('type', 'xpath')
-        expression = parser_config.get('expression', '')
-        index = safe_int(parser_config.get('index', -1), -1)
-        default = parser_config.get('default', None)
-        post_process = parser_config.get('process', [])
-        
-        result = None
-        
-        try:
-            if parse_type == 'xpath':
-                root = Selector(text=html)
-                all_results = root.xpath(expression).getall()
-                
-                # 处理索引：支持Python标准的正负数索引
-                if index is None or (isinstance(index, int) and index == 999):
-                    # None 或 999 表示获取所有
-                    result = all_results
-                elif all_results:
-                    # 使用Python标准索引：-1=最后一个, -2=倒数第二, 0=第一个
-                    try:
-                        result = all_results[index]
-                    except IndexError:
-                        logger.warning(f"⚠️  索引 {index} 超出范围，共 {len(all_results)} 个元素")
-                        result = None
-                else:
-                    result = None
-            
-            elif parse_type == 'regex':
-                matches = re.findall(expression, html)
-                
-                # 处理索引
-                if index is None or (isinstance(index, int) and index == 999):
-                    # None 或 999 表示获取所有
-                    result = matches
-                elif matches:
-                    try:
-                        result = matches[index]
-                    except IndexError:
-                        logger.warning(f"⚠️  索引 {index} 超出范围，共 {len(matches)} 个元素")
-                        result = None
-                else:
-                    result = None
-            
-            # 应用后处理
-            if result is not None and post_process:
-                result = self._apply_post_process(result, post_process)
-            
-            # 如果没有结果，使用默认值
-            if result is None or (isinstance(result, list) and len(result) == 0):
-                result = default
-                
-        except Exception as e:
-            logger.warning(f"⚠️  解析失败: {e}")
-            result = default
-        
-        return result
-    
-    def _apply_post_process(self, data: Any, processes: List[Dict]) -> Any:
-        """
-        应用后处理
-        :param data: 原始数据
-        :param processes: 处理步骤列表
-        :return: 处理后的数据
-        """
-        result = data
-        
-        for process in processes:
-            method = process.get('method', '')
-            params = process.get('params', {})
-            
-            try:
-                if method == 'strip':
-                    if isinstance(result, str):
-                        result = result.strip(params.get('chars', None))
-                    elif isinstance(result, list):
-                        result = [item.strip(params.get('chars', None)) if isinstance(item, str) else item for item in result]
-                
-                elif method == 'replace':
-                    old = params.get('old', '')
-                    new = params.get('new', '')
-                    # 智能处理：自动处理普通空格和\xa0（不间断空格）的兼容性
-                    if isinstance(result, str):
-                        # 先尝试直接替换
-                        if old in result:
-                            result = result.replace(old, new)
-                        else:
-                            # 尝试将result和old都标准化为普通空格后匹配
-                            normalized_result = result.replace('\xa0', ' ')
-                            normalized_old = old.replace('\xa0', ' ')
-                            if normalized_old in normalized_result:
-                                result = normalized_result.replace(normalized_old, new)
-                    elif isinstance(result, list):
-                        result = [item.replace(old, new) if isinstance(item, str) else item for item in result]
-                
-                elif method == 'regex_replace':
-                    pattern = params.get('pattern', '')
-                    repl = params.get('repl', '')
-                    if isinstance(result, str):
-                        result = re.sub(pattern, repl, result)
-                    elif isinstance(result, list):
-                        result = [re.sub(pattern, repl, item) if isinstance(item, str) else item for item in result]
-                
-                elif method == 'join':
-                    if isinstance(result, list):
-                        separator = params.get('separator', '')
-                        result = separator.join([str(item) for item in result])
-                
-                elif method == 'split':
-                    if isinstance(result, str):
-                        separator = params.get('separator', ' ')
-                        result = result.split(separator)
-                
-                elif method == 'extract_first':
-                    if isinstance(result, list) and len(result) > 0:
-                        result = result[0]
-                
-                elif method == 'extract_index':
-                    if isinstance(result, list):
-                        idx = params.get('index', 0)
-                        if len(result) > idx:
-                            result = result[idx]
-            
-            except Exception as e:
-                logger.warning(f"⚠️  后处理失败 ({method}): {e}")
-        
-        return result
-    
-    def get_page(self, url: str, max_retries: int = 20) -> Optional[str]:
-        """
-        获取网页内容（带重试）
-        :param url: 目标URL
-        :param max_retries: 最大重试次数
-        :return: HTML内容
-        """
-        proxies = None
-        
-        for i in range(max_retries):
-            try:
-                if self.use_proxy and self.proxy_utils:
-                    proxies = self.proxy_utils.get_proxy()
-                
-                response = requests.get(
-                    url,
-                    headers=self.headers,
-                    proxies=proxies,
-                    timeout=self.timeout,
-                    verify=False
-                )
-                
-                # 处理编码
-                encoding = self.config.get('request_config', {}).get('encoding', None)
-                if encoding:
-                    response.encoding = encoding
-                else:
-                    response.encoding = response.apparent_encoding or 'utf-8'
-                
-                if response.status_code == 200:
-                    return response.text
-                    
-            except Exception as e:
-                if i == max_retries - 1:
-                    logger.warning(f"⚠️  获取页面失败 ({max_retries}次): {url[:50]}...")
-        
-        return None
     
     def is_chapter_downloaded(self, chapter_url: str) -> bool:
         """检查章节是否已下载"""
@@ -425,7 +185,7 @@ class GenericNovelCrawler:
     def parse_novel_info(self, html: str) -> Dict:
         """解析小说信息"""
         novel_info = {}
-        parsers = self.config.get('parsers', {}).get('novel_info', {})
+        parsers = self.config_manager.get_parsers().get('novel_info', {})
         
         # 验证配置类型
         if not isinstance(parsers, dict):
@@ -438,7 +198,7 @@ class GenericNovelCrawler:
                 continue
             
             try:
-                value = self._parse_with_config(html, parser_config)
+                value = self.parser.parse_with_config(html, parser_config)
                 novel_info[field] = value
             except Exception as e:
                 logger.warning(f"⚠️  解析字段 {field} 失败: {e}")
@@ -452,7 +212,8 @@ class GenericNovelCrawler:
         self._log('INFO', f"🔗 小说地址: {self.start_url}")
         
         # 获取首页
-        html = self.get_page(self.start_url)
+        html = self.fetcher.get_page(self.start_url, 
+                                     max_retries=self.config_manager.get_max_retries())
         if not html:
             self._log('ERROR', "❌ 获取首页失败")
             return False
@@ -468,11 +229,12 @@ class GenericNovelCrawler:
         self._log('INFO', f"✍️  作者: {self.novel_info.get('author', '未知')}")
         
         # 解析章节列表配置
-        chapter_list_config = self.config['parsers']['chapter_list']
+        parsers = self.config_manager.get_parsers()
+        chapter_list_config = parsers.get('chapter_list', {})
         
         # 检查是否有分页
         pagination_config = chapter_list_config.get('pagination')
-        if pagination_config and safe_bool(pagination_config.get('enabled', False), False):
+        if pagination_config and pagination_config.get('enabled', False):
             # 有分页
             max_page = self._get_max_page(html, pagination_config)
             logger.info(f"📄 共 {max_page} 页章节列表")
@@ -483,7 +245,8 @@ class GenericNovelCrawler:
                 else:
                     page_url = self._build_pagination_url(page, pagination_config)
                     logger.info(f"📄 获取第 {page} 页: {page_url}")
-                    page_html = self.get_page(page_url)
+                    page_html = self.fetcher.get_page(page_url,
+                                                      max_retries=self.config_manager.get_max_retries())
                     
                     if not page_html:
                         logger.warning(f"⚠️  第 {page} 页获取失败")
@@ -504,7 +267,7 @@ class GenericNovelCrawler:
         """获取最大页数"""
         max_page_config = pagination_config.get('max_page')
         if max_page_config:
-            result = self._parse_with_config(html, max_page_config)
+            result = self.parser.parse_with_config(html, max_page_config)
             if result:
                 # 可能需要从文本中提取数字
                 if isinstance(result, str):
@@ -574,7 +337,7 @@ class GenericNovelCrawler:
                 if title and url:
                     # 后处理
                     if title_config.get('process'):
-                        title = self._apply_post_process(title, title_config['process'])
+                        title = self.parser.apply_post_process(title, title_config['process'])
                     
                     # 构建完整URL
                     chapter_url = urljoin(self.base_url, url)
@@ -599,28 +362,32 @@ class GenericNovelCrawler:
         all_content = []
         current_url = chapter_url
         page_num = 1
-        max_pages = safe_int(self.config['parsers']['chapter_content'].get('max_pages', 50), 50)  # 防止无限循环
         
-        content_config = self.config['parsers']['chapter_content']['content']
-        next_page_config = self.config['parsers']['chapter_content'].get('next_page')
-        clean_config = self.config['parsers']['chapter_content'].get('clean', [])
+        parsers = self.config_manager.get_parsers()
+        chapter_content_config = parsers.get('chapter_content', {})
+        
+        max_pages = chapter_content_config.get('max_pages', 50)
+        content_config = chapter_content_config.get('content', {})
+        next_page_config = chapter_content_config.get('next_page', {})
+        clean_config = chapter_content_config.get('clean', [])
         
         while current_url and page_num <= max_pages:
-            html = self.get_page(current_url)
+            html = self.fetcher.get_page(current_url,
+                                        max_retries=self.config_manager.get_max_retries())
             if not html:
                 logger.warning(f"⚠️  第{page_num}页获取失败")
                 break
             
             # 解析内容
-            content = self._parse_with_config(html, content_config)
+            content = self.parser.parse_with_config(html, content_config)
             if content:
                 if isinstance(content, list):
                     content = '\n'.join([str(c).strip() for c in content if str(c).strip()])
                 all_content.append(content)
             
             # 检查是否有下一页
-            if next_page_config and safe_bool(next_page_config.get('enabled', False), False):
-                next_url = self._parse_with_config(html, next_page_config)
+            if next_page_config and next_page_config.get('enabled', False):
+                next_url = self.parser.parse_with_config(html, next_page_config)
                 if next_url and next_url != current_url:
                     current_url = urljoin(self.base_url, next_url)
                     page_num += 1
@@ -635,7 +402,7 @@ class GenericNovelCrawler:
         # 清理内容
         if clean_config:
             for clean_rule in clean_config:
-                final_content = self._apply_post_process(final_content, [clean_rule])
+                final_content = self.parser.apply_post_process(final_content, [clean_rule])
         
         return final_content
     
@@ -688,7 +455,7 @@ class GenericNovelCrawler:
         
         # 保存到数据库
         download_success = False
-        db = NovelDatabase(**DB_CONFIG, use_pool=True, silent=True)
+        db = NovelDatabase(**DB_CONFIG, silent=True)
         if db.connect():
             try:
                 db.insert_chapter(
@@ -729,7 +496,7 @@ class GenericNovelCrawler:
             )
         
         # 延迟
-        delay = safe_float(self.config.get('crawler_config', {}).get('delay', 0.3), 0.3)
+        delay = self.config_manager.get_delay()
         time.sleep(delay)
         
         return download_success
@@ -961,4 +728,3 @@ class GenericNovelCrawler:
         except Exception as e:
             self._log('ERROR', f"❌ 爬虫运行失败: {e}")
             raise
-
