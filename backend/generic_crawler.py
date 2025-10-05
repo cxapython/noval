@@ -283,6 +283,55 @@ class GenericNovelCrawler:
         url_pattern = pagination_config.get('url_pattern', '')
         return url_pattern.format(base_url=self.base_url, book_id=self.book_id, page=page)
     
+    def _build_content_next_page_url(self, chapter_url: str, page: int, next_page_config: Dict) -> str:
+        """
+        构建章节内容翻页URL
+        :param chapter_url: 章节URL，用于提取book_id和chapter_id
+        :param page: 页码
+        :param next_page_config: next_page配置
+        :return: 下一页URL，如果url_pattern为空则返回None
+        """
+        url_pattern = next_page_config.get('url_pattern', '').strip()
+        if not url_pattern:
+            # url_pattern为空，使用XPath提取链接
+            return None
+        
+        # 从chapter_url中提取book_id和chapter_id
+        # 按照标准顺序: book_id, chapter_id, page
+        import re
+        
+        book_id = ''
+        chapter_id = ''
+        
+        # 提取所有数字序列（按照在URL中出现的顺序）
+        numbers = re.findall(r'\d+', chapter_url)
+        
+        if len(numbers) >= 2:
+            # 标准情况: 至少有两个数字，第一个是book_id，第二个是chapter_id
+            book_id = numbers[0]
+            chapter_id = numbers[1]
+        elif len(numbers) == 1:
+            # 只有一个数字，作为chapter_id，book_id使用self.book_id
+            chapter_id = numbers[0]
+            book_id = self.book_id or ''
+        else:
+            logger.warning(f"无法从URL提取ID: {chapter_url}")
+            return None
+        
+        # 构建URL
+        try:
+            next_url = url_pattern.format(
+                base_url=self.base_url,
+                book_id=book_id,
+                chapter_id=chapter_id,
+                page=page
+            )
+            logger.debug(f"构建翻页URL: {next_url} (book_id={book_id}, chapter_id={chapter_id}, page={page})")
+            return next_url
+        except KeyError as e:
+            logger.error(f"URL模式变量错误: {e}, pattern: {url_pattern}")
+            return None
+    
     def _parse_chapters_from_page(self, html: str, chapter_list_config: Dict) -> List[Dict]:
         """从页面解析章节列表"""
         chapters = []
@@ -387,9 +436,19 @@ class GenericNovelCrawler:
             
             # 检查是否有下一页
             if next_page_config and next_page_config.get('enabled', False):
-                next_url = self.parser.parse_with_config(html, next_page_config)
+                # 优先使用url_pattern构建URL
+                if next_page_config.get('url_pattern'):
+                    next_url = self._build_content_next_page_url(
+                        chapter_url, page_num + 1, next_page_config
+                    )
+                else:
+                    # 使用XPath提取链接
+                    next_url = self.parser.parse_with_config(html, next_page_config)
+                    if next_url:
+                        next_url = urljoin(self.base_url, next_url)
+                
                 if next_url and next_url != current_url:
-                    current_url = urljoin(self.base_url, next_url)
+                    current_url = next_url
                     page_num += 1
                 else:
                     break

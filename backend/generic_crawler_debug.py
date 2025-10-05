@@ -305,9 +305,19 @@ class GenericNovelCrawlerDebug(GenericNovelCrawler):
             
             # 检查是否有下一页
             if next_page_config and safe_bool(next_page_config.get('enabled', False), False):
-                next_url = self.parser.parse_with_config(html, next_page_config)
+                # 优先使用url_pattern构建URL
+                if next_page_config.get('url_pattern', '').strip():
+                    next_url = self._build_content_next_page_url(
+                        chapter_url, page_num + 1, next_page_config
+                    )
+                else:
+                    # 使用XPath提取链接
+                    next_url = self.parser.parse_with_config(html, next_page_config)
+                    if next_url:
+                        next_url = urljoin(self.base_url, next_url)
+                
                 if next_url and next_url != current_url:
-                    current_url = urljoin(self.base_url, next_url)
+                    current_url = next_url
                     page_num += 1
                 else:
                     break
