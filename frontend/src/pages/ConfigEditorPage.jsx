@@ -28,6 +28,13 @@ function ConfigEditorPage() {
   const [jsonError, setJsonError] = useState(null)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  
+  // 测试相关状态
+  const [testModalVisible, setTestModalVisible] = useState(false)
+  const [testUrl, setTestUrl] = useState('')
+  const [testType, setTestType] = useState('novel_info')
+  const [testLoading, setTestLoading] = useState(false)
+  const [testResult, setTestResult] = useState(null)
 
   useEffect(() => {
     if (filename) {
@@ -144,6 +151,42 @@ function ConfigEditorPage() {
     message.success('已复制到剪贴板！')
   }
 
+  const handleTestConfig = async () => {
+    if (!testUrl) {
+      message.warning('请输入测试URL')
+      return
+    }
+
+    if (jsonError) {
+      message.error('配置JSON格式错误，请先修复')
+      return
+    }
+
+    try {
+      setTestLoading(true)
+      setTestResult(null)
+
+      const response = await axios.post(`${API_BASE}/test-config`, {
+        url: testUrl,
+        config: configData,
+        test_type: testType
+      })
+
+      if (response.data.success) {
+        setTestResult(response.data.results)
+        message.success('测试完成！')
+      } else {
+        message.error('测试失败: ' + response.data.error)
+        setTestResult({ error: response.data.error })
+      }
+    } catch (error) {
+      message.error('测试请求失败: ' + error.message)
+      setTestResult({ error: error.message })
+    } finally {
+      setTestLoading(false)
+    }
+  }
+
   if (loading) {
     return (
       <div style={{ 
@@ -180,6 +223,25 @@ function ConfigEditorPage() {
           onChange={handleJsonChange}
           error={jsonError}
           onCopy={handleCopyJson}
+        />
+      )
+    },
+    {
+      key: 'test',
+      label: (
+        <span style={{ fontSize: 16 }}>
+          <ExperimentOutlined /> 配置测试
+        </span>
+      ),
+      children: (
+        <TestView
+          testUrl={testUrl}
+          setTestUrl={setTestUrl}
+          testType={testType}
+          setTestType={setTestType}
+          testLoading={testLoading}
+          testResult={testResult}
+          onTest={handleTestConfig}
         />
       )
     }
@@ -869,6 +931,190 @@ function getFieldHelp(key) {
     separator: '连接或分割字符串时使用的分隔符，如：\\n（换行）',
   }
   return help[key]
+}
+
+// 测试视图组件
+function TestView({ testUrl, setTestUrl, testType, setTestType, testLoading, testResult, onTest }) {
+  return (
+    <div style={{ padding: '16px 0' }}>
+      <Alert
+        message="配置测试说明"
+        description="输入目标网站URL，选择测试类型，点击测试按钮验证配置是否正确。测试会实时抓取页面并使用当前配置解析。"
+        type="info"
+        showIcon
+        style={{ marginBottom: 24 }}
+      />
+
+      <Space direction="vertical" style={{ width: '100%' }} size="large">
+        {/* 测试配置区 */}
+        <Card title="测试配置" size="small">
+          <Space direction="vertical" style={{ width: '100%' }} size="middle">
+            <div>
+              <div style={{ marginBottom: 8, fontWeight: 500 }}>测试URL</div>
+              <Input
+                value={testUrl}
+                onChange={(e) => setTestUrl(e.target.value)}
+                placeholder="输入要测试的网页URL，例如：https://example.com/book/12345.html"
+                size="large"
+              />
+            </div>
+
+            <div>
+              <div style={{ marginBottom: 8, fontWeight: 500 }}>测试类型</div>
+              <Select
+                value={testType}
+                onChange={setTestType}
+                style={{ width: '100%' }}
+                size="large"
+              >
+                <Select.Option value="novel_info">
+                  <Space>
+                    📚 <span>小说信息解析</span>
+                  </Space>
+                </Select.Option>
+                <Select.Option value="chapter_list">
+                  <Space>
+                    📑 <span>章节列表解析</span>
+                  </Space>
+                </Select.Option>
+                <Select.Option value="chapter_content">
+                  <Space>
+                    📄 <span>章节内容解析</span>
+                  </Space>
+                </Select.Option>
+              </Select>
+            </div>
+
+            <Button
+              type="primary"
+              size="large"
+              icon={<ThunderboltOutlined />}
+              onClick={onTest}
+              loading={testLoading}
+              block
+            >
+              {testLoading ? '测试中...' : '开始测试'}
+            </Button>
+          </Space>
+        </Card>
+
+        {/* 测试结果区 */}
+        {testResult && (
+          <Card 
+            title={
+              <Space>
+                {testResult.error ? '❌ 测试失败' : '✅ 测试成功'}
+              </Space>
+            }
+            size="small"
+          >
+            {testResult.error ? (
+              <Alert
+                message="错误信息"
+                description={
+                  <pre style={{ 
+                    margin: 0, 
+                    whiteSpace: 'pre-wrap', 
+                    wordBreak: 'break-word',
+                    maxHeight: 400,
+                    overflow: 'auto'
+                  }}>
+                    {testResult.error}
+                    {testResult.traceback && '\n\n' + testResult.traceback}
+                  </pre>
+                }
+                type="error"
+              />
+            ) : (
+              <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                <Alert
+                  message={testResult.info || '解析成功'}
+                  type="success"
+                  showIcon
+                  icon={<CheckCircleOutlined />}
+                />
+
+                {/* 小说信息结果 */}
+                {testResult.type === '小说信息' && testResult.data && (
+                  <Descriptions bordered column={1} size="small">
+                    {Object.entries(testResult.data).map(([key, value]) => (
+                      <Descriptions.Item key={key} label={getFieldLabel(key)}>
+                        {value !== null && value !== undefined ? (
+                          typeof value === 'object' ? (
+                            <pre style={{ margin: 0 }}>
+                              {JSON.stringify(value, null, 2)}
+                            </pre>
+                          ) : (
+                            String(value)
+                          )
+                        ) : (
+                          <span style={{ color: '#999' }}>null</span>
+                        )}
+                      </Descriptions.Item>
+                    ))}
+                  </Descriptions>
+                )}
+
+                {/* 章节列表结果 */}
+                {testResult.type === '章节列表' && (
+                  <>
+                    <Descriptions bordered column={1} size="small">
+                      <Descriptions.Item label="总章节数">
+                        {testResult.total}
+                      </Descriptions.Item>
+                    </Descriptions>
+                    
+                    <Divider>章节示例（前5章）</Divider>
+                    
+                    {testResult.sample && testResult.sample.map((chapter, idx) => (
+                      <Card key={idx} size="small" style={{ marginBottom: 8 }}>
+                        <Descriptions column={1} size="small">
+                          <Descriptions.Item label="标题">
+                            {chapter.title}
+                          </Descriptions.Item>
+                          <Descriptions.Item label="链接">
+                            <a href={chapter.url} target="_blank" rel="noopener noreferrer">
+                              {chapter.url}
+                            </a>
+                          </Descriptions.Item>
+                        </Descriptions>
+                      </Card>
+                    ))}
+                  </>
+                )}
+
+                {/* 章节内容结果 */}
+                {testResult.type === '章节内容' && (
+                  <>
+                    <Descriptions bordered column={1} size="small">
+                      <Descriptions.Item label="内容长度">
+                        {testResult.length} 字
+                      </Descriptions.Item>
+                    </Descriptions>
+                    
+                    <Divider>内容预览（前500字）</Divider>
+                    
+                    <div style={{
+                      padding: 16,
+                      background: '#f5f5f5',
+                      borderRadius: 8,
+                      maxHeight: 400,
+                      overflow: 'auto',
+                      whiteSpace: 'pre-wrap',
+                      lineHeight: 1.8,
+                      fontSize: 14
+                    }}>
+                      {testResult.preview}
+                    </div>
+                  </>
+                )}
+              </Space>
+            )}
+          </Card>
+        )}
+      </Space>
+    </div>
+  )
 }
 
 export default ConfigEditorPage
