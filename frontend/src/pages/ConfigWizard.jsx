@@ -129,7 +129,26 @@ function ConfigWizard() {
   const [editingProcess, setEditingProcess] = useState(null) // 编辑规则的字段
   const [editingField, setEditingField] = useState(null) // 编辑xpath的字段
   
-  // 配置预览和保存
+  
+  // 高级配置状态
+  const [paginationConfig, setPaginationConfig] = useState({
+    enabled: false,
+    maxPageXpath: '//ul[@class="pagination"]/li/a[1]/text()',
+    urlPattern: '{base_url}/book/{book_id}/{page}/'
+  })
+  const [contentCleanRules, setContentCleanRules] = useState([])
+  const [contentPaginationEnabled, setContentPaginationEnabled] = useState(true)
+  const [contentNextPageUrlPattern, setContentNextPageUrlPattern] = useState('{base_url}/book/{book_id}/{chapter_id}_{page}.html')
+  const [maxPages, setMaxPages] = useState(50)
+  
+  // URL模式配置
+  const [urlPatterns, setUrlPatterns] = useState({
+    bookDetail: '/book/{0}',
+    chapterList: '/book/{0}',
+    chapterContent: '/chapter/{0}/{1}'
+  })
+  
+// 配置预览和保存
   const [generatedConfig, setGeneratedConfig] = useState(null)
   const [siteName, setSiteName] = useState('') // 网站名称
   const [baseUrl, setBaseUrl] = useState('') // 网站基础URL
@@ -377,7 +396,77 @@ function ConfigWizard() {
       return
     }
     
+    // 检查必需字段
+    const missingRequiredFields = []
+    
+    // 检查小说信息必需字段
+    Object.entries(FIELD_TYPES.novel_info).forEach(([fieldName, config]) => {
+      if (config.required && !novelInfoFields[fieldName]) {
+        missingRequiredFields.push(`小说信息: ${config.label || fieldName}`)
+      }
+    })
+    
+    // 检查章节列表必需字段
+    Object.entries(FIELD_TYPES.chapter_list).forEach(([fieldName, config]) => {
+      if (config.required && !chapterListFields[fieldName]) {
+        missingRequiredFields.push(`章节列表: ${config.label || fieldName}`)
+      }
+    })
+    
+    // 检查章节内容必需字段
+    Object.entries(FIELD_TYPES.chapter_content).forEach(([fieldName, config]) => {
+      if (config.required && !chapterContentFields[fieldName]) {
+        missingRequiredFields.push(`章节内容: ${config.label || fieldName}`)
+      }
+    })
+    
+    if (missingRequiredFields.length > 0) {
+      message.error(`配置缺少必需字段: ${missingRequiredFields.join(', ')}`)
+      return
+    }
+    
     console.log('生成配置参数:', {siteName, baseUrl, novelInfoFields, chapterListFields, chapterContentFields});
+    
+    // 处理章节列表配置 - 添加分页支持
+    const processedChapterListFields = { ...chapterListFields }
+    
+    // 使用用户配置的分页设置
+    processedChapterListFields.pagination = {
+      enabled: paginationConfig.enabled,
+      max_page: {
+        type: 'xpath',
+        expression: paginationConfig.maxPageXpath,
+        index: 0,
+        default: '1'
+      },
+      url_pattern: paginationConfig.urlPattern
+    }
+    
+    // 处理章节内容配置 - 添加翻页和清理支持
+    const processedChapterContentFields = { ...chapterContentFields }
+    
+    // 设置内容翻页配置
+    if (processedChapterContentFields.next_page) {
+      processedChapterContentFields.next_page.enabled = contentPaginationEnabled
+      if (contentPaginationEnabled && contentNextPageUrlPattern) {
+        processedChapterContentFields.next_page.url_pattern = contentNextPageUrlPattern
+      }
+    } else if (contentPaginationEnabled) {
+      // 如果启用翻页但未配置next_page，添加默认配置
+      processedChapterContentFields.next_page = {
+        enabled: true,
+        type: 'xpath',
+        expression: '//a[contains(text(),"下一页")]/@href',
+        index: 0,
+        url_pattern: contentNextPageUrlPattern
+      }
+    }
+    
+    // 添加max_pages配置
+    processedChapterContentFields.max_pages = maxPages
+    
+    // 添加内容清理规则
+    processedChapterContentFields.clean = contentCleanRules
     
     const config = {
       site_info: {
@@ -386,9 +475,9 @@ function ConfigWizard() {
         description: `${siteName}小说网站`
       },
       url_patterns: {
-        book_detail: '/book/{0}',
-        chapter_list: '/book/{0}',
-        chapter_content: '/chapter/{0}/{1}'
+        book_detail: urlPatterns.bookDetail,
+        chapter_list: urlPatterns.chapterList,
+        chapter_content: urlPatterns.chapterContent
       },
       request_config: {
         headers: {
@@ -403,8 +492,8 @@ function ConfigWizard() {
       },
       parsers: {
         novel_info: novelInfoFields,
-        chapter_list: chapterListFields,
-        chapter_content: chapterContentFields
+        chapter_list: processedChapterListFields,
+        chapter_content: processedChapterContentFields
       }
     }
 
@@ -556,6 +645,43 @@ function ConfigWizard() {
                       onChange={(e) => setBaseUrl(e.target.value)}
                       placeholder="例如：https://m.ikbook8.com"
                       size="large"
+                    />
+                  </Form.Item>
+                </Form>
+              </Card>
+            )}
+
+            {/* URL模式配置（仅在第一步显示） */}
+            {currentStep === 0 && (
+              <Card title="URL模式配置（可选）" size="small" style={{ marginBottom: 24, background: '#fffbe6', border: '1px solid #ffe58f' }}>
+                <Alert
+                  message="URL模式说明"
+                  description="配置网站的URL格式。使用 {0}, {1} 作为占位符。如果不确定，可以使用默认值，稍后在配置文件中修改。"
+                  type="info"
+                  showIcon
+                  closable
+                  style={{ marginBottom: 16 }}
+                />
+                <Form layout="vertical">
+                  <Form.Item label="小说详情页URL模式" help="例如：/book/{0} 或 /novel/{0}.html">
+                    <Input
+                      value={urlPatterns.bookDetail}
+                      onChange={(e) => setUrlPatterns({...urlPatterns, bookDetail: e.target.value})}
+                      placeholder="/book/{0}"
+                    />
+                  </Form.Item>
+                  <Form.Item label="章节列表URL模式" help="例如：/book/{0} 或 /chapters/{0}/">
+                    <Input
+                      value={urlPatterns.chapterList}
+                      onChange={(e) => setUrlPatterns({...urlPatterns, chapterList: e.target.value})}
+                      placeholder="/book/{0}"
+                    />
+                  </Form.Item>
+                  <Form.Item label="章节内容URL模式" help="例如：/chapter/{0}/{1} 或 /read/{0}/{1}.html">
+                    <Input
+                      value={urlPatterns.chapterContent}
+                      onChange={(e) => setUrlPatterns({...urlPatterns, chapterContent: e.target.value})}
+                      placeholder="/chapter/{0}/{1}"
                     />
                   </Form.Item>
                 </Form>
@@ -1038,6 +1164,228 @@ function ConfigWizard() {
               )}
             </Space>
           </Card>
+
+
+          {/* 高级配置面板 - 仅在章节列表和章节内容步骤显示 */}
+          {(currentStep === 1 || currentStep === 2) && (
+            <Card 
+              title={
+                <Space>
+                  <ExperimentOutlined style={{ color: '#1890ff' }} />
+                  <span>高级配置（可选）</span>
+                </Space>
+              }
+              size="small" 
+              style={{ marginBottom: 24, background: '#f0f5ff', border: '1px solid #adc6ff' }}
+            >
+              {/* 章节列表分页配置 */}
+              {currentStep === 1 && (
+                <div>
+                  <Alert
+                    message="章节列表分页配置"
+                    description="如果章节列表需要翻页才能获取所有章节，请启用此功能并配置相关参数。"
+                    type="info"
+                    showIcon
+                    style={{ marginBottom: 16 }}
+                  />
+                  <Form layout="vertical">
+                    <Form.Item label="启用章节列表分页">
+                      <Switch
+                        checked={paginationConfig.enabled}
+                        onChange={(checked) => setPaginationConfig({...paginationConfig, enabled: checked})}
+                        checkedChildren="开启"
+                        unCheckedChildren="关闭"
+                      />
+                      <div style={{ marginTop: 8, color: '#666', fontSize: 12 }}>
+                        {paginationConfig.enabled ? '将自动爬取所有分页的章节列表' : '仅爬取当前页面的章节列表'}
+                      </div>
+                    </Form.Item>
+                    
+                    {paginationConfig.enabled && (
+                      <>
+                        <Form.Item label="最大页数XPath" help="用于从页面中提取总页数的XPath表达式">
+                          <Input
+                            value={paginationConfig.maxPageXpath}
+                            onChange={(e) => setPaginationConfig({...paginationConfig, maxPageXpath: e.target.value})}
+                            placeholder="例如：//ul[@class='pagination']/li/a[1]/text()"
+                          />
+                        </Form.Item>
+                        <Form.Item 
+                          label="分页URL模式" 
+                          help="可用变量: {base_url}, {book_id}, {page}。例如：{base_url}/book/{book_id}/{page}/ 或 {base_url}/book/{book_id}/{page}.html"
+                        >
+                          <Input
+                            value={paginationConfig.urlPattern}
+                            onChange={(e) => setPaginationConfig({...paginationConfig, urlPattern: e.target.value})}
+                            placeholder="例如：{base_url}/book/{book_id}/{page}/"
+                          />
+                        </Form.Item>
+                      </>
+                    )}
+                  </Form>
+                </div>
+              )}
+              
+              {/* 章节内容配置 */}
+              {currentStep === 2 && (
+                <div>
+                  <Alert
+                    message="章节内容高级配置"
+                    description="配置章节内容的分页支持和内容清理规则，确保获取完整且干净的章节内容。"
+                    type="info"
+                    showIcon
+                    style={{ marginBottom: 16 }}
+                  />
+                  <Form layout="vertical">
+                    <Form.Item label="启用章节内容分页">
+                      <Switch
+                        checked={contentPaginationEnabled}
+                        onChange={setContentPaginationEnabled}
+                        checkedChildren="开启"
+                        unCheckedChildren="关闭"
+                      />
+                      <div style={{ marginTop: 8, color: '#666', fontSize: 12 }}>
+                        {contentPaginationEnabled ? '将自动获取多页章节内容' : '仅获取单页章节内容'}
+                      </div>
+                    </Form.Item>
+                    
+                    {contentPaginationEnabled && (
+                      <>
+                        <Form.Item label="最大翻页数" help="防止无限循环，建议设置为50">
+                          <InputNumber
+                            value={maxPages}
+                            onChange={setMaxPages}
+                            min={1}
+                            max={200}
+                            style={{ width: '100%' }}
+                          />
+                        </Form.Item>
+                        <Form.Item 
+                          label="章节内容翻页URL模式（可选）" 
+                          help="可用变量: {base_url}, {book_id}, {chapter_id}, {page}。留空则使用XPath提取的链接"
+                        >
+                          <Input
+                            value={contentNextPageUrlPattern}
+                            onChange={(e) => setContentNextPageUrlPattern(e.target.value)}
+                            placeholder="例如：{base_url}/book/{book_id}/{chapter_id}_{page}.html"
+                          />
+                        </Form.Item>
+                      </>
+                    )}
+                    
+                    <Divider />
+                    
+                    <Form.Item label={
+                      <Space>
+                        <span>内容清理规则</span>
+                        <Text type="secondary" style={{ fontSize: 12 }}>(用于去除广告和无关内容)</Text>
+                      </Space>
+                    }>
+                      <Button
+                        type="dashed"
+                        icon={<PlusOutlined />}
+                        onClick={() => setContentCleanRules([...contentCleanRules, { method: 'replace', params: { old: '', new: '' } }])}
+                        block
+                      >
+                        添加清理规则
+                      </Button>
+                    </Form.Item>
+                    
+                    {contentCleanRules.map((rule, index) => (
+                      <Card
+                        key={index}
+                        size="small"
+                        title={`规则 ${index + 1}`}
+                        extra={
+                          <Button
+                            size="small"
+                            danger
+                            icon={<DeleteOutlined />}
+                            onClick={() => setContentCleanRules(contentCleanRules.filter((_, i) => i !== index))}
+                          >
+                            删除
+                          </Button>
+                        }
+                        style={{ marginBottom: 16 }}
+                      >
+                        <Form layout="vertical" size="small">
+                          <Form.Item label="清理方法">
+                            <Select
+                              value={rule.method}
+                              onChange={(value) => {
+                                const newRules = [...contentCleanRules]
+                                newRules[index].method = value
+                                newRules[index].params = value === 'replace' ? { old: '', new: '' } : { pattern: '', repl: '' }
+                                setContentCleanRules(newRules)
+                              }}
+                              style={{ width: '100%' }}
+                            >
+                              <Select.Option value="replace">replace - 字符串替换</Select.Option>
+                              <Select.Option value="regex_replace">regex_replace - 正则替换</Select.Option>
+                            </Select>
+                          </Form.Item>
+                          
+                          {rule.method === 'replace' && (
+                            <>
+                              <Form.Item label="要替换的文本">
+                                <Input
+                                  value={rule.params.old || ''}
+                                  onChange={(e) => {
+                                    const newRules = [...contentCleanRules]
+                                    newRules[index].params.old = e.target.value
+                                    setContentCleanRules(newRules)
+                                  }}
+                                  placeholder="例如：『加入书签，方便阅读』"
+                                />
+                              </Form.Item>
+                              <Form.Item label="替换为">
+                                <Input
+                                  value={rule.params.new || ''}
+                                  onChange={(e) => {
+                                    const newRules = [...contentCleanRules]
+                                    newRules[index].params.new = e.target.value
+                                    setContentCleanRules(newRules)
+                                  }}
+                                  placeholder="通常留空表示删除"
+                                />
+                              </Form.Item>
+                            </>
+                          )}
+                          
+                          {rule.method === 'regex_replace' && (
+                            <>
+                              <Form.Item label="正则表达式">
+                                <Input
+                                  value={rule.params.pattern || ''}
+                                  onChange={(e) => {
+                                    const newRules = [...contentCleanRules]
+                                    newRules[index].params.pattern = e.target.value
+                                    setContentCleanRules(newRules)
+                                  }}
+                                  placeholder="例如：广告.*?内容"
+                                />
+                              </Form.Item>
+                              <Form.Item label="替换为">
+                                <Input
+                                  value={rule.params.repl || ''}
+                                  onChange={(e) => {
+                                    const newRules = [...contentCleanRules]
+                                    newRules[index].params.repl = e.target.value
+                                    setContentCleanRules(newRules)
+                                  }}
+                                  placeholder="通常留空表示删除"
+                                />
+                              </Form.Item>
+                            </>
+                          )}
+                        </Form>
+                      </Card>
+                    ))}
+                  </Form>
+                </div>
+              )}
+            </Card>
+          )}
 
           {/* 测试和导航按钮 */}
           <div style={{ marginTop: 24, display: 'flex', justifyContent: 'space-between' }}>
