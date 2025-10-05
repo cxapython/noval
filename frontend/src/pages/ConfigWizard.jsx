@@ -332,6 +332,7 @@ function ConfigWizard() {
 
   // 进入下一步
   const handleNextStep = () => {
+    console.log('执行handleNextStep函数, 当前步骤:', currentStep);
     const currentFields = getCurrentFields()
     
     if (Object.keys(currentFields).length === 0) {
@@ -339,7 +340,8 @@ function ConfigWizard() {
       return
     }
 
-    if (currentStep < 3) {
+    if (currentStep < 2) {
+      console.log('进入下一步:', currentStep + 1);
       setCurrentStep(currentStep + 1)
       // 清空输入状态
       setTargetUrl('')
@@ -350,7 +352,7 @@ function ConfigWizard() {
       setSelectedXpath(null)
       setManualXpath('')
       setEditingField(null)
-      setTestResult(null)
+      // setTestResult(null) // 这个变量似乎没有定义
       
       // 设置下一步的默认字段
       if (currentStep === 0) {
@@ -358,19 +360,25 @@ function ConfigWizard() {
       } else if (currentStep === 1) {
         setSelectedFieldType('content') // 章节内容的第一个字段
       }
-    } else {
+    } else if (currentStep === 2) {
+      console.log('当前是第3步，调用handleGenerateConfig生成配置');
       // 生成最终配置
       handleGenerateConfig()
+    } else {
+      console.log('当前步骤超出预期:', currentStep);
     }
   }
 
   // 生成完整配置
   const handleGenerateConfig = () => {
+    console.log('执行handleGenerateConfig函数');
     if (!siteName || !baseUrl) {
       message.warning('请填写网站名称和基础URL')
       return
     }
-
+    
+    console.log('生成配置参数:', {siteName, baseUrl, novelInfoFields, chapterListFields, chapterContentFields});
+    
     const config = {
       site_info: {
         name: siteName,
@@ -401,7 +409,10 @@ function ConfigWizard() {
     }
 
     setGeneratedConfig(config)
+    console.log('生成的配置:', config);
+    console.log('设置当前步骤为3');
     setCurrentStep(3)
+    console.log('当前步骤设置完成:', currentStep);
   }
 
   // 测试功能已移除
@@ -414,12 +425,15 @@ function ConfigWizard() {
   const [saveMessage, setSaveMessage] = useState('')
   
   const handleSaveConfig = async () => {
+    console.log('执行handleSaveConfig函数');
     if (!generatedConfig) {
+      console.error('generatedConfig为空，无法保存');
       message.warning('请先生成配置')
       return
     }
 
     try {
+      console.log('开始保存配置');
       setSaving(true)
       setSaveStatus(null)
       setSaveMessage('')
@@ -429,6 +443,7 @@ function ConfigWizard() {
         config: generatedConfig
       })
       
+      console.log('发送请求到API:', `${API_BASE}/config`);
       const response = await axios.post(`${API_BASE}/config`, {
         site_name: siteName,
         config: generatedConfig
@@ -1055,7 +1070,16 @@ function ConfigWizard() {
               <Button
                 type="primary"
                 icon={<ArrowRightOutlined />}
-                onClick={handleNextStep}
+                onClick={() => {
+                  console.log('点击按钮，当前步骤:', currentStep);
+                  if (currentStep === 2) {
+                    console.log('直接调用handleGenerateConfig');
+                    handleGenerateConfig();
+                  } else {
+                    console.log('调用handleNextStep');
+                    handleNextStep();
+                  }
+                }}
                 disabled={Object.keys(getCurrentFields()).length === 0}
               >
                 {currentStep === 2 ? '生成配置' : '下一步'}
@@ -1214,7 +1238,10 @@ function ConfigWizard() {
                     type="primary"
                     size="large"
                     icon={<SaveOutlined />}
-                    onClick={handleSaveConfig}
+                    onClick={() => {
+                      console.log('点击保存配置按钮');
+                      handleSaveConfig();
+                    }}
                     loading={saving}
                   >
                     {saving ? '保存中...' : '保存配置'}
