@@ -5,6 +5,7 @@
 """
 import json
 import os
+import requests
 from pathlib import Path
 from flask import Blueprint, request, jsonify
 from loguru import logger
@@ -276,6 +277,210 @@ def save_crawler():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@crawler_bp.route('/test-parser', methods=['POST'])
+def test_parser():
+    """测试单个解析器配置"""
+    try:
+        data = request.json
+        url = data.get('url', '').strip()
+        parser_config = data.get('parser_config', {})
+        request_config = data.get('request_config', {})
+        
+        if not url:
+            return jsonify({'success': False, 'error': 'URL不能为空'}), 400
+        
+        if not parser_config:
+            return jsonify({'success': False, 'error': '解析器配置不能为空'}), 400
+        
+        # 获取页面内容
+        headers = request_config.get('headers', {
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15'
+        })
+        timeout = request_config.get('timeout', 30)
+        encoding = request_config.get('encoding')
+        
+        try:
+            response = requests.get(url, headers=headers, timeout=timeout, verify=False)
+            
+            if encoding:
+                response.encoding = encoding
+            else:
+                response.encoding = response.apparent_encoding or 'utf-8'
+            
+            html = response.text
+            
+            if response.status_code != 200:
+                return jsonify({
+                    'success': False,
+                    'error': f'HTTP状态码: {response.status_code}'
+                }), 400
+                
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'error': f'获取页面失败: {str(e)}'
+            }), 400
+        
+        # 使用通用爬虫的解析方法
+        from backend.generic_crawler import GenericNovelCrawler
+        
+        # 创建临时爬虫实例来使用解析方法
+        temp_config = {
+            'site_info': {'name': 'test', 'base_url': url},
+            'url_patterns': {},
+            'parsers': {}
+        }
+        
+        # 写入临时配置文件
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False, encoding='utf-8') as f:
+            json.dump(temp_config, f)
+            temp_config_file = f.name
+        
+        try:
+            crawler = GenericNovelCrawler(
+                config_file=temp_config_file,
+                book_id='test',
+                max_workers=1
+            )
+            
+            # 解析
+            result = crawler._parse_with_config(html, parser_config)
+            
+            # 清理临时文件
+            os.remove(temp_config_file)
+            
+            # 处理结果
+            result_preview = result
+            if isinstance(result, list):
+                if len(result) > 10:
+                    result_preview = result[:10]
+                    result_info = f"列表类型，共{len(result)}项，显示前10项"
+                else:
+                    result_info = f"列表类型，共{len(result)}项"
+            elif isinstance(result, str):
+                result_info = f"字符串类型，长度{len(result)}"
+                if len(result) > 500:
+                    result_preview = result[:500] + '...'
+            else:
+                result_info = f"类型: {type(result).__name__}"
+            
+            return jsonify({
+                'success': True,
+                'result': result_preview,
+                'result_info': result_info,
+                'html_preview': html[:1000] if len(html) > 1000 else html,
+                'html_length': len(html)
+            })
+            
+        except Exception as e:
+            # 清理临时文件
+            if os.path.exists(temp_config_file):
+                os.remove(temp_config_file)
+            raise e
+    
+    except Exception as e:
+        logger.error(f"❌ 测试解析器失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@crawler_bp.route('/test-config', methods=['POST'])
+def test_config():
+    """测试完整配置"""
+    try:
+        data = request.json
+        url = data.get('url', '').strip()
+        config = data.get('config', {})
+        test_type = data.get('test_type', 'novel_info')  # novel_info, chapter_list, chapter_content
+        
+        if not url:
+            return jsonify({'success': False, 'error': 'URL不能为空'}), 400
+        
+        if not config:
+            return jsonify({'success': False, 'error': '配置不能为空'}), 400
+        
+        # 写入临时配置文件
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False, encoding='utf-8') as f:
+            json.dump(config, f)
+            temp_config_file = f.name
+        
+        try:
+            from backend.generic_crawler import GenericNovelCrawler
+            
+            # 创建爬虫实例
+            crawler = GenericNovelCrawler(
+                config_file=temp_config_file,
+                book_id='test',
+                max_workers=1
+            )
+            
+            # 获取页面
+            html = crawler.get_page(url)
+            if not html:
+                os.remove(temp_config_file)
+                return jsonify({
+                    'success': False,
+                    'error': '获取页面失败'
+                }), 400
+            
+            results = {}
+            
+            if test_type == 'novel_info':
+                # 测试小说信息解析
+                novel_info = crawler.parse_novel_info(html)
+                results = {
+                    'type': '小说信息',
+                    'data': novel_info
+                }
+            
+            elif test_type == 'chapter_list':
+                # 测试章节列表解析
+                chapter_list_config = config['parsers']['chapter_list']
+                chapters = crawler._parse_chapters_from_page(html, chapter_list_config)
+                
+                results = {
+                    'type': '章节列表',
+                    'total': len(chapters),
+                    'sample': chapters[:5] if len(chapters) > 5 else chapters,
+                    'info': f'共解析出{len(chapters)}个章节，显示前5个'
+                }
+            
+            elif test_type == 'chapter_content':
+                # 测试章节内容解析
+                content = crawler.download_chapter_content(url)
+                
+                results = {
+                    'type': '章节内容',
+                    'length': len(content),
+                    'preview': content[:500] if len(content) > 500 else content,
+                    'info': f'内容长度: {len(content)}字，显示前500字'
+                }
+            
+            # 清理临时文件
+            os.remove(temp_config_file)
+            
+            return jsonify({
+                'success': True,
+                'results': results
+            })
+            
+        except Exception as e:
+            # 清理临时文件
+            if os.path.exists(temp_config_file):
+                os.remove(temp_config_file)
+            raise e
+    
+    except Exception as e:
+        logger.error(f"❌ 测试配置失败: {e}")
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+
 def generate_crawler_code(site_name: str, config_file: str) -> str:
     """
     生成爬虫代码
@@ -298,7 +503,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from loguru import logger
-from crawler_manager.backend.generic_crawler import GenericNovelCrawler
+from backend.generic_crawler import GenericNovelCrawler
 
 
 class {site_name.capitalize()}Crawler:

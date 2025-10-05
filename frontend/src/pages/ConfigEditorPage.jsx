@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { 
   Card, Button, Tabs, Input, InputNumber, Select, 
-  Form, Space, Collapse, Tag, message, Spin, Popconfirm 
+  Form, Space, Collapse, Tag, message, Spin, Popconfirm,
+  Modal, Alert, Descriptions, Divider 
 } from 'antd'
 import { 
   SaveOutlined, EyeOutlined, CodeOutlined, 
   CopyOutlined, ArrowLeftOutlined, PlusOutlined, 
-  DeleteOutlined, MinusCircleOutlined 
+  DeleteOutlined, MinusCircleOutlined, ExperimentOutlined,
+  ThunderboltOutlined, CheckCircleOutlined 
 } from '@ant-design/icons'
 import axios from 'axios'
 
@@ -247,6 +249,29 @@ function FormView({ configData, onChange }) {
     )
   }
 
+  // 获取数组项的默认模板
+  const getArrayItemTemplate = (path) => {
+    // 针对特定字段返回预定义的模板
+    if (path.endsWith('.clean') || path.endsWith('.clean_rules')) {
+      return {
+        method: 'replace',
+        params: {
+          old: '',
+          new: ''
+        }
+      }
+    }
+    
+    if (path.endsWith('.process')) {
+      return {
+        method: 'strip'
+      }
+    }
+    
+    // 默认返回空对象
+    return {}
+  }
+
   // 添加数组项
   const handleArrayAdd = (path) => {
     const keys = path.split('.')
@@ -269,8 +294,8 @@ function FormView({ configData, onChange }) {
           arr.push('')
         }
       } else {
-        // 空数组，添加空对象
-        arr.push({})
+        // 空数组，使用预定义模板
+        arr.push(getArrayItemTemplate(path))
       }
       onChange(path, arr)
     }
@@ -771,8 +796,7 @@ function getFieldLabel(key) {
     max_pages: '最大页数',
     
     // 清理规则
-    clean: '清理规则',
-    clean_rules: '清理规则',
+    clean: '🧹 清理规则',
     
     // 处理方法
     method: '处理方法',
