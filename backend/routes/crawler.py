@@ -1,0 +1,415 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+爬虫配置管理路由
+"""
+import json
+import os
+from pathlib import Path
+from flask import Blueprint, request, jsonify
+from loguru import logger
+
+crawler_bp = Blueprint('crawler', __name__)
+
+CONFIG_DIR = Path(__file__).parent.parent.parent / 'configs'
+CONFIG_PATTERN = "config_*.json"
+CRAWLER_DIR = Path(__file__).parent.parent.parent / 'crawler-manager' / 'backend' / 'crawlers'
+
+
+@crawler_bp.route('/configs', methods=['GET'])
+def list_configs():
+    """获取所有配置文件列表"""
+    try:
+        configs = []
+        for config_file in CONFIG_DIR.glob(CONFIG_PATTERN):
+            if config_file.name == 'config_template.json':
+                continue
+            
+            try:
+                with open(config_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    configs.append({
+                        'filename': config_file.name,
+                        'name': data.get('site_info', {}).get('name', 'Unknown'),
+                        'description': data.get('site_info', {}).get('description', ''),
+                        'base_url': data.get('site_info', {}).get('base_url', ''),
+                    })
+            except Exception as e:
+                logger.warning(f"读取配置文件失败 {config_file.name}: {e}")
+        
+        return jsonify({'success': True, 'configs': configs})
+    
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@crawler_bp.route('/config/<filename>', methods=['GET'])
+def get_config(filename):
+    """获取指定配置文件内容"""
+    try:
+        if not filename.startswith('config_') or not filename.endswith('.json'):
+            return jsonify({'success': False, 'error': '无效的配置文件名'}), 400
+        
+        config_path = CONFIG_DIR / filename
+        if not config_path.exists():
+            return jsonify({'success': False, 'error': '配置文件不存在'}), 404
+        
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config_data = json.load(f)
+        
+        return jsonify({'success': True, 'config': config_data})
+    
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@crawler_bp.route('/config', methods=['POST'])
+def create_config():
+    """创建新配置文件"""
+    try:
+        data = request.json
+        site_name = data.get('site_name', '').strip()
+        
+        if not site_name:
+            return jsonify({'success': False, 'error': '网站名称不能为空'}), 400
+        
+        filename = f"config_{site_name}.json"
+        config_path = CONFIG_DIR / filename
+        
+        if config_path.exists():
+            return jsonify({'success': False, 'error': '配置文件已存在'}), 400
+        
+        template_path = CONFIG_DIR / 'config_template.json'
+        with open(template_path, 'r', encoding='utf-8') as f:
+            template = json.load(f)
+        
+        if 'config' in data:
+            config_content = data['config']
+        else:
+            config_content = template
+            config_content['site_info']['name'] = site_name
+        
+        with open(config_path, 'w', encoding='utf-8') as f:
+            json.dump(config_content, f, ensure_ascii=False, indent=2)
+        
+        return jsonify({'success': True, 'filename': filename})
+    
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@crawler_bp.route('/config/<filename>', methods=['PUT'])
+def update_config(filename):
+    """更新配置文件"""
+    try:
+        if not filename.startswith('config_') or not filename.endswith('.json'):
+            return jsonify({'success': False, 'error': '无效的配置文件名'}), 400
+        
+        config_path = CONFIG_DIR / filename
+        if not config_path.exists():
+            return jsonify({'success': False, 'error': '配置文件不存在'}), 404
+        
+        data = request.json
+        config_content = data.get('config')
+        
+        if not config_content:
+            return jsonify({'success': False, 'error': '配置内容不能为空'}), 400
+        
+        try:
+            json.dumps(config_content)
+        except:
+            return jsonify({'success': False, 'error': 'JSON格式错误'}), 400
+        
+        with open(config_path, 'w', encoding='utf-8') as f:
+            json.dump(config_content, f, ensure_ascii=False, indent=2)
+        
+        return jsonify({'success': True, 'message': '配置已更新'})
+    
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@crawler_bp.route('/config/<filename>', methods=['DELETE'])
+def delete_config(filename):
+    """删除配置文件"""
+    try:
+        if not filename.startswith('config_') or not filename.endswith('.json'):
+            return jsonify({'success': False, 'error': '无效的配置文件名'}), 400
+        
+        if filename == 'config_template.json':
+            return jsonify({'success': False, 'error': '不能删除模板文件'}), 400
+        
+        config_path = CONFIG_DIR / filename
+        if not config_path.exists():
+            return jsonify({'success': False, 'error': '配置文件不存在'}), 404
+        
+        os.remove(config_path)
+        
+        return jsonify({'success': True, 'message': '配置已删除'})
+    
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@crawler_bp.route('/template', methods=['GET'])
+def get_template():
+    """获取配置模板"""
+    try:
+        template_path = CONFIG_DIR / 'config_template.json'
+        with open(template_path, 'r', encoding='utf-8') as f:
+            template = json.load(f)
+        
+        return jsonify({'success': True, 'template': template})
+    
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@crawler_bp.route('/validate', methods=['POST'])
+def validate_config():
+    """验证配置文件格式"""
+    try:
+        data = request.json
+        config = data.get('config')
+        
+        if not config:
+            return jsonify({'success': False, 'error': '配置内容不能为空'})
+        
+        errors = []
+        
+        if 'site_info' not in config:
+            errors.append('缺少 site_info 字段')
+        else:
+            if 'name' not in config['site_info']:
+                errors.append('缺少 site_info.name 字段')
+            if 'base_url' not in config['site_info']:
+                errors.append('缺少 site_info.base_url 字段')
+        
+        if 'parsers' not in config:
+            errors.append('缺少 parsers 字段')
+        else:
+            if 'novel_info' not in config['parsers']:
+                errors.append('缺少 parsers.novel_info 字段')
+            if 'chapter_list' not in config['parsers']:
+                errors.append('缺少 parsers.chapter_list 字段')
+            if 'chapter_content' not in config['parsers']:
+                errors.append('缺少 parsers.chapter_content 字段')
+        
+        if errors:
+            return jsonify({'success': False, 'valid': False, 'errors': errors})
+        
+        return jsonify({'success': True, 'valid': True, 'message': '配置格式正确'})
+    
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@crawler_bp.route('/generate-crawler/<filename>', methods=['POST'])
+def generate_crawler(filename):
+    """生成专用爬虫代码（不保存，返回代码供编辑）"""
+    try:
+        if not filename.startswith('config_') or not filename.endswith('.json'):
+            return jsonify({'success': False, 'error': '无效的配置文件名'}), 400
+        
+        config_path = CONFIG_DIR / filename
+        if not config_path.exists():
+            return jsonify({'success': False, 'error': '配置文件不存在'}), 404
+        
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        
+        site_name = config.get('site_info', {}).get('name', 'unknown')
+        
+        crawler_content = generate_crawler_code(site_name, filename)
+        crawler_filename = f"{site_name}_crawler.py"
+        relative_path = f"crawler-manager/backend/crawlers/{crawler_filename}"
+        
+        logger.info(f"📝 生成爬虫代码: {crawler_filename}")
+        
+        return jsonify({
+            'success': True, 
+            'message': f'爬虫代码已生成',
+            'filename': crawler_filename,
+            'path': relative_path,
+            'content': crawler_content
+        })
+    
+    except Exception as e:
+        logger.error(f"❌ 生成爬虫代码失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@crawler_bp.route('/save-crawler', methods=['POST'])
+def save_crawler():
+    """保存爬虫代码到文件"""
+    try:
+        data = request.json
+        filename = data.get('filename', '').strip()
+        content = data.get('content', '').strip()
+        
+        if not filename or not content:
+            return jsonify({'success': False, 'error': '文件名和内容不能为空'}), 400
+        
+        # 安全检查：只允许保存到爬虫目录
+        if not filename.endswith('_crawler.py'):
+            return jsonify({'success': False, 'error': '无效的文件名'}), 400
+        
+        # 确保爬虫目录存在
+        CRAWLER_DIR.mkdir(parents=True, exist_ok=True)
+        
+        # 保存文件
+        crawler_path = CRAWLER_DIR / filename
+        with open(crawler_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+        
+        relative_path = f"crawler-manager/backend/crawlers/{filename}"
+        logger.info(f"✅ 保存爬虫文件: {relative_path}")
+        
+        return jsonify({
+            'success': True, 
+            'message': f'爬虫文件已保存: {relative_path}',
+            'path': relative_path
+        })
+    
+    except Exception as e:
+        logger.error(f"❌ 保存爬虫文件失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+def generate_crawler_code(site_name: str, config_file: str) -> str:
+    """
+    生成爬虫代码
+    兼容 Python 3.8+
+    """
+    template = f'''#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+{site_name} 小说爬虫 - 基于通用爬虫框架
+自动生成于配置管理器
+
+运行要求：
+- Python 3.8+
+- 依赖配置文件: {config_file}
+"""
+import sys
+from pathlib import Path
+
+# 添加项目根目录到路径
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+
+from loguru import logger
+from crawler_manager.backend.generic_crawler import GenericNovelCrawler
+
+
+class {site_name.capitalize()}Crawler:
+    """
+    {site_name} 网站爬虫
+    基于通用爬虫框架，使用配置文件: {config_file}
+    """
+    
+    def __init__(self, book_id: str, max_workers: int = 5, use_proxy: bool = False):
+        """
+        初始化爬虫
+        :param book_id: 书籍ID
+        :param max_workers: 并发线程数，默认5
+        :param use_proxy: 是否使用代理，默认False
+        """
+        # 配置文件路径（从项目根目录的 configs 目录查找）
+        config_path = Path(__file__).parent.parent.parent.parent / "configs" / "{config_file}"
+        
+        if not config_path.exists():
+            raise FileNotFoundError(f"配置文件不存在: {{config_path}}")
+        
+        # 初始化通用爬虫
+        self.crawler = GenericNovelCrawler(
+            config_file=str(config_path),
+            book_id=book_id,
+            max_workers=max_workers,
+            use_proxy=use_proxy
+        )
+        
+        logger.info(f"🚀 {site_name} 爬虫初始化完成")
+    
+    def run(self):
+        """运行爬虫"""
+        try:
+            logger.info("=" * 60)
+            logger.info(f"📚 开始爬取 {site_name} 小说")
+            logger.info("=" * 60)
+            
+            # 执行爬取
+            self.crawler.run()
+            
+            logger.info("=" * 60)
+            logger.info("✅ 爬取完成！")
+            logger.info("=" * 60)
+            
+        except KeyboardInterrupt:
+            logger.warning("⚠️  用户中断爬取")
+            sys.exit(0)
+        except Exception as e:
+            logger.error(f"❌ 爬取失败: {{e}}")
+            raise
+
+
+def main():
+    """命令行入口"""
+    import argparse
+    
+    parser = argparse.ArgumentParser(
+        description=f'{site_name} 小说爬虫',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+使用示例:
+  # 从项目根目录运行
+  python crawler-manager/backend/crawlers/{site_name}_crawler.py 12345
+  
+  # 使用代理
+  python crawler-manager/backend/crawlers/{site_name}_crawler.py 12345 --proxy
+  
+  # 指定并发数
+  python crawler-manager/backend/crawlers/{site_name}_crawler.py 12345 --workers 10
+  
+  # 组合使用
+  python crawler-manager/backend/crawlers/{site_name}_crawler.py 12345 --proxy --workers 10
+        """
+    )
+    
+    parser.add_argument(
+        'book_id',
+        help='书籍ID（从网站URL中获取）'
+    )
+    
+    parser.add_argument(
+        '-w', '--workers',
+        type=int,
+        default=5,
+        help='并发线程数（默认: 5）'
+    )
+    
+    parser.add_argument(
+        '-p', '--proxy',
+        action='store_true',
+        help='使用代理'
+    )
+    
+    args = parser.parse_args()
+    
+    # 创建并运行爬虫
+    try:
+        crawler = {site_name.capitalize()}Crawler(
+            book_id=args.book_id,
+            max_workers=args.workers,
+            use_proxy=args.proxy
+        )
+        crawler.run()
+    except Exception as e:
+        logger.error(f"❌ 程序异常: {{e}}")
+        sys.exit(1)
+
+
+if __name__ == '__main__':
+    main()
+'''
+    return template
+

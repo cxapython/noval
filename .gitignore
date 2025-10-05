@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+logs/
+*.log
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Node
+node_modules/
+npm-debug.log*
+package-lock.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Config (可能包含敏感信息)
+shared/utils/config.py
+shared/utils/proxy_utils.py
+
+# Data
+data/
+*.json
+
+# Backups
+*.bak
+*.backup
+*_old.py
+
+# Test
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Temp
+tmp/
+temp/
+*.tmp
+

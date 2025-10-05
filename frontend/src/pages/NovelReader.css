@@ -1,0 +1,335 @@
+/* 阅读器主容器 */
+.novel-reader {
+  min-height: 100vh;
+  transition: all 0.3s ease;
+  padding: 0;
+}
+
+/* 简化Ant Design样式 */
+.novel-reader .ant-card {
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s ease;
+}
+
+.novel-reader .ant-card-body {
+  padding: 24px;
+}
+
+.novel-reader .ant-btn {
+  border-radius: 8px;
+  font-weight: 500;
+  box-shadow: none;
+  transition: all 0.2s ease;
+}
+
+.novel-reader .ant-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.novel-reader .ant-btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+}
+
+.novel-reader .ant-btn-primary:hover {
+  background: linear-gradient(135deg, #5568d3 0%, #6a4293 100%);
+}
+
+/* 导航栏优化 */
+.reader-navbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  margin-bottom: 24px;
+}
+
+/* 章节内容卡片 */
+.chapter-card {
+  margin-bottom: 24px;
+  border-radius: 16px !important;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06) !important;
+  transition: all 0.3s ease;
+}
+
+.chapter-card:hover {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* 章节标题 */
+.chapter-title {
+  font-size: 28px !important;
+  font-weight: 700 !important;
+  text-align: center;
+  margin-bottom: 40px !important;
+  position: relative;
+  padding-bottom: 16px;
+}
+
+.chapter-title::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 4px;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  border-radius: 2px;
+}
+
+/* 段落样式 */
+.chapter-paragraph {
+  font-size: inherit;
+  line-height: inherit;
+  text-indent: 2em;
+  margin-bottom: 24px !important;
+  letter-spacing: 0.5px;
+  word-spacing: 2px;
+}
+
+/* 章节分隔线 */
+.chapter-divider {
+  margin: 48px 0;
+  text-align: center;
+  position: relative;
+}
+
+.chapter-divider::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, currentColor 20%, currentColor 80%, transparent);
+  opacity: 0.2;
+}
+
+.chapter-divider-text {
+  position: relative;
+  display: inline-block;
+  padding: 8px 24px;
+  background: inherit;
+  font-size: 14px;
+  opacity: 0.6;
+}
+
+/* 加载指示器 */
+.loading-indicator {
+  text-align: center;
+  padding: 40px;
+  font-size: 14px;
+  color: #999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.loading-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* 侧边抽屉优化 */
+.novel-reader .ant-drawer-header {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 20px 24px;
+}
+
+.novel-reader .ant-drawer-title {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.novel-reader .ant-drawer-body {
+  padding: 24px;
+}
+
+/* 章节列表项 */
+.chapter-list-item {
+  padding: 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.chapter-list-item:hover {
+  background: rgba(102, 126, 234, 0.08);
+  border-color: rgba(102, 126, 234, 0.2);
+  transform: translateX(4px);
+}
+
+.chapter-list-item-active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white !important;
+  border-color: transparent;
+}
+
+/* 搜索结果项 */
+.search-result-item {
+  padding: 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  margin-bottom: 12px;
+}
+
+.search-result-item:hover {
+  border-color: #667eea;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+  transform: translateY(-2px);
+}
+
+/* 书签项 */
+.bookmark-item {
+  padding: 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  margin-bottom: 12px;
+  transition: all 0.2s ease;
+}
+
+.bookmark-item:hover {
+  border-color: #667eea;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+}
+
+/* 设置面板 */
+.settings-section {
+  margin-bottom: 32px;
+}
+
+.settings-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+/* 主题选择器 */
+.theme-selector {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.theme-option {
+  padding: 16px;
+  border-radius: 10px;
+  border: 2px solid rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.theme-option:hover {
+  border-color: #667eea;
+  transform: scale(1.02);
+}
+
+.theme-option-active {
+  border-color: #667eea;
+  background: rgba(102, 126, 234, 0.08);
+}
+
+/* 滑块优化 */
+.novel-reader .ant-slider-track {
+  background: linear-gradient(90deg, #667eea, #764ba2);
+}
+
+.novel-reader .ant-slider-handle {
+  border-color: #667eea;
+}
+
+.novel-reader .ant-slider-handle:focus {
+  box-shadow: 0 0 0 5px rgba(102, 126, 234, 0.12);
+}
+
+/* 输入框优化 */
+.novel-reader .ant-input,
+.novel-reader .ant-input-search {
+  border-radius: 10px;
+  border-color: rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+.novel-reader .ant-input:focus,
+.novel-reader .ant-input-search .ant-input:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* 空状态 */
+.empty-state {
+  text-align: center;
+  padding: 60px 24px;
+  color: #999;
+}
+
+.empty-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+  opacity: 0.3;
+}
+
+/* 淡入动画 */
+.fade-in {
+  animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 滚动条美化 */
+.novel-reader ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.novel-reader ::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.novel-reader ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+}
+
+.novel-reader ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .novel-reader .ant-card-body {
+    padding: 16px;
+  }
+  
+  .chapter-title {
+    font-size: 22px !important;
+  }
+}
+
