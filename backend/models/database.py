@@ -199,8 +199,25 @@ class NovelDatabase:
             return chapter.id
     
     def insert_chapter(self, novel_id, chapter_num, title, content, source_url=None):
-        """插入章节（兼容旧接口）"""
-        return self.create_chapter(novel_id, chapter_num, title, content, source_url)
+        """插入或更新章节（兼容旧接口，处理重复情况）"""
+        with self.get_session() as session:
+            # 先查询是否存在
+            existing_chapter = session.query(Chapter).filter(
+                Chapter.novel_id == novel_id,
+                Chapter.chapter_num == chapter_num
+            ).first()
+            
+            if existing_chapter:
+                # 存在则更新
+                existing_chapter.title = title
+                existing_chapter.content = content
+                existing_chapter.word_count = len(content)
+                existing_chapter.source_url = source_url
+                session.flush()
+                return existing_chapter.id
+            else:
+                # 不存在则创建
+                return self.create_chapter(novel_id, chapter_num, title, content, source_url)
     
     # ==================== 阅读进度管理 ====================
     
