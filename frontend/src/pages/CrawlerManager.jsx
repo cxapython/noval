@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { 
   Card, List, Button, message, Space, 
-  Popconfirm, Typography, Tag, Empty 
+  Popconfirm, Typography, Tag, Empty,
+  Modal, Form, Input, InputNumber, Switch, Tabs
 } from 'antd'
 import { 
   PlusOutlined, DeleteOutlined, 
   CodeOutlined, FileTextOutlined, EditOutlined,
-  ExperimentOutlined 
+  ExperimentOutlined, PlayCircleOutlined
 } from '@ant-design/icons'
 import axios from 'axios'
 import CodeEditor from '../components/CodeEditor'
@@ -22,6 +23,11 @@ function CrawlerManager() {
   const [editorVisible, setEditorVisible] = useState(false)
   const [currentCode, setCurrentCode] = useState('')
   const [currentFilename, setCurrentFilename] = useState('')
+  
+  // 运行爬虫对话框状态
+  const [runModalVisible, setRunModalVisible] = useState(false)
+  const [currentConfigFilename, setCurrentConfigFilename] = useState('')
+  const [runForm] = Form.useForm()
 
   useEffect(() => {
     loadConfigs()
@@ -99,6 +105,44 @@ function CrawlerManager() {
     }
   }
 
+  const handleRun = (config) => {
+    setCurrentConfigFilename(config.filename)
+    runForm.resetFields()
+    runForm.setFieldsValue({
+      max_workers: 5,
+      use_proxy: false
+    })
+    setRunModalVisible(true)
+  }
+
+  const handleRunSubmit = async () => {
+    try {
+      const values = await runForm.validateFields()
+      setLoading(true)
+      
+      const response = await axios.post(`${API_BASE}/run-crawler`, {
+        config_filename: currentConfigFilename,
+        book_id: values.book_id,
+        start_url: values.start_url,
+        max_workers: values.max_workers,
+        use_proxy: values.use_proxy
+      })
+      
+      if (response.data.success) {
+        message.success(response.data.message)
+        setRunModalVisible(false)
+      }
+    } catch (error) {
+      if (error.response) {
+        message.error('运行失败: ' + (error.response.data.error || error.message))
+      } else {
+        message.error('运行失败: ' + error.message)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="fade-in">
       <CodeEditor
@@ -162,6 +206,14 @@ function CrawlerManager() {
                   actions={[
                     <Button 
                       type="text" 
+                      icon={<PlayCircleOutlined />}
+                      onClick={() => handleRun(config)}
+                      style={{color: '#52c41a'}}
+                    >
+                      运行
+                    </Button>,
+                    <Button 
+                      type="text" 
                       icon={<EditOutlined />}
                       onClick={() => handleEdit(config.filename)}
                     >
@@ -214,6 +266,123 @@ function CrawlerManager() {
           />
         )}
       </Card>
+
+      {/* 运行爬虫对话框 */}
+      <Modal
+        title={
+          <Space>
+            <PlayCircleOutlined style={{color: '#52c41a'}} />
+            <span>运行爬虫</span>
+          </Space>
+        }
+        open={runModalVisible}
+        onOk={handleRunSubmit}
+        onCancel={() => setRunModalVisible(false)}
+        okText="开始运行"
+        cancelText="取消"
+        width={600}
+        confirmLoading={loading}
+      >
+        <Form
+          form={runForm}
+          layout="vertical"
+          style={{marginTop: 24}}
+        >
+          <Tabs
+            items={[
+              {
+                key: 'book_id',
+                label: '书籍ID',
+                children: (
+                  <Form.Item
+                    name="book_id"
+                    label="书籍ID"
+                    tooltip="从小说URL中提取的数字ID，例如：41934"
+                    rules={[
+                      ({ getFieldValue }) => ({
+                        validator(_, value) {
+                          if (value || getFieldValue('start_url')) {
+                            return Promise.resolve()
+                          }
+                          return Promise.reject(new Error('请输入书籍ID或完整URL'))
+                        },
+                      }),
+                    ]}
+                  >
+                    <Input 
+                      placeholder="例如：41934" 
+                      size="large"
+                    />
+                  </Form.Item>
+                )
+              },
+              {
+                key: 'start_url',
+                label: '完整URL',
+                children: (
+                  <Form.Item
+                    name="start_url"
+                    label="起始URL"
+                    tooltip="小说详情页的完整URL，系统会自动提取书籍ID"
+                    rules={[
+                      ({ getFieldValue }) => ({
+                        validator(_, value) {
+                          if (value || getFieldValue('book_id')) {
+                            return Promise.resolve()
+                          }
+                          return Promise.reject(new Error('请输入书籍ID或完整URL'))
+                        },
+                      }),
+                    ]}
+                  >
+                    <Input 
+                      placeholder="例如：https://m.ikbook8.com/book/41934.html" 
+                      size="large"
+                    />
+                  </Form.Item>
+                )
+              }
+            ]}
+          />
+
+          <Form.Item
+            name="max_workers"
+            label="并发线程数"
+            tooltip="同时下载的章节数量，建议5-10"
+            initialValue={5}
+          >
+            <InputNumber
+              min={1}
+              max={20}
+              style={{width: '100%'}}
+              size="large"
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="use_proxy"
+            label="使用代理"
+            valuePropName="checked"
+            initialValue={false}
+          >
+            <Switch />
+          </Form.Item>
+
+          <div style={{
+            padding: 12,
+            background: '#e6f7ff',
+            border: '1px solid #91d5ff',
+            borderRadius: 4,
+            fontSize: 13,
+            color: '#666'
+          }}>
+            <Text type="secondary">
+              💡 提示：爬虫将在后台运行，你可以继续使用其他功能。
+              运行日志可在后端控制台查看。
+            </Text>
+          </div>
+        </Form>
+      </Modal>
     </div>
   )
 }

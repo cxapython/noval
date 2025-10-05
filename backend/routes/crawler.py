@@ -690,6 +690,69 @@ def test_config():
         }), 500
 
 
+@crawler_bp.route('/run-crawler', methods=['POST'])
+def run_crawler():
+    """运行爬虫（异步执行）"""
+    try:
+        data = request.json
+        config_filename = data.get('config_filename', '').strip()
+        book_id = data.get('book_id', '').strip()
+        start_url = data.get('start_url', '').strip()
+        max_workers = data.get('max_workers', 5)
+        use_proxy = data.get('use_proxy', False)
+        
+        if not config_filename:
+            return jsonify({'success': False, 'error': '配置文件名不能为空'}), 400
+        
+        if not book_id and not start_url:
+            return jsonify({'success': False, 'error': '请提供书籍ID或完整URL'}), 400
+        
+        config_path = CONFIG_DIR / config_filename
+        if not config_path.exists():
+            return jsonify({'success': False, 'error': '配置文件不存在'}), 404
+        
+        # 如果提供了完整URL，从URL中提取book_id
+        if start_url and not book_id:
+            # 尝试从URL中提取ID（假设格式为 /book/12345.html 或类似）
+            import re
+            match = re.search(r'/(\d+)', start_url)
+            if match:
+                book_id = match.group(1)
+            else:
+                return jsonify({'success': False, 'error': '无法从URL中提取书籍ID'}), 400
+        
+        # 在后台线程中运行爬虫
+        import threading
+        from backend.generic_crawler import GenericNovelCrawler
+        
+        def run_in_background():
+            try:
+                logger.info(f"🚀 开始运行爬虫: {config_filename}, Book ID: {book_id}")
+                crawler = GenericNovelCrawler(
+                    config_file=str(config_path),
+                    book_id=book_id,
+                    max_workers=max_workers,
+                    use_proxy=use_proxy
+                )
+                crawler.run()
+                logger.info(f"✅ 爬虫运行完成: {config_filename}, Book ID: {book_id}")
+            except Exception as e:
+                logger.error(f"❌ 爬虫运行失败: {e}")
+        
+        # 启动后台线程
+        thread = threading.Thread(target=run_in_background, daemon=True)
+        thread.start()
+        
+        return jsonify({
+            'success': True,
+            'message': f'爬虫已在后台启动，Book ID: {book_id}'
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ 启动爬虫失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 def generate_crawler_code(site_name: str, config_file: str) -> str:
     """
     生成爬虫代码
