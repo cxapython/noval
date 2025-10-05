@@ -1,39 +1,104 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Card, Steps, Button, Input, message, Spin, Alert, Space,
-  Form, Select, Image, Tag, List, Divider, Tooltip
+  Card, Steps, Button, Input, App, Spin, Alert, Space,
+  Form, Select, Image, Tag, List, Divider, Tooltip, Checkbox,
+  Collapse, Descriptions, Typography, Modal, InputNumber
 } from 'antd'
 import {
   ArrowLeftOutlined, ArrowRightOutlined, SaveOutlined,
   ThunderboltOutlined, EyeOutlined, CopyOutlined,
-  CheckCircleOutlined
+  CheckCircleOutlined, PlusOutlined, DeleteOutlined,
+  ExperimentOutlined, EditOutlined, CodeOutlined
 } from '@ant-design/icons'
 import axios from 'axios'
 
 const { TextArea } = Input
+const { Text } = Typography
 const API_BASE = '/api/crawler'
 
+// 字段类型定义（仅包含数据库支持的字段）
+const FIELD_TYPES = {
+  novel_info: {
+    title: { label: '小说标题', defaultProcess: [{ method: 'strip', params: {} }], required: true },
+    author: { label: '作者', defaultProcess: [{ method: 'strip', params: {} }, { method: 'replace', params: { old: '作者：', new: '' } }] },
+    cover_url: { label: '封面图片URL', defaultProcess: [], note: '提取图片URL' }
+  },
+  chapter_list: {
+    items: { label: '列表项选择器', defaultProcess: [], note: '选择所有章节项的容器' },
+    title: { label: '章节标题', defaultProcess: [{ method: 'strip', params: {} }] },
+    url: { label: '章节链接', defaultProcess: [] }
+  },
+  chapter_content: {
+    content: { label: '正文内容', defaultProcess: [{ method: 'join', params: { separator: '\n' } }] },
+    next_page: { label: '下一页链接', defaultProcess: [] }
+  }
+}
+
 function ConfigWizard() {
+  const { message } = App.useApp() // 使用 App hook 替代静态 message
   const navigate = useNavigate()
   
-  // 步骤控制
+  // 步骤控制：0=小说信息, 1=章节列表, 2=章节内容, 3=配置预览
   const [currentStep, setCurrentStep] = useState(0)
   
-  // 步骤1：页面渲染
+  // 页面渲染相关
   const [targetUrl, setTargetUrl] = useState('')
   const [pageData, setPageData] = useState(null)
   const [renderLoading, setRenderLoading] = useState(false)
   
-  // 步骤2：智能识别
+  // 智能识别相关
   const [cssSelector, setCssSelector] = useState('')
   const [elementText, setElementText] = useState('')
   const [xpathSuggestions, setXpathSuggestions] = useState([])
   const [xpathLoading, setXpathLoading] = useState(false)
   const [selectedXpath, setSelectedXpath] = useState(null)
+  const [manualXpath, setManualXpath] = useState('') // 手动输入的XPath
+  const [selectedFieldType, setSelectedFieldType] = useState('title') // 当前识别的字段
   
-  // 步骤3：配置预览
+  // 三个层级的已识别字段
+  const [novelInfoFields, setNovelInfoFields] = useState({}) // 小说基本信息
+  const [chapterListFields, setChapterListFields] = useState({}) // 章节列表
+  const [chapterContentFields, setChapterContentFields] = useState({}) // 章节内容
+  
+  const [editingProcess, setEditingProcess] = useState(null) // 编辑规则的字段
+  const [editingField, setEditingField] = useState(null) // 编辑xpath的字段
+  
+  // 配置预览和保存
   const [generatedConfig, setGeneratedConfig] = useState(null)
+  const [testLoading, setTestLoading] = useState(false)
+  const [testResult, setTestResult] = useState(null)
+  const [siteName, setSiteName] = useState('') // 网站名称
+  const [baseUrl, setBaseUrl] = useState('') // 网站基础URL
+  const [saving, setSaving] = useState(false)
+  
+  // 三个步骤对应的URL
+  const [novelInfoUrl, setNovelInfoUrl] = useState('')
+  const [chapterListUrl, setChapterListUrl] = useState('')
+  const [chapterContentUrl, setChapterContentUrl] = useState('')
+
+  // 获取当前步骤类型
+  const getCurrentPageType = () => {
+    if (currentStep === 0) return 'novel_info'
+    if (currentStep === 1) return 'chapter_list'
+    if (currentStep === 2) return 'chapter_content'
+    return null
+  }
+
+  // 获取当前步骤的已识别字段
+  const getCurrentFields = () => {
+    if (currentStep === 0) return novelInfoFields
+    if (currentStep === 1) return chapterListFields
+    if (currentStep === 2) return chapterContentFields
+    return {}
+  }
+
+  // 设置当前步骤的已识别字段
+  const setCurrentFields = (fields) => {
+    if (currentStep === 0) setNovelInfoFields(fields)
+    else if (currentStep === 1) setChapterListFields(fields)
+    else if (currentStep === 2) setChapterContentFields(fields)
+  }
 
   // 渲染页面
   const handleRenderPage = async () => {
@@ -50,8 +115,22 @@ function ConfigWizard() {
 
       if (response.data.success) {
         setPageData(response.data)
+        // 保存当前步骤的URL
+        if (currentStep === 0) setNovelInfoUrl(targetUrl)
+        else if (currentStep === 1) setChapterListUrl(targetUrl)
+        else if (currentStep === 2) setChapterContentUrl(targetUrl)
+        
+        // 如果是第一次渲染，尝试从URL提取baseUrl
+        if (currentStep === 0 && !baseUrl) {
+          try {
+            const url = new URL(targetUrl)
+            setBaseUrl(url.origin)
+          } catch (e) {
+            // ignore
+          }
+        }
+        
         message.success('页面渲染成功！')
-        setCurrentStep(1)
       } else {
         message.error('渲染失败: ' + response.data.error)
       }
@@ -90,15 +169,243 @@ function ConfigWizard() {
     }
   }
 
+  // 保存已识别的字段
+  const handleSaveField = () => {
+    if (!selectedXpath && !editingField) {
+      message.warning('请先选择一个XPath')
+      return
+    }
+
+    const pageType = getCurrentPageType()
+    const currentFields = getCurrentFields()
+    const fieldInfo = FIELD_TYPES[pageType][selectedFieldType]
+    
+    const fieldConfig = {
+      type: 'xpath',
+      expression: selectedXpath,
+      index: selectedFieldType === 'tags' || selectedFieldType === 'items' || selectedFieldType === 'content' ? 999 : -1,
+      process: fieldInfo.defaultProcess,
+      default: null
+    }
+
+    setCurrentFields({
+      ...currentFields,
+      [selectedFieldType]: fieldConfig
+    })
+
+    message.success(`已保存字段: ${fieldInfo.label}`)
+    
+    // 清空当前选择，准备识别下一个字段
+    setCssSelector('')
+    setElementText('')
+    setXpathSuggestions([])
+    setSelectedXpath(null)
+    setManualXpath('')
+    setEditingField(null)
+  }
+
+  // 删除已识别的字段
+  const handleRemoveField = (fieldName) => {
+    const currentFields = getCurrentFields()
+    const newFields = { ...currentFields }
+    delete newFields[fieldName]
+    setCurrentFields(newFields)
+    message.success('已删除字段')
+  }
+
+  // 编辑字段的xpath
+  const handleEditField = (fieldName) => {
+    const currentFields = getCurrentFields()
+    const field = currentFields[fieldName]
+    if (field) {
+      setSelectedFieldType(fieldName)
+      setSelectedXpath(field.expression)
+      setManualXpath(field.expression)
+      setEditingField(fieldName)
+      // 滚动到输入区域
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+
+  // 更新字段的处理规则
+  const handleUpdateProcess = (fieldName, newProcess) => {
+    const currentFields = getCurrentFields()
+    setCurrentFields({
+      ...currentFields,
+      [fieldName]: {
+        ...currentFields[fieldName],
+        process: newProcess
+      }
+    })
+    message.success('已更新处理规则')
+    setEditingProcess(null)
+  }
+
+  // 进入下一步
+  const handleNextStep = () => {
+    const currentFields = getCurrentFields()
+    
+    if (Object.keys(currentFields).length === 0) {
+      message.warning('请至少配置一个字段')
+      return
+    }
+
+    if (currentStep < 3) {
+      setCurrentStep(currentStep + 1)
+      // 清空输入状态
+      setTargetUrl('')
+      setPageData(null)
+      setCssSelector('')
+      setElementText('')
+      setXpathSuggestions([])
+      setSelectedXpath(null)
+      setManualXpath('')
+      setEditingField(null)
+      setTestResult(null)
+      
+      // 设置下一步的默认字段
+      if (currentStep === 0) {
+        setSelectedFieldType('items') // 章节列表的第一个字段
+      } else if (currentStep === 1) {
+        setSelectedFieldType('content') // 章节内容的第一个字段
+      }
+    } else {
+      // 生成最终配置
+      handleGenerateConfig()
+    }
+  }
+
+  // 生成完整配置
+  const handleGenerateConfig = () => {
+    if (!siteName || !baseUrl) {
+      message.warning('请填写网站名称和基础URL')
+      return
+    }
+
+    const config = {
+      site_info: {
+        name: siteName,
+        base_url: baseUrl,
+        description: `${siteName}小说网站`
+      },
+      url_patterns: {
+        book_detail: '/book/{0}',
+        chapter_list: '/book/{0}',
+        chapter_content: '/chapter/{0}/{1}'
+      },
+      request_config: {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15'
+        },
+        timeout: 30,
+        encoding: null
+      },
+      crawler_config: {
+        delay: 0.5,
+        max_retries: 3
+      },
+      parsers: {
+        novel_info: novelInfoFields,
+        chapter_list: chapterListFields,
+        chapter_content: chapterContentFields
+      }
+    }
+
+    setGeneratedConfig(config)
+    setCurrentStep(3)
+  }
+
+  // 测试当前步骤配置
+  const handleTestCurrentStep = async () => {
+    const pageType = getCurrentPageType()
+    const currentFields = getCurrentFields()
+    const currentUrl = pageType === 'novel_info' ? novelInfoUrl : 
+                      pageType === 'chapter_list' ? chapterListUrl : 
+                      chapterContentUrl
+
+    if (!currentUrl) {
+      message.warning('请先渲染页面')
+      return
+    }
+
+    if (Object.keys(currentFields).length === 0) {
+      message.warning('请至少配置一个字段')
+      return
+    }
+
+    try {
+      setTestLoading(true)
+      setTestResult(null)
+
+      const testConfig = {
+        parsers: { [pageType]: currentFields },
+        site_info: { name: 'test', base_url: baseUrl || new URL(currentUrl).origin },
+        request_config: {},
+        crawler_config: {}
+      }
+
+      const response = await axios.post(`${API_BASE}/test-config`, {
+        url: currentUrl,
+        config: testConfig,
+        test_type: pageType
+      })
+
+      if (response.data.success) {
+        setTestResult(response.data.results)
+        message.success('测试完成！')
+      } else {
+        message.error('测试失败: ' + response.data.error)
+        setTestResult({ error: response.data.error })
+      }
+    } catch (error) {
+      message.error('测试请求失败: ' + error.message)
+      setTestResult({ error: error.message })
+    } finally {
+      setTestLoading(false)
+    }
+  }
+
+  // 保存配置到配置管理
+  const handleSaveConfig = async () => {
+    if (!generatedConfig) {
+      message.warning('请先生成配置')
+      return
+    }
+
+    try {
+      setSaving(true)
+      
+      const response = await axios.post(`${API_BASE}/config`, {
+        site_name: siteName,
+        config: generatedConfig
+      })
+
+      if (response.data.success) {
+        message.success('配置已保存到配置管理！')
+        setTimeout(() => navigate('/crawler'), 1000)
+      } else {
+        message.error('保存失败: ' + response.data.error)
+      }
+    } catch (error) {
+      message.error('保存失败: ' + error.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   // 步骤定义
   const steps = [
     {
-      title: '页面渲染',
-      description: '输入URL并渲染页面'
+      title: '小说基本信息',
+      description: '配置标题、作者等'
     },
     {
-      title: '元素识别',
-      description: '智能生成XPath'
+      title: '章节列表',
+      description: '配置章节列表解析'
+    },
+    {
+      title: '章节内容',
+      description: '配置正文内容解析'
     },
     {
       title: '配置预览',
@@ -126,75 +433,25 @@ function ConfigWizard() {
 
         <Steps current={currentStep} items={steps} style={{ marginBottom: 32 }} />
 
-        {/* 步骤1：页面渲染 */}
-        {currentStep === 0 && (
-          <Card title="📸 步骤1：渲染目标页面" size="small">
+        {/* 步骤0-2：配置各层级字段 */}
+        {(currentStep === 0 || currentStep === 1 || currentStep === 2) && (
+          <Card 
+            title={
+              currentStep === 0 ? '📚 步骤1：配置小说基本信息' :
+              currentStep === 1 ? '📑 步骤2：配置章节列表' :
+              '📄 步骤3：配置章节内容'
+            }
+            size="small"
+          >
             <Alert
-              message="提示"
-              description="输入要爬取的小说详情页或章节页URL，系统将使用浏览器渲染页面并截图。"
-              type="info"
-              showIcon
-              style={{ marginBottom: 24 }}
-            />
-
-            <Form layout="vertical">
-              <Form.Item label="目标URL" required>
-                <Input
-                  value={targetUrl}
-                  onChange={(e) => setTargetUrl(e.target.value)}
-                  placeholder="例如：https://m.ikbook8.com/book/41934.html"
-                  size="large"
-                />
-              </Form.Item>
-
-              <Button
-                type="primary"
-                size="large"
-                icon={<ThunderboltOutlined />}
-                onClick={handleRenderPage}
-                loading={renderLoading}
-                block
-              >
-                {renderLoading ? '渲染中...' : '开始渲染'}
-              </Button>
-            </Form>
-
-            {pageData && (
-              <div style={{ marginTop: 24 }}>
-                <Divider>渲染结果</Divider>
-                <Alert
-                  message={`页面标题: ${pageData.title}`}
-                  type="success"
-                  showIcon
-                  style={{ marginBottom: 16 }}
-                />
-                <div style={{
-                  border: '1px solid #d9d9d9',
-                  borderRadius: 8,
-                  overflow: 'auto',
-                  maxHeight: 600
-                }}>
-                  <Image
-                    src={pageData.screenshot}
-                    alt="页面截图"
-                    style={{ width: '100%' }}
-                  />
-                </div>
-              </div>
-            )}
-          </Card>
-        )}
-
-        {/* 步骤2：元素识别 */}
-        {currentStep === 1 && pageData && (
-          <Card title="🔍 步骤2：智能识别元素" size="small">
-            <Alert
-              message="使用指南"
+              message="配置流程"
               description={
                 <div>
-                  <p>1. 在浏览器开发者工具中找到目标元素</p>
-                  <p>2. 复制CSS选择器（推荐）或元素的文本内容</p>
-                  <p>3. 粘贴到下方输入框，系统将自动生成多种XPath建议</p>
+                  <p>1. 输入目标URL并渲染页面</p>
+                  <p>2. 使用浏览器开发者工具找到目标元素，复制CSS选择器</p>
+                  <p>3. 生成XPath建议并选择合适的</p>
+                  <p>4. 保存字段，重复以上步骤配置其他字段</p>
+                  <p>5. 可以随时测试配置效果，完成后进入下一步</p>
                 </div>
               }
               type="info"
@@ -202,8 +459,197 @@ function ConfigWizard() {
               style={{ marginBottom: 24 }}
             />
 
-            <Space direction="vertical" style={{ width: '100%' }} size="large">
+            {/* 网站基本信息（仅在第一步显示） */}
+            {currentStep === 0 && (
+              <Card title="网站信息" size="small" style={{ marginBottom: 24, background: '#f0f5ff' }}>
+                <Form layout="vertical">
+                  <Form.Item label="网站名称" required help="用于生成配置文件名，如 ikbook8">
+                    <Input
+                      value={siteName}
+                      onChange={(e) => setSiteName(e.target.value)}
+                      placeholder="例如：ikbook8"
+                      size="large"
+                    />
+                  </Form.Item>
+                  <Form.Item label="网站基础URL" required help="网站的域名，如 https://m.ikbook8.com">
+                    <Input
+                      value={baseUrl}
+                      onChange={(e) => setBaseUrl(e.target.value)}
+                      placeholder="例如：https://m.ikbook8.com"
+                      size="large"
+                    />
+                  </Form.Item>
+                </Form>
+              </Card>
+            )}
+
+            {/* 页面渲染区 */}
+            <Card title="渲染目标页面" size="small" style={{ marginBottom: 24 }}>
               <Form layout="vertical">
+                <Form.Item 
+                  label="目标URL" 
+                  required
+                  help={
+                    currentStep === 0 ? '小说详情页URL' :
+                    currentStep === 1 ? '章节列表页URL（通常和详情页相同）' :
+                    '任一章节内容页URL'
+                  }
+                >
+                  <Input
+                    value={targetUrl}
+                    onChange={(e) => setTargetUrl(e.target.value)}
+                    placeholder={
+                      currentStep === 0 ? '例如：https://m.ikbook8.com/book/41934.html' :
+                      currentStep === 1 ? '例如：https://m.ikbook8.com/book/41934.html' :
+                      '例如：https://m.ikbook8.com/novel/41934/1.html'
+                    }
+                    size="large"
+                  />
+                </Form.Item>
+
+                <Button
+                  type="primary"
+                  size="large"
+                  icon={<ThunderboltOutlined />}
+                  onClick={handleRenderPage}
+                  loading={renderLoading}
+                  block
+                >
+                  {renderLoading ? '渲染中...' : '开始渲染'}
+                </Button>
+              </Form>
+
+              {pageData && (
+                <div style={{ marginTop: 24 }}>
+                  <Divider>渲染结果</Divider>
+                  <Alert
+                    message={`页面标题: ${pageData.title}`}
+                    type="success"
+                    showIcon
+                    style={{ marginBottom: 16 }}
+                  />
+                  <div style={{
+                    border: '1px solid #d9d9d9',
+                    borderRadius: 8,
+                    overflow: 'auto',
+                    maxHeight: 600
+                  }}>
+                    <Image
+                      src={pageData.screenshot}
+                      alt="页面截图"
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                </div>
+              )}
+            </Card>
+
+            {/* 已识别字段显示 */}
+            {Object.keys(getCurrentFields()).length > 0 && (
+              <Card 
+                title={
+                  <Space>
+                    <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                    <span>已配置字段 ({Object.keys(getCurrentFields()).length})</span>
+                  </Space>
+                } 
+                size="small" 
+                style={{ marginBottom: 24, background: '#f6ffed', border: '1px solid #b7eb8f' }}
+              >
+                <List
+                  dataSource={Object.entries(getCurrentFields())}
+                  renderItem={([fieldName, config]) => (
+                    <List.Item
+                      actions={[
+                        <Button
+                          size="small"
+                          icon={<EditOutlined />}
+                          onClick={() => handleEditField(fieldName)}
+                        >
+                          修改xpath
+                        </Button>,
+                        <Button
+                          size="small"
+                          icon={<EditOutlined />}
+                          onClick={() => setEditingProcess(fieldName)}
+                        >
+                          编辑规则
+                        </Button>,
+                        <Button
+                          size="small"
+                          danger
+                          icon={<DeleteOutlined />}
+                          onClick={() => handleRemoveField(fieldName)}
+                        >
+                          删除
+                        </Button>
+                      ]}
+                    >
+                      <List.Item.Meta
+                        title={
+                          <Space>
+                            <Tag color="green">{FIELD_TYPES[getCurrentPageType()][fieldName]?.label || fieldName}</Tag>
+                            <Text code style={{ fontSize: 12 }}>{config.expression}</Text>
+                          </Space>
+                        }
+                        description={
+                          <div style={{ fontSize: 12 }}>
+                            <Text type="secondary">索引: {config.index}</Text>
+                            {config.process && config.process.length > 0 && (
+                              <Text type="secondary" style={{ marginLeft: 8 }}>
+                                | 后处理: {config.process.map(p => p.method).join(' → ')}
+                              </Text>
+                            )}
+                          </div>
+                        }
+                      />
+                    </List.Item>
+                  )}
+                />
+              </Card>
+            )}
+
+            {/* 字段识别表单 */}
+            <Card title="字段识别" size="small" style={{ marginBottom: 24 }}>
+              {editingField && (
+                <Alert
+                  message={`正在修改字段：${FIELD_TYPES[getCurrentPageType()][editingField]?.label}`}
+                  type="warning"
+                  showIcon
+                  closable
+                  onClose={() => {
+                    setEditingField(null)
+                    setCssSelector('')
+                    setElementText('')
+                    setXpathSuggestions([])
+                    setSelectedXpath(null)
+                    setManualXpath('')
+                  }}
+                  style={{ marginBottom: 16 }}
+                />
+              )}
+              
+              <Space direction="vertical" style={{ width: '100%' }} size="large">
+                <Form layout="vertical">
+                  <Form.Item label="选择要配置的字段" required>
+                    <Select
+                      value={selectedFieldType}
+                      onChange={setSelectedFieldType}
+                      size="large"
+                      style={{ width: '100%' }}
+                    >
+                      {Object.entries(FIELD_TYPES[getCurrentPageType()]).map(([key, info]) => (
+                        <Select.Option key={key} value={key} disabled={!!getCurrentFields()[key] && editingField !== key}>
+                          <Space>
+                            {getCurrentFields()[key] && <CheckCircleOutlined style={{ color: '#52c41a' }} />}
+                            <span>{info.label}</span>
+                            {info.note && <Text type="secondary" style={{ fontSize: 12 }}>({info.note})</Text>}
+                          </Space>
+                        </Select.Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+
                 <Form.Item label="CSS选择器（推荐）">
                   <Input
                     value={cssSelector}
@@ -237,6 +683,14 @@ function ConfigWizard() {
               {xpathSuggestions.length > 0 && (
                 <>
                   <Divider>XPath建议（共{xpathSuggestions.length}个）</Divider>
+                  <Alert
+                    message="提示"
+                    description="绿色标签表示推荐使用，蓝色标签表示一般通用，橙色标签表示可能不精确。如果建议都不合适，可以下方手动输入。"
+                    type="info"
+                    showIcon
+                    closable
+                    style={{ marginBottom: 16 }}
+                  />
                   <List
                     dataSource={xpathSuggestions}
                     renderItem={(item, index) => (
@@ -246,7 +700,10 @@ function ConfigWizard() {
                             type={selectedXpath === item.xpath ? 'primary' : 'default'}
                             size="small"
                             icon={selectedXpath === item.xpath ? <CheckCircleOutlined /> : <EyeOutlined />}
-                            onClick={() => setSelectedXpath(item.xpath)}
+                            onClick={() => {
+                              setSelectedXpath(item.xpath)
+                              setManualXpath('') // 清空手动输入
+                            }}
                           >
                             {selectedXpath === item.xpath ? '已选择' : '选择'}
                           </Button>,
@@ -265,97 +722,517 @@ function ConfigWizard() {
                         <List.Item.Meta
                           title={
                             <Space>
-                              <Tag color="blue">{item.type}</Tag>
-                              <span style={{ fontFamily: 'monospace' }}>{item.xpath}</span>
+                              <Tag color={item.priority <= 2 ? 'green' : item.priority <= 4 ? 'blue' : 'orange'}>
+                                {item.type}
+                              </Tag>
+                              <span style={{ fontFamily: 'monospace', fontSize: 13 }}>{item.xpath}</span>
                             </Space>
                           }
-                          description={`优先级: ${item.priority}`}
+                          description={
+                            <div style={{ fontSize: 12 }}>
+                              {item.description && <Text type="secondary">{item.description}</Text>}
+                            </div>
+                          }
                         />
                       </List.Item>
                     )}
                   />
+                  
+                  <Divider>或手动输入XPath</Divider>
+                  <Form layout="vertical">
+                    <Form.Item label="自定义XPath表达式" help="如果自动生成的建议都不合适，可以手动输入XPath">
+                      <Input
+                        value={manualXpath}
+                        onChange={(e) => {
+                          setManualXpath(e.target.value)
+                          if (e.target.value) {
+                            setSelectedXpath(e.target.value)
+                          }
+                        }}
+                        placeholder="例如：//div[@class='book-info']/h1"
+                        size="large"
+                        prefix={<EditOutlined />}
+                      />
+                    </Form.Item>
+                  </Form>
                 </>
               )}
 
               {selectedXpath && (
-                <Alert
-                  message="已选择XPath"
-                  description={<code style={{ fontSize: 14 }}>{selectedXpath}</code>}
-                  type="success"
-                  showIcon
-                />
+                <div>
+                  <Alert
+                    message={`已选择XPath用于字段：${FIELD_TYPES[getCurrentPageType()][selectedFieldType]?.label}`}
+                    description={<code style={{ fontSize: 14 }}>{selectedXpath}</code>}
+                    type="success"
+                    showIcon
+                  />
+                  <Button
+                    type="primary"
+                    size="large"
+                    icon={<SaveOutlined />}
+                    onClick={handleSaveField}
+                    style={{ marginTop: 12, width: '100%' }}
+                  >
+                    保存此字段
+                  </Button>
+                </div>
               )}
             </Space>
+          </Card>
 
-            <div style={{ marginTop: 24, display: 'flex', justifyContent: 'space-between' }}>
-              <Button onClick={() => setCurrentStep(0)}>
-                上一步
+          {/* 测试和导航按钮 */}
+          <div style={{ marginTop: 24, display: 'flex', justifyContent: 'space-between' }}>
+            <Button 
+              onClick={() => {
+                if (currentStep > 0) {
+                  setCurrentStep(currentStep - 1)
+                  setTargetUrl(currentStep === 1 ? novelInfoUrl : currentStep === 2 ? chapterListUrl : '')
+                  setTestResult(null)
+                }
+              }}
+              disabled={currentStep === 0}
+            >
+              上一步
+            </Button>
+            <Space>
+              <Button
+                type="default"
+                icon={<ExperimentOutlined />}
+                onClick={handleTestCurrentStep}
+                loading={testLoading}
+                disabled={Object.keys(getCurrentFields()).length === 0}
+              >
+                测试配置
+              </Button>
+              <Button
+                type="default"
+                onClick={() => {
+                  // 重置当前识别状态
+                  setCssSelector('')
+                  setElementText('')
+                  setXpathSuggestions([])
+                  setSelectedXpath(null)
+                  setManualXpath('')
+                  setEditingField(null)
+                }}
+              >
+                清空选择
               </Button>
               <Button
                 type="primary"
-                onClick={() => {
-                  if (selectedXpath) {
-                    setCurrentStep(2)
-                  } else {
-                    message.warning('请先选择一个XPath')
-                  }
-                }}
+                icon={<ArrowRightOutlined />}
+                onClick={handleNextStep}
+                disabled={Object.keys(getCurrentFields()).length === 0}
               >
-                下一步 <ArrowRightOutlined />
+                {currentStep === 2 ? '生成配置' : '下一步'}
               </Button>
-            </div>
+            </Space>
+          </div>
+
+          {/* 测试结果显示 */}
+          {testResult && (
+            <Card title="测试结果" size="small" style={{ marginTop: 24 }}>
+              {testResult.error ? (
+                <Alert
+                  message="测试失败"
+                  description={
+                    <pre style={{ 
+                      margin: 0, 
+                      whiteSpace: 'pre-wrap', 
+                      wordBreak: 'break-word',
+                      maxHeight: 400,
+                      overflow: 'auto'
+                    }}>
+                      {testResult.error}
+                    </pre>
+                  }
+                  type="error"
+                />
+              ) : (
+                <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                  <Alert
+                    message="测试成功"
+                    type="success"
+                    showIcon
+                    icon={<CheckCircleOutlined />}
+                  />
+                  
+                  {/* 小说信息测试结果 */}
+                  {getCurrentPageType() === 'novel_info' && testResult.data && (
+                    <Descriptions bordered column={1} size="small">
+                      {Object.entries(testResult.data).map(([key, value]) => (
+                        <Descriptions.Item 
+                          key={key} 
+                          label={FIELD_TYPES[getCurrentPageType()][key]?.label || key}
+                        >
+                          {value !== null && value !== undefined ? (
+                            typeof value === 'object' ? (
+                              <pre style={{ margin: 0 }}>
+                                {JSON.stringify(value, null, 2)}
+                              </pre>
+                            ) : (
+                              String(value)
+                            )
+                          ) : (
+                            <span style={{ color: '#999' }}>null</span>
+                          )}
+                        </Descriptions.Item>
+                      ))}
+                    </Descriptions>
+                  )}
+
+                  {/* 章节列表测试结果 */}
+                  {getCurrentPageType() === 'chapter_list' && (
+                    <>
+                      <Descriptions bordered column={1} size="small">
+                        <Descriptions.Item label="总章节数">
+                          {testResult.total}
+                        </Descriptions.Item>
+                      </Descriptions>
+                      
+                      {testResult.sample && testResult.sample.length > 0 && (
+                        <>
+                          <Divider>章节示例（前5章）</Divider>
+                          {testResult.sample.map((chapter, idx) => (
+                            <Card key={idx} size="small" style={{ marginBottom: 8 }}>
+                              <Descriptions column={1} size="small">
+                                <Descriptions.Item label="标题">
+                                  {chapter.title}
+                                </Descriptions.Item>
+                                <Descriptions.Item label="链接">
+                                  {chapter.url}
+                                </Descriptions.Item>
+                              </Descriptions>
+                            </Card>
+                          ))}
+                        </>
+                      )}
+                    </>
+                  )}
+
+                  {/* 章节内容测试结果 */}
+                  {getCurrentPageType() === 'chapter_content' && (
+                    <>
+                      <Descriptions bordered column={1} size="small">
+                        <Descriptions.Item label="内容长度">
+                          {testResult.length} 字
+                        </Descriptions.Item>
+                      </Descriptions>
+                      
+                      <Divider>内容预览</Divider>
+                      <div style={{
+                        padding: 16,
+                        background: '#f5f5f5',
+                        borderRadius: 8,
+                        maxHeight: 400,
+                        overflow: 'auto',
+                        whiteSpace: 'pre-wrap',
+                        lineHeight: 1.8
+                      }}>
+                        {testResult.full_content || testResult.preview || '内容为空'}
+                      </div>
+                    </>
+                  )}
+                </Space>
+              )}
+            </Card>
+          )}
           </Card>
         )}
 
         {/* 步骤3：配置预览 */}
-        {currentStep === 2 && (
-          <Card title="📝 步骤3：配置预览与保存" size="small">
+        {currentStep === 3 && generatedConfig && (
+          <Card title="📝 步骤4：配置预览与保存" size="small">
             <Alert
-              message="功能开发中"
-              description="此功能将在后续版本中完善，当前可以复制XPath并手动填写到配置编辑器中。"
-              type="warning"
+              message="配置生成成功"
+              description="已生成完整配置。你可以查看配置摘要，测试各个模块效果，然后保存到配置管理。"
+              type="success"
               showIcon
               style={{ marginBottom: 24 }}
             />
 
-            <div style={{
-              padding: 16,
-              background: '#f5f5f5',
-              borderRadius: 8,
-              fontFamily: 'monospace'
-            }}>
-              <div>已选择的XPath:</div>
-              <div style={{ marginTop: 8, fontSize: 14, color: '#1890ff' }}>
-                {selectedXpath}
-              </div>
-            </div>
+            <Space direction="vertical" style={{ width: '100%' }} size="large">
+              {/* 配置摘要 */}
+              <Card title="配置摘要" size="small" type="inner">
+                <Descriptions bordered column={1} size="small">
+                  <Descriptions.Item label="网站名称">
+                    {siteName}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="网站URL">
+                    {baseUrl}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="小说信息字段">
+                    <Space wrap>
+                      {Object.keys(novelInfoFields).map(field => (
+                        <Tag key={field} color="green">
+                          {FIELD_TYPES.novel_info[field]?.label || field}
+                        </Tag>
+                      ))}
+                    </Space>
+                    <Text type="secondary" style={{ marginLeft: 8 }}>
+                      ({Object.keys(novelInfoFields).length} 个)
+                    </Text>
+                  </Descriptions.Item>
+                  <Descriptions.Item label="章节列表字段">
+                    <Space wrap>
+                      {Object.keys(chapterListFields).map(field => (
+                        <Tag key={field} color="blue">
+                          {FIELD_TYPES.chapter_list[field]?.label || field}
+                        </Tag>
+                      ))}
+                    </Space>
+                    <Text type="secondary" style={{ marginLeft: 8 }}>
+                      ({Object.keys(chapterListFields).length} 个)
+                    </Text>
+                  </Descriptions.Item>
+                  <Descriptions.Item label="章节内容字段">
+                    <Space wrap>
+                      {Object.keys(chapterContentFields).map(field => (
+                        <Tag key={field} color="orange">
+                          {FIELD_TYPES.chapter_content[field]?.label || field}
+                        </Tag>
+                      ))}
+                    </Space>
+                    <Text type="secondary" style={{ marginLeft: 8 }}>
+                      ({Object.keys(chapterContentFields).length} 个)
+                    </Text>
+                  </Descriptions.Item>
+                </Descriptions>
+              </Card>
+
+
+              {/* JSON配置 */}
+              <Card 
+                title={
+                  <Space>
+                    <CodeOutlined />
+                    <span>JSON配置</span>
+                  </Space>
+                }
+                size="small" 
+                type="inner"
+                extra={
+                  <Button
+                    size="small"
+                    icon={<CopyOutlined />}
+                    onClick={() => {
+                      navigator.clipboard.writeText(JSON.stringify(generatedConfig, null, 2))
+                      message.success('配置已复制到剪贴板')
+                    }}
+                  >
+                    复制JSON
+                  </Button>
+                }
+              >
+                <div style={{
+                  padding: 16,
+                  background: '#f5f5f5',
+                  borderRadius: 8,
+                  fontFamily: 'Monaco, Courier New, monospace',
+                  fontSize: 13,
+                  maxHeight: 400,
+                  overflow: 'auto'
+                }}>
+                  <pre style={{ margin: 0 }}>
+                    {JSON.stringify(generatedConfig, null, 2)}
+                  </pre>
+                </div>
+              </Card>
+            </Space>
 
             <div style={{ marginTop: 24, display: 'flex', justifyContent: 'space-between' }}>
-              <Button onClick={() => setCurrentStep(1)}>
+              <Button onClick={() => setCurrentStep(2)}>
                 上一步
               </Button>
               <Space>
                 <Button
+                  icon={<CopyOutlined />}
                   onClick={() => {
-                    navigator.clipboard.writeText(selectedXpath)
-                    message.success('XPath已复制，可以粘贴到配置编辑器中')
+                    navigator.clipboard.writeText(JSON.stringify(generatedConfig, null, 2))
+                    message.success('配置已复制到剪贴板')
                   }}
                 >
-                  复制XPath
+                  复制JSON
                 </Button>
                 <Button
                   type="primary"
+                  size="large"
                   icon={<SaveOutlined />}
-                  onClick={() => navigate('/crawler/config/new')}
+                  onClick={handleSaveConfig}
+                  loading={saving}
                 >
-                  前往配置编辑器
+                  {saving ? '保存中...' : '保存配置'}
                 </Button>
               </Space>
             </div>
           </Card>
         )}
+
+        {/* 处理规则编辑对话框 */}
+        <ProcessRuleEditor
+          visible={!!editingProcess}
+          fieldName={editingProcess}
+          fieldLabel={editingProcess && FIELD_TYPES[getCurrentPageType()][editingProcess]?.label}
+          processRules={editingProcess && getCurrentFields()[editingProcess]?.process || []}
+          onSave={(newProcess) => handleUpdateProcess(editingProcess, newProcess)}
+          onCancel={() => setEditingProcess(null)}
+        />
       </Card>
     </div>
+  )
+}
+
+// Process规则编辑器组件
+function ProcessRuleEditor({ visible, fieldName, fieldLabel, processRules, onSave, onCancel }) {
+  const [rules, setRules] = useState([])
+  
+  // 当对话框打开时，初始化规则
+  useEffect(() => {
+    if (visible && processRules) {
+      setRules(JSON.parse(JSON.stringify(processRules)))
+    }
+  }, [visible, processRules])
+  
+  // 处理方法选项
+  const METHOD_OPTIONS = [
+    { value: 'strip', label: 'strip - 去除首尾空白', params: ['chars'] },
+    { value: 'replace', label: 'replace - 字符串替换', params: ['old', 'new'] },
+    { value: 're_sub', label: 're_sub - 正则替换', params: ['pattern', 'repl'] },
+    { value: 'join', label: 'join - 连接数组', params: ['separator'] },
+    { value: 'split', label: 'split - 分割字符串', params: ['separator'] },
+    { value: 'upper', label: 'upper - 转大写', params: [] },
+    { value: 'lower', label: 'lower - 转小写', params: [] },
+    { value: 'capitalize', label: 'capitalize - 首字母大写', params: [] },
+    { value: 'get_item', label: 'get_item - 获取列表项', params: ['index'] }
+  ]
+  
+  const addRule = () => {
+    setRules([...rules, { method: 'strip', params: {} }])
+  }
+  
+  const removeRule = (index) => {
+    setRules(rules.filter((_, i) => i !== index))
+  }
+  
+  const updateRule = (index, field, value) => {
+    const newRules = [...rules]
+    newRules[index][field] = value
+    setRules(newRules)
+  }
+  
+  const updateRuleParam = (index, paramName, value) => {
+    const newRules = [...rules]
+    newRules[index].params[paramName] = value
+    setRules(newRules)
+  }
+  
+  const handleSave = () => {
+    onSave(rules)
+  }
+  
+  // 获取方法需要的参数
+  const getMethodParams = (method) => {
+    const option = METHOD_OPTIONS.find(opt => opt.value === method)
+    return option ? option.params : []
+  }
+  
+  return (
+    <Modal
+      open={visible}
+      title={
+        <Space>
+          <EditOutlined />
+          <span>编辑处理规则：{fieldLabel}</span>
+        </Space>
+      }
+      width={700}
+      onCancel={onCancel}
+      onOk={handleSave}
+      okText="保存"
+      cancelText="取消"
+    >
+      <Alert
+        message="处理规则说明"
+        description="这些规则将按顺序对提取的内容进行处理。例如：先strip去空格，再replace替换特定字符。"
+        type="info"
+        showIcon
+        closable
+        style={{ marginBottom: 16 }}
+      />
+      
+      <Space direction="vertical" style={{ width: '100%' }} size="middle">
+        {rules.map((rule, index) => (
+          <Card
+            key={index}
+            size="small"
+            title={`规则 ${index + 1}`}
+            extra={
+              <Button
+                size="small"
+                danger
+                icon={<DeleteOutlined />}
+                onClick={() => removeRule(index)}
+              >
+                删除
+              </Button>
+            }
+          >
+            <Form layout="vertical" size="small">
+              <Form.Item label="处理方法">
+                <Select
+                  value={rule.method}
+                  onChange={(value) => {
+                    updateRule(index, 'method', value)
+                    updateRule(index, 'params', {}) // 清空参数
+                  }}
+                  style={{ width: '100%' }}
+                >
+                  {METHOD_OPTIONS.map(opt => (
+                    <Select.Option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+              
+              {/* 根据方法动态显示参数 */}
+              {getMethodParams(rule.method).map(paramName => (
+                <Form.Item key={paramName} label={paramName === 'old' ? '原字符串' : paramName === 'new' ? '新字符串' : paramName === 'pattern' ? '正则模式' : paramName === 'repl' ? '替换文本' : paramName === 'separator' ? '分隔符' : paramName === 'chars' ? '要去除的字符' : paramName === 'index' ? '索引位置' : paramName}>
+                  {paramName === 'index' ? (
+                    <InputNumber
+                      value={rule.params[paramName] || 0}
+                      onChange={(value) => updateRuleParam(index, paramName, value)}
+                      style={{ width: '100%' }}
+                      placeholder="0=第一个, -1=最后一个"
+                    />
+                  ) : (
+                    <Input
+                      value={rule.params[paramName] || ''}
+                      onChange={(e) => updateRuleParam(index, paramName, e.target.value)}
+                      placeholder={
+                        paramName === 'separator' ? '例如：\\n 或 , ' :
+                        paramName === 'old' ? '例如：作者：' :
+                        paramName === 'pattern' ? '例如：广告.*?内容' :
+                        '留空使用默认值'
+                      }
+                    />
+                  )}
+                </Form.Item>
+              ))}
+            </Form>
+          </Card>
+        ))}
+        
+        <Button
+          type="dashed"
+          icon={<PlusOutlined />}
+          onClick={addRule}
+          block
+        >
+          添加处理规则
+        </Button>
+      </Space>
+    </Modal>
   )
 }
 

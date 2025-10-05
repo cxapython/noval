@@ -535,7 +535,7 @@ class GenericNovelCrawler:
                 self.novel_info.get('title'),
                 self.novel_info.get('author', '未知'),
                 self.start_url,
-                cover_url=self.novel_info.get('cover', '')
+                cover_url=self.novel_info.get('cover_url', '')
             )
             if not self.novel_id:
                 logger.error("❌ 保存小说信息失败")
