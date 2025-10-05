@@ -854,4 +854,40 @@ class GenericNovelCrawler:
         total_words = sum(len(ch['content']) for ch in self.chapters)
         logger.info(f"总字数: {total_words:,} 字")
         logger.info(f"{'=' * 60}")
+    
+    def run(self):
+        """
+        运行爬虫（完整流程）
+        1. 解析章节列表
+        2. 下载所有章节
+        3. 打印摘要
+        """
+        try:
+            logger.info("=" * 60)
+            logger.info(f"🚀 开始运行爬虫: {self.site_name}")
+            logger.info(f"📖 书籍ID: {self.book_id}")
+            logger.info("=" * 60)
+            
+            # 1. 解析章节列表
+            if not self.parse_chapter_list():
+                logger.error("❌ 解析章节列表失败")
+                return False
+            
+            # 2. 下载所有章节
+            if not self.download_all_chapters():
+                logger.error("❌ 下载章节失败")
+                return False
+            
+            # 3. 打印摘要
+            self.print_summary()
+            
+            logger.info("=" * 60)
+            logger.info("✅ 爬虫运行完成！")
+            logger.info("=" * 60)
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ 爬虫运行失败: {e}")
+            raise
 
