@@ -4,6 +4,7 @@ import zhCN from 'antd/locale/zh_CN'
 import Layout from './components/Layout'
 import CrawlerManager from './pages/CrawlerManager'
 import ConfigEditorPage from './pages/ConfigEditorPage'
+import ConfigWizard from './pages/ConfigWizard'
 import NovelReader from './pages/NovelReader'
 import './App.css'
 
@@ -25,6 +26,7 @@ function App() {
             <Route path="/" element={<Navigate to="/crawler" replace />} />
             <Route path="/crawler" element={<CrawlerManager />} />
             <Route path="/crawler/edit" element={<ConfigEditorPage />} />
+            <Route path="/crawler/wizard" element={<ConfigWizard />} />
             <Route path="/reader" element={<NovelReader />} />
             <Route path="/reader/:novelId" element={<NovelReader />} />
           </Routes>

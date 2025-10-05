@@ -6,9 +6,11 @@
 import json
 import os
 import requests
+import base64
 from pathlib import Path
 from flask import Blueprint, request, jsonify
 from loguru import logger
+from playwright.sync_api import sync_playwright
 
 crawler_bp = Blueprint('crawler', __name__)
 
@@ -381,6 +383,167 @@ def test_parser():
     
     except Exception as e:
         logger.error(f"❌ 测试解析器失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@crawler_bp.route('/render-page', methods=['POST'])
+def render_page():
+    """渲染页面并返回截图和HTML"""
+    try:
+        data = request.json
+        url = data.get('url', '').strip()
+        
+        if not url:
+            return jsonify({'success': False, 'error': 'URL不能为空'}), 400
+        
+        logger.info(f"📸 开始渲染页面: {url}")
+        
+        with sync_playwright() as p:
+            # 启动浏览器
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page(
+                viewport={'width': 1280, 'height': 1024},
+                user_agent='Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15'
+            )
+            
+            try:
+                # 访问页面
+                page.goto(url, wait_until='networkidle', timeout=30000)
+                
+                # 获取页面HTML
+                html = page.content()
+                
+                # 获取截图
+                screenshot_bytes = page.screenshot(full_page=True)
+                screenshot_base64 = base64.b64encode(screenshot_bytes).decode('utf-8')
+                
+                # 获取页面标题
+                title = page.title()
+                
+                browser.close()
+                
+                logger.info(f"✅ 页面渲染成功: {title}")
+                
+                return jsonify({
+                    'success': True,
+                    'title': title,
+                    'html': html[:50000],  # 限制HTML大小
+                    'html_length': len(html),
+                    'screenshot': f'data:image/png;base64,{screenshot_base64}'
+                })
+                
+            except Exception as e:
+                browser.close()
+                raise e
+                
+    except Exception as e:
+        logger.error(f"❌ 渲染页面失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@crawler_bp.route('/generate-xpath', methods=['POST'])
+def generate_xpath():
+    """根据CSS选择器或元素信息生成XPath"""
+    try:
+        data = request.json
+        url = data.get('url', '').strip()
+        selector = data.get('selector', '').strip()  # CSS选择器
+        element_text = data.get('element_text', '').strip()  # 元素文本内容
+        
+        if not url:
+            return jsonify({'success': False, 'error': 'URL不能为空'}), 400
+        
+        logger.info(f"🔍 生成XPath: URL={url}, Selector={selector}, Text={element_text}")
+        
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+            
+            try:
+                page.goto(url, wait_until='networkidle', timeout=30000)
+                
+                # 获取元素并生成多种XPath建议
+                xpath_suggestions = []
+                
+                # 方法1：基于CSS选择器转换
+                if selector:
+                    try:
+                        element = page.query_selector(selector)
+                        if element:
+                            # 获取元素信息
+                            tag_name = element.evaluate('el => el.tagName.toLowerCase()')
+                            class_name = element.get_attribute('class')
+                            id_attr = element.get_attribute('id')
+                            text_content = element.text_content()
+                            
+                            # 生成多种XPath
+                            if id_attr:
+                                xpath_suggestions.append({
+                                    'xpath': f'//{tag_name}[@id="{id_attr}"]',
+                                    'type': '基于ID',
+                                    'priority': 1
+                                })
+                            
+                            if class_name:
+                                classes = class_name.strip().split()
+                                if classes:
+                                    class_xpath = f'//{tag_name}[@class="{class_name}"]'
+                                    xpath_suggestions.append({
+                                        'xpath': class_xpath,
+                                        'type': '基于完整class',
+                                        'priority': 2
+                                    })
+                                    
+                                    # 基于单个class
+                                    for cls in classes[:2]:  # 最多前两个class
+                                        xpath_suggestions.append({
+                                            'xpath': f'//{tag_name}[contains(@class, "{cls}")]',
+                                            'type': f'基于class: {cls}',
+                                            'priority': 3
+                                        })
+                            
+                            if text_content and len(text_content.strip()) > 0:
+                                text = text_content.strip()[:30]  # 限制长度
+                                xpath_suggestions.append({
+                                    'xpath': f'//{tag_name}[contains(text(), "{text}")]',
+                                    'type': '基于文本内容',
+                                    'priority': 4
+                                })
+                    except Exception as e:
+                        logger.warning(f"⚠️  CSS选择器处理失败: {e}")
+                
+                # 方法2：基于文本内容搜索
+                if element_text and len(xpath_suggestions) == 0:
+                    xpath_suggestions.append({
+                        'xpath': f'//*[contains(text(), "{element_text}")]',
+                        'type': '通用文本搜索',
+                        'priority': 5
+                    })
+                
+                # 按优先级排序
+                xpath_suggestions.sort(key=lambda x: x['priority'])
+                
+                browser.close()
+                
+                if not xpath_suggestions:
+                    return jsonify({
+                        'success': False,
+                        'error': '未能生成XPath建议，请检查选择器是否正确'
+                    }), 400
+                
+                logger.info(f"✅ 生成了 {len(xpath_suggestions)} 个XPath建议")
+                
+                return jsonify({
+                    'success': True,
+                    'suggestions': xpath_suggestions
+                })
+                
+            except Exception as e:
+                browser.close()
+                raise e
+                
+    except Exception as e:
+        logger.error(f"❌ 生成XPath失败: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

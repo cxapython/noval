@@ -6,7 +6,8 @@ import {
 } from 'antd'
 import { 
   PlusOutlined, DeleteOutlined, 
-  CodeOutlined, FileTextOutlined, EditOutlined 
+  CodeOutlined, FileTextOutlined, EditOutlined,
+  ExperimentOutlined 
 } from '@ant-design/icons'
 import axios from 'axios'
 import CodeEditor from '../components/CodeEditor'
@@ -116,14 +117,23 @@ function CrawlerManager() {
           </Space>
         }
         extra={
-          <Button 
-            type="primary" 
-            size="large"
-            icon={<PlusOutlined />} 
-            onClick={handleCreateNew}
-          >
-            新建配置
-          </Button>
+          <Space>
+            <Button 
+              size="large"
+              icon={<ExperimentOutlined />} 
+              onClick={() => navigate('/crawler/wizard')}
+            >
+              智能向导
+            </Button>
+            <Button 
+              type="primary" 
+              size="large"
+              icon={<PlusOutlined />} 
+              onClick={handleCreateNew}
+            >
+              新建配置
+            </Button>
+          </Space>
         }
       >
         {configs.length === 0 ? (
