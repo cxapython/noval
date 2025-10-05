@@ -39,7 +39,6 @@ package-lock.json
 Thumbs.db
 
 # Config (可能包含敏感信息)
-shared/utils/config.py
 shared/utils/proxy_utils.py
 
 # Data
