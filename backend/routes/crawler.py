@@ -71,15 +71,21 @@ def create_config():
     """创建新配置文件"""
     try:
         data = request.json
+        logger.info(f"接收到创建配置请求: {data}")
+        
         site_name = data.get('site_name', '').strip()
         
         if not site_name:
+            logger.warning("创建配置失败: 网站名称为空")
             return jsonify({'success': False, 'error': '网站名称不能为空'}), 400
         
         filename = f"config_{site_name}.json"
         config_path = CONFIG_DIR / filename
         
+        logger.info(f"将创建配置文件: {config_path}")
+        
         if config_path.exists():
+            logger.warning(f"创建配置失败: 文件已存在 {filename}")
             return jsonify({'success': False, 'error': '配置文件已存在'}), 400
         
         template_path = CONFIG_DIR / 'config_template.json'
@@ -88,16 +94,27 @@ def create_config():
         
         if 'config' in data:
             config_content = data['config']
+            logger.info("使用请求中提供的配置内容")
         else:
             config_content = template
             config_content['site_info']['name'] = site_name
+            logger.info("使用模板创建配置内容")
         
-        with open(config_path, 'w', encoding='utf-8') as f:
-            json.dump(config_content, f, ensure_ascii=False, indent=2)
+        # 确保配置目录存在
+        os.makedirs(os.path.dirname(config_path), exist_ok=True)
+        
+        try:
+            with open(config_path, 'w', encoding='utf-8') as f:
+                json.dump(config_content, f, ensure_ascii=False, indent=2)
+            logger.info(f"✅ 配置文件创建成功: {filename}")
+        except Exception as write_error:
+            logger.error(f"❌ 写入配置文件失败: {write_error}")
+            return jsonify({'success': False, 'error': f'写入文件失败: {str(write_error)}'}), 500
         
         return jsonify({'success': True, 'filename': filename})
     
     except Exception as e:
+        logger.error(f"❌ 创建配置文件失败: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -441,6 +458,19 @@ def render_page():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+def selector_to_xpath(css_selector):
+    """简单的CSS选择器转XPath（基础实现）"""
+    if not css_selector:
+        return '//*'
+    # 简单转换，处理常见情况
+    xpath = css_selector
+    xpath = xpath.replace('>', '/')
+    xpath = xpath.replace(' ', '//')
+    if not xpath.startswith('//'):
+        xpath = '//' + xpath
+    return xpath
+
+
 @crawler_bp.route('/generate-xpath', methods=['POST'])
 def generate_xpath():
     """根据CSS选择器或元素信息生成XPath"""
@@ -474,50 +504,97 @@ def generate_xpath():
                             tag_name = element.evaluate('el => el.tagName.toLowerCase()')
                             class_name = element.get_attribute('class')
                             id_attr = element.get_attribute('id')
-                            text_content = element.text_content()
                             
-                            # 生成多种XPath
+                            # 获取父元素和兄弟元素信息，生成更通用的结构化XPath
+                            parent_tag = element.evaluate('el => el.parentElement?.tagName?.toLowerCase() || ""')
+                            parent_class = element.evaluate('el => el.parentElement?.className || ""')
+                            
+                            # 生成多种XPath（优先使用结构化路径，避免具体文本）
+                            
+                            # 优先级1: 基于ID（最稳定）
                             if id_attr:
                                 xpath_suggestions.append({
                                     'xpath': f'//{tag_name}[@id="{id_attr}"]',
-                                    'type': '基于ID',
+                                    'type': '✅ ID选择器（推荐）',
+                                    'description': '基于唯一ID，最稳定',
                                     'priority': 1
                                 })
                             
+                            # 优先级2: 基于完整class
                             if class_name:
                                 classes = class_name.strip().split()
                                 if classes:
                                     class_xpath = f'//{tag_name}[@class="{class_name}"]'
                                     xpath_suggestions.append({
                                         'xpath': class_xpath,
-                                        'type': '基于完整class',
+                                        'type': '⚡ 完整Class（精确）',
+                                        'description': f'匹配完整class属性',
                                         'priority': 2
                                     })
                                     
-                                    # 基于单个class
-                                    for cls in classes[:2]:  # 最多前两个class
+                                    # 优先级3: 基于单个class（更通用）
+                                    for cls in classes[:3]:  # 最多前3个class
                                         xpath_suggestions.append({
                                             'xpath': f'//{tag_name}[contains(@class, "{cls}")]',
-                                            'type': f'基于class: {cls}',
+                                            'type': f'🎯 单个Class: {cls}',
+                                            'description': f'匹配包含该class的元素',
                                             'priority': 3
                                         })
                             
-                            if text_content and len(text_content.strip()) > 0:
-                                text = text_content.strip()[:30]  # 限制长度
-                                xpath_suggestions.append({
-                                    'xpath': f'//{tag_name}[contains(text(), "{text}")]',
-                                    'type': '基于文本内容',
-                                    'priority': 4
-                                })
+                            # 优先级4: 基于父元素结构（通用）
+                            if parent_tag and parent_class:
+                                parent_classes = parent_class.strip().split()
+                                if parent_classes:
+                                    # 父元素class + 子元素tag
+                                    xpath_suggestions.append({
+                                        'xpath': f'//{parent_tag}[contains(@class, "{parent_classes[0]}")]//{tag_name}',
+                                        'type': f'🏗️ 结构路径（通用）',
+                                        'description': f'从父元素向下查找',
+                                        'priority': 4
+                                    })
+                            
+                            # 优先级5: 基于标签名的位置索引
+                            # 计算同级同类型元素的位置
+                            try:
+                                position = element.evaluate('''
+                                    el => {
+                                        let pos = 1;
+                                        let prev = el.previousElementSibling;
+                                        while (prev) {
+                                            if (prev.tagName === el.tagName) pos++;
+                                            prev = prev.previousElementSibling;
+                                        }
+                                        return pos;
+                                    }
+                                ''')
+                                if position > 1:
+                                    xpath_suggestions.append({
+                                        'xpath': f'({selector_to_xpath(selector)})[{position}]',
+                                        'type': f'📍 位置索引',
+                                        'description': f'第{position}个同类元素',
+                                        'priority': 5
+                                    })
+                            except:
+                                pass
+                            
+                            # 优先级6: 纯标签名（最通用，但可能匹配多个）
+                            xpath_suggestions.append({
+                                'xpath': f'//{tag_name}',
+                                'type': '⚠️ 标签名（可能不精确）',
+                                'description': '匹配所有该标签，可能需要指定index',
+                                'priority': 6
+                            })
+                            
                     except Exception as e:
                         logger.warning(f"⚠️  CSS选择器处理失败: {e}")
                 
-                # 方法2：基于文本内容搜索
+                # 方法2：基于元素文本搜索（仅作为参考，不推荐）
                 if element_text and len(xpath_suggestions) == 0:
                     xpath_suggestions.append({
-                        'xpath': f'//*[contains(text(), "{element_text}")]',
-                        'type': '通用文本搜索',
-                        'priority': 5
+                        'xpath': f'//*[contains(text(), "{element_text[:20]}")]',
+                        'type': '⚠️ 文本搜索（不推荐）',
+                        'description': '基于文本内容，换文章会失效',
+                        'priority': 10
                     })
                 
                 # 按优先级排序

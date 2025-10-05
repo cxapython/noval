@@ -15,7 +15,7 @@ import axios from 'axios'
 
 const { TextArea } = Input
 const { Text } = Typography
-const API_BASE = '/api/crawler'
+const API_BASE = 'http://localhost:5001/api/crawler'
 
 // 字段类型定义（仅包含数据库支持的字段）
 const FIELD_TYPES = {
@@ -34,6 +34,65 @@ const FIELD_TYPES = {
     next_page: { label: '下一页链接', defaultProcess: [] }
   }
 }
+
+// 处理XPath属性提取的公共函数
+const processXPathExpression = (expression, attributeType, customAttribute, selectedFieldType, message) => {
+  let processedExpression = expression;
+  let extraConfig = {};
+  
+  // 根据属性提取方式处理XPath表达式
+  if (attributeType === 'auto') {
+    // 自动模式 - 尊重用户的原始输入
+    // 检查XPath是否已经包含属性提取或函数调用
+    const hasAttribute = /\/@[a-zA-Z0-9_-]+(\s|$|\])/.test(expression);
+    const hasFunction = /(\/text\(\)|\/\*|string\(|normalize-space)/.test(expression);
+    
+    // 如果XPath已经包含属性或函数，保持原样
+    if (hasAttribute || hasFunction) {
+      message.info(`使用原始XPath表达式: ${expression}`);
+    } 
+    // 如果没有属性或函数，且是URL类型，可以考虑添加@href
+    else if ((selectedFieldType === 'url' || selectedFieldType === 'next_page') && 
+        !expression.includes('@href') && !expression.includes('/@href')) {
+      message.info(`XPath未指定属性，URL类型字段可能需要属性提取。请考虑使用自定义属性选项。`);
+    }
+    // 对于封面图片，不自动添加属性，因为图片URL可能在不同属性中
+    else if (selectedFieldType === 'cover_url') {
+      message.info(`图片URL可能在不同属性中(src, data-src, data-original等)。请考虑使用自定义属性选项。`);
+    }
+    // 其他字段类型默认不添加属性，直接获取节点内容
+  } else if (attributeType === 'text') {
+    // 文本模式 - 使用text()函数
+    // 检查是否已经有text()函数
+    if (!expression.includes('text()')) {
+      processedExpression = `${expression}/text()`;
+    }
+    message.info(`已添加text()函数提取文本: ${processedExpression}`);
+  } else if (attributeType === 'string') {
+    // 字符串模式 - 使用string(.)函数
+    // 这里我们不直接修改XPath表达式，而是在配置中标记使用string函数
+    message.info(`将使用string(.)函数提取所有文本`);
+    extraConfig.use_string_function = true;
+  } else if (attributeType === 'custom') {
+    // 自定义属性模式
+    if (customAttribute) {
+      // 检查是否已经有@属性
+      if (!expression.includes(`@${customAttribute}`) && !expression.includes(`/@${customAttribute}`)) {
+        processedExpression = `${expression}/@${customAttribute}`;
+      }
+      message.info(`已添加自定义属性@${customAttribute}提取: ${processedExpression}`);
+    } else {
+      message.warning('请输入自定义属性名称');
+      return { valid: false };
+    }
+  }
+  
+  return { 
+    valid: true, 
+    expression: processedExpression,
+    extraConfig
+  };
+};
 
 function ConfigWizard() {
   const { message } = App.useApp() // 使用 App hook 替代静态 message
@@ -57,6 +116,10 @@ function ConfigWizard() {
   const [selectedXpath, setSelectedXpath] = useState(null)
   const [manualXpath, setManualXpath] = useState('') // 手动输入的XPath
   const [selectedFieldType, setSelectedFieldType] = useState('title') // 当前识别的字段
+  
+  // 属性提取相关
+  const [attributeType, setAttributeType] = useState('auto') // auto, text, string, custom
+  const [customAttribute, setCustomAttribute] = useState('') // 自定义属性名
   
   // 三个层级的已识别字段
   const [novelInfoFields, setNovelInfoFields] = useState({}) // 小说基本信息
@@ -193,12 +256,22 @@ function ConfigWizard() {
     const currentFields = getCurrentFields()
     const fieldInfo = FIELD_TYPES[pageType][selectedFieldType]
     
+    // 使用公共函数处理XPath表达式
+    const result = processXPathExpression(selectedXpath, attributeType, customAttribute, selectedFieldType, message);
+    
+    // 如果处理无效，直接返回
+    if (!result.valid) {
+      return;
+    }
+    
+    // 创建字段配置
     const fieldConfig = {
       type: 'xpath',
-      expression: selectedXpath,
+      expression: result.expression,
       index: selectedFieldType === 'tags' || selectedFieldType === 'items' || selectedFieldType === 'content' ? 999 : -1,
       process: fieldInfo.defaultProcess,
-      default: null
+      default: null,
+      ...result.extraConfig
     }
 
     setCurrentFields({
@@ -215,6 +288,9 @@ function ConfigWizard() {
     setSelectedXpath(null)
     setManualXpath('')
     setEditingField(null)
+    // 重置属性提取方式为自动
+    setAttributeType('auto')
+    setCustomAttribute('')
   }
 
   // 删除已识别的字段
@@ -333,6 +409,10 @@ function ConfigWizard() {
   // 此功能已被删除，用户可以直接保存配置并在爬虫管理页面中使用
 
   // 保存配置到配置管理
+  // 保存状态
+  const [saveStatus, setSaveStatus] = useState(null) // null=未保存, 'success'=成功, 'error'=失败
+  const [saveMessage, setSaveMessage] = useState('')
+  
   const handleSaveConfig = async () => {
     if (!generatedConfig) {
       message.warning('请先生成配置')
@@ -341,21 +421,37 @@ function ConfigWizard() {
 
     try {
       setSaving(true)
+      setSaveStatus(null)
+      setSaveMessage('')
+      
+      console.log('保存配置请求参数:', {
+        site_name: siteName,
+        config: generatedConfig
+      })
       
       const response = await axios.post(`${API_BASE}/config`, {
         site_name: siteName,
         config: generatedConfig
       })
 
-        if (response.data.success) {
-          message.success('配置已保存到配置管理！')
-          // 添加时间戳参数，确保返回时CrawlerManager组件能检测到location变化
-          setTimeout(() => navigate('/crawler?t=' + new Date().getTime()), 1000)
-        } else {
-          message.error('保存失败: ' + response.data.error)
-        }
+      console.log('保存配置响应:', response.data)
+
+      if (response.data.success) {
+        message.success('配置已保存到配置管理！')
+        setSaveStatus('success')
+        setSaveMessage(`配置文件 ${response.data.filename} 已成功保存！`)
+        // 添加时间戳参数，确保返回时CrawlerManager组件能检测到location变化
+        setTimeout(() => navigate('/crawler?t=' + new Date().getTime()), 3000)
+      } else {
+        message.error('保存失败: ' + response.data.error)
+        setSaveStatus('error')
+        setSaveMessage('保存失败: ' + response.data.error)
+      }
     } catch (error) {
+      console.error('保存配置错误:', error)
       message.error('保存失败: ' + error.message)
+      setSaveStatus('error')
+      setSaveMessage('保存失败: ' + error.message)
     } finally {
       setSaving(false)
     }
@@ -661,7 +757,15 @@ function ConfigWizard() {
                   <Form.Item label="选择要配置的字段" required>
                     <Select
                       value={selectedFieldType}
-                      onChange={setSelectedFieldType}
+                      onChange={(value) => {
+                        setSelectedFieldType(value);
+                        // 为特殊字段类型提供提示
+                        if (value === 'url' || value === 'next_page') {
+                          message.info('链接类型字段可能需要提取@href属性，请根据需要选择合适的提取方式');
+                        } else if (value === 'cover_url') {
+                          message.info('图片URL可能在不同属性中(src, data-src, data-original等)，请根据实际情况选择');
+                        }
+                      }}
                       size="large"
                       style={{ width: '100%' }}
                     >
@@ -671,6 +775,12 @@ function ConfigWizard() {
                             {getCurrentFields()[key] && <CheckCircleOutlined style={{ color: '#52c41a' }} />}
                             <span>{info.label}</span>
                             {info.note && <Text type="secondary" style={{ fontSize: 12 }}>({info.note})</Text>}
+                            {(key === 'url' || key === 'next_page') && 
+                              <Text type="secondary" style={{ fontSize: 12 }}>(可能需要@href属性)</Text>
+                            }
+                            {key === 'cover_url' && 
+                              <Text type="secondary" style={{ fontSize: 12 }}>(可能需要指定图片属性)</Text>
+                            }
                           </Space>
                         </Select.Option>
                       ))}
@@ -736,10 +846,18 @@ function ConfigWizard() {
                     </Form.Item>
                     <Alert
                       message="XPath手动输入提示"
-                      description="直接输入XPath表达式，然后点击下方的按钮直接保存字段，无需额外步骤。"
+                      description="直接输入XPath表达式，然后配置属性提取方式，最后点击下方的按钮保存字段。"
                       type="info"
                       showIcon
                       style={{ marginBottom: 16 }}
+                    />
+                    
+                    {/* 使用属性提取选择器组件 */}
+                    <AttributeExtractorSelector
+                      attributeType={attributeType}
+                      setAttributeType={setAttributeType}
+                      customAttribute={customAttribute}
+                      setCustomAttribute={setCustomAttribute}
                     />
                     <Button
                       type="primary"
@@ -754,12 +872,22 @@ function ConfigWizard() {
                           const currentFields = getCurrentFields()
                           const fieldInfo = FIELD_TYPES[pageType][selectedFieldType]
                           
+                          // 使用公共函数处理XPath表达式
+                          const result = processXPathExpression(manualXpath, attributeType, customAttribute, selectedFieldType, message);
+                          
+                          // 如果处理无效，直接返回
+                          if (!result.valid) {
+                            return;
+                          }
+                          
+                          // 创建字段配置
                           const fieldConfig = {
                             type: 'xpath',
-                            expression: manualXpath,
+                            expression: result.expression,
                             index: selectedFieldType === 'tags' || selectedFieldType === 'items' || selectedFieldType === 'content' ? 999 : -1,
                             process: fieldInfo.defaultProcess,
-                            default: null
+                            default: null,
+                            ...result.extraConfig
                           }
                       
                           setCurrentFields({
@@ -772,6 +900,9 @@ function ConfigWizard() {
                           // 清空当前选择，准备识别下一个字段
                           setManualXpath('')
                           setEditingField(null)
+                          // 重置属性提取方式为自动
+                          setAttributeType('auto')
+                          setCustomAttribute('')
                         } else {
                           message.warning('请输入XPath表达式')
                         }
@@ -870,6 +1001,15 @@ function ConfigWizard() {
                     type="success"
                     showIcon
                   />
+                  
+                  {/* 使用属性提取选择器组件 */}
+                  <AttributeExtractorSelector
+                    attributeType={attributeType}
+                    setAttributeType={setAttributeType}
+                    customAttribute={customAttribute}
+                    setCustomAttribute={setCustomAttribute}
+                  />
+                  
                   <Button
                     type="primary"
                     size="large"
@@ -930,13 +1070,31 @@ function ConfigWizard() {
         {/* 步骤3：配置预览 */}
         {currentStep === 3 && generatedConfig && (
           <Card title="📝 步骤4：配置预览与保存" size="small">
-            <Alert
-              message="配置生成成功"
-              description="已生成完整配置。你可以查看配置摘要，测试各个模块效果，然后保存到配置管理。"
-              type="success"
-              showIcon
-              style={{ marginBottom: 24 }}
-            />
+            {saveStatus === 'success' ? (
+              <Alert
+                message="保存成功"
+                description={saveMessage}
+                type="success"
+                showIcon
+                style={{ marginBottom: 24 }}
+              />
+            ) : saveStatus === 'error' ? (
+              <Alert
+                message="保存失败"
+                description={saveMessage}
+                type="error"
+                showIcon
+                style={{ marginBottom: 24 }}
+              />
+            ) : (
+              <Alert
+                message="配置生成成功"
+                description="已生成完整配置。你可以查看配置摘要，然后点击下方的保存配置按钮将配置保存到系统中。"
+                type="success"
+                showIcon
+                style={{ marginBottom: 24 }}
+              />
+            )}
 
             <Space direction="vertical" style={{ width: '100%' }} size="large">
               {/* 配置摘要 */}
@@ -1028,9 +1186,19 @@ function ConfigWizard() {
             </Space>
 
             <div style={{ marginTop: 24, display: 'flex', justifyContent: 'space-between' }}>
-              <Button onClick={() => setCurrentStep(2)}>
-                上一步
-              </Button>
+              {saveStatus === 'success' ? (
+                <Button 
+                  type="primary"
+                  icon={<ArrowLeftOutlined />}
+                  onClick={() => navigate('/crawler')}
+                >
+                  返回配置列表
+                </Button>
+              ) : (
+                <Button onClick={() => setCurrentStep(2)}>
+                  上一步
+                </Button>
+              )}
               <Space>
                 <Button
                   icon={<CopyOutlined />}
@@ -1041,15 +1209,17 @@ function ConfigWizard() {
                 >
                   复制JSON
                 </Button>
-                <Button
-                  type="primary"
-                  size="large"
-                  icon={<SaveOutlined />}
-                  onClick={handleSaveConfig}
-                  loading={saving}
-                >
-                  {saving ? '保存中...' : '保存配置'}
-                </Button>
+                {saveStatus !== 'success' && (
+                  <Button
+                    type="primary"
+                    size="large"
+                    icon={<SaveOutlined />}
+                    onClick={handleSaveConfig}
+                    loading={saving}
+                  >
+                    {saving ? '保存中...' : '保存配置'}
+                  </Button>
+                )}
               </Space>
             </div>
           </Card>
@@ -1067,6 +1237,68 @@ function ConfigWizard() {
       </Card>
     </div>
   )
+}
+
+// 属性提取选择器组件
+function AttributeExtractorSelector({ attributeType, setAttributeType, customAttribute, setCustomAttribute }) {
+  return (
+    <Card title="属性提取设置" size="small" style={{ marginTop: 16, marginBottom: 16 }}>
+      <Form layout="vertical">
+        <Form.Item label="提取方式">
+          <Radio.Group 
+            value={attributeType} 
+            onChange={(e) => setAttributeType(e.target.value)}
+            style={{ width: '100%' }}
+          >
+            <Space direction="vertical" style={{ width: '100%' }}>
+              <Radio value="auto">
+                <Space>
+                  <span>自动选择</span>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    (根据字段类型自动选择适合的属性)
+                  </Text>
+                </Space>
+              </Radio>
+              <Radio value="text">
+                <Space>
+                  <span>提取文本</span>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    (使用text()函数，仅提取当前节点的文本)
+                  </Text>
+                </Space>
+              </Radio>
+              <Radio value="string">
+                <Space>
+                  <span>提取所有文本</span>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    (使用string(.)函数，提取当前节点及其子节点的所有文本)
+                  </Text>
+                </Space>
+              </Radio>
+              <Radio value="custom">
+                <Space>
+                  <span>自定义属性</span>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    (提取指定的属性值，如title, data-value等)
+                  </Text>
+                </Space>
+              </Radio>
+            </Space>
+          </Radio.Group>
+        </Form.Item>
+        
+        {attributeType === 'custom' && (
+          <Form.Item label="属性名称">
+            <Input 
+              value={customAttribute} 
+              onChange={(e) => setCustomAttribute(e.target.value)}
+              placeholder="例如：title, data-value, alt等"
+            />
+          </Form.Item>
+        )}
+      </Form>
+    </Card>
+  );
 }
 
 // Process规则编辑器组件
