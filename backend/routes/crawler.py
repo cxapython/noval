@@ -890,3 +890,263 @@ if __name__ == '__main__':
 '''
     return template
 
+
+# ==================== 任务管理 API ====================
+
+from backend.task_manager import task_manager, TaskStatus
+from backend.generic_crawler import GenericNovelCrawler
+
+def get_socketio():
+    """延迟导入socketio以避免循环依赖"""
+    try:
+        from backend.api import socketio
+        return socketio
+    except ImportError:
+        return None
+
+
+@crawler_bp.route('/tasks', methods=['GET'])
+def list_tasks():
+    """获取所有任务列表"""
+    try:
+        tasks = task_manager.get_all_tasks()
+        return jsonify({
+            'success': True,
+            'tasks': [task.to_dict() for task in tasks]
+        })
+    except Exception as e:
+        logger.error(f"❌ 获取任务列表失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@crawler_bp.route('/task/<task_id>', methods=['GET'])
+def get_task(task_id):
+    """获取单个任务详情"""
+    try:
+        task = task_manager.get_task(task_id)
+        if not task:
+            return jsonify({'success': False, 'error': '任务不存在'}), 404
+        
+        return jsonify({
+            'success': True,
+            'task': task.to_dict()
+        })
+    except Exception as e:
+        logger.error(f"❌ 获取任务详情失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@crawler_bp.route('/task/create', methods=['POST'])
+def create_task():
+    """创建新任务"""
+    try:
+        data = request.json
+        config_filename = data.get('config_filename', '').strip()
+        book_id = data.get('book_id', '').strip()
+        start_url = data.get('start_url', '').strip()
+        max_workers = data.get('max_workers', 5)
+        use_proxy = data.get('use_proxy', False)
+        
+        if not config_filename:
+            return jsonify({'success': False, 'error': '配置文件名不能为空'}), 400
+        
+        if not book_id and not start_url:
+            return jsonify({'success': False, 'error': '请提供书籍ID或完整URL'}), 400
+        
+        config_path = CONFIG_DIR / config_filename
+        if not config_path.exists():
+            return jsonify({'success': False, 'error': '配置文件不存在'}), 404
+        
+        # 如果提供了完整URL，从URL中提取book_id
+        if start_url and not book_id:
+            import re
+            match = re.search(r'/(\d+)', start_url)
+            if match:
+                book_id = match.group(1)
+            else:
+                return jsonify({'success': False, 'error': '无法从URL中提取书籍ID'}), 400
+        
+        # 创建任务
+        task_id = task_manager.create_task(
+            config_filename=config_filename,
+            book_id=book_id,
+            max_workers=max_workers,
+            use_proxy=use_proxy
+        )
+        
+        return jsonify({
+            'success': True,
+            'task_id': task_id,
+            'message': '任务创建成功'
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ 创建任务失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@crawler_bp.route('/task/<task_id>/start', methods=['POST'])
+def start_task(task_id):
+    """启动任务"""
+    try:
+        task = task_manager.get_task(task_id)
+        if not task:
+            return jsonify({'success': False, 'error': '任务不存在'}), 404
+        
+        config_path = CONFIG_DIR / task.config_filename
+        if not config_path.exists():
+            return jsonify({'success': False, 'error': '配置文件不存在'}), 404
+        
+        # 获取socketio实例
+        socketio = get_socketio()
+        
+        # 爬虫工厂函数
+        def crawler_factory(task_obj):
+            def progress_callback(**kwargs):
+                """进度回调"""
+                task_obj.update_progress(**kwargs)
+                # 通过WebSocket推送进度
+                if socketio:
+                    socketio.emit('task_progress', {
+                        'task_id': task_obj.task_id,
+                        'progress': task_obj.to_dict()
+                    })
+            
+            def log_callback(level, message):
+                """日志回调"""
+                task_obj.add_log(level, message)
+                # 通过WebSocket推送日志
+                if socketio:
+                    socketio.emit('task_log', {
+                        'task_id': task_obj.task_id,
+                        'log': {
+                            'level': level,
+                            'message': message
+                        }
+                    })
+            
+            # 创建爬虫实例
+            crawler = GenericNovelCrawler(
+                config_file=str(config_path),
+                book_id=task_obj.book_id,
+                max_workers=task_obj.max_workers,
+                use_proxy=task_obj.use_proxy,
+                progress_callback=progress_callback,
+                log_callback=log_callback,
+                stop_flag=task_obj.stop_flag
+            )
+            
+            # 在解析完小说信息后更新任务信息
+            original_parse_chapter_list = crawler.parse_chapter_list
+            def wrapped_parse_chapter_list():
+                result = original_parse_chapter_list()
+                if result and crawler.novel_info:
+                    task_obj.novel_title = crawler.novel_info.get('title', '')
+                    task_obj.novel_author = crawler.novel_info.get('author', '')
+                return result
+            crawler.parse_chapter_list = wrapped_parse_chapter_list
+            
+            return crawler
+        
+        # 启动任务
+        success = task_manager.start_task(task_id, crawler_factory)
+        
+        if success:
+            # 通过WebSocket通知任务启动
+            if socketio:
+                socketio.emit('task_started', {'task_id': task_id})
+            
+            return jsonify({
+                'success': True,
+                'message': f'任务已启动: {task_id}'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': '任务启动失败'
+            }), 400
+        
+    except Exception as e:
+        logger.error(f"❌ 启动任务失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@crawler_bp.route('/task/<task_id>/stop', methods=['POST'])
+def stop_task(task_id):
+    """停止任务"""
+    try:
+        success = task_manager.stop_task(task_id)
+        
+        if success:
+            # 通过WebSocket通知任务停止
+            socketio = get_socketio()
+            if socketio:
+                socketio.emit('task_stopped', {'task_id': task_id})
+            
+            return jsonify({
+                'success': True,
+                'message': f'任务已停止: {task_id}'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': '任务停止失败'
+            }), 400
+        
+    except Exception as e:
+        logger.error(f"❌ 停止任务失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@crawler_bp.route('/task/<task_id>/delete', methods=['DELETE'])
+def delete_task(task_id):
+    """删除任务"""
+    try:
+        success = task_manager.delete_task(task_id)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': f'任务已删除: {task_id}'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': '任务删除失败'
+            }), 400
+        
+    except Exception as e:
+        logger.error(f"❌ 删除任务失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@crawler_bp.route('/task/<task_id>/logs', methods=['GET'])
+def get_task_logs(task_id):
+    """获取任务日志"""
+    try:
+        limit = request.args.get('limit', 100, type=int)
+        logs = task_manager.get_task_logs(task_id, limit)
+        
+        return jsonify({
+            'success': True,
+            'logs': logs
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ 获取任务日志失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@crawler_bp.route('/tasks/clear-completed', methods=['POST'])
+def clear_completed_tasks():
+    """清理已完成的任务"""
+    try:
+        count = task_manager.clear_completed_tasks()
+        return jsonify({
+            'success': True,
+            'message': f'已清理 {count} 个任务'
+        })
+    except Exception as e:
+        logger.error(f"❌ 清理任务失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+

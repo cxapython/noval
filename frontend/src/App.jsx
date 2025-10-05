@@ -6,6 +6,7 @@ import CrawlerManager from './pages/CrawlerManager'
 import ConfigEditorPage from './pages/ConfigEditorPage'
 import ConfigWizard from './pages/ConfigWizard'
 import NovelReader from './pages/NovelReader'
+import TaskManagerPage from './pages/TaskManagerPage'
 import './App.css'
 
 function App() {
@@ -23,7 +24,8 @@ function App() {
       <Router>
         <Layout>
           <Routes>
-            <Route path="/" element={<Navigate to="/crawler" replace />} />
+            <Route path="/" element={<Navigate to="/tasks" replace />} />
+            <Route path="/tasks" element={<TaskManagerPage />} />
             <Route path="/crawler" element={<CrawlerManager />} />
             <Route path="/crawler/edit" element={<ConfigEditorPage />} />
             <Route path="/crawler/wizard" element={<ConfigWizard />} />

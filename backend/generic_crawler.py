@@ -92,18 +92,27 @@ def safe_bool(value, default=False):
 class GenericNovelCrawler:
     """通用小说爬虫 - 配置驱动"""
     
-    def __init__(self, config_file: str, book_id: str, max_workers: int = 5, use_proxy: bool = False):
+    def __init__(self, config_file: str, book_id: str, max_workers: int = 5, use_proxy: bool = False, 
+                 progress_callback=None, log_callback=None, stop_flag=None):
         """
         初始化爬虫
         :param config_file: 配置文件路径
         :param book_id: 书籍ID
         :param max_workers: 并发线程数
         :param use_proxy: 是否使用代理
+        :param progress_callback: 进度回调函数 (total, completed, failed, current_chapter)
+        :param log_callback: 日志回调函数 (level, message)
+        :param stop_flag: 停止标志 (threading.Event)
         """
         self.book_id = book_id
         self.config = self._load_config(config_file)
         self.max_workers = max_workers
         self.use_proxy = use_proxy
+        
+        # 回调函数
+        self.progress_callback = progress_callback
+        self.log_callback = log_callback
+        self.stop_flag = stop_flag
         
         # 从配置文件读取基本信息
         self.site_name = self.config['site_info']['name']
@@ -122,7 +131,7 @@ class GenericNovelCrawler:
         self.proxy_utils = None
         if use_proxy:
             self.proxy_utils = ProxyUtils()
-            logger.info(f"✅ 已启用代理")
+            self._log('INFO', "✅ 已启用代理")
         
         # 并发配置
         self.progress_lock = Lock()
@@ -134,8 +143,40 @@ class GenericNovelCrawler:
         self.redis_success_key = f"novel:success:{self.site_name}:{book_id}"
         self.redis_failed_key = f"novel:failed:{self.site_name}:{book_id}"
         
-        logger.info(f"🌐 网站: {self.site_name}")
-        logger.info(f"📖 书籍ID: {book_id}")
+        self._log('INFO', f"🌐 网站: {self.site_name}")
+        self._log('INFO', f"📖 书籍ID: {book_id}")
+    
+    def _log(self, level: str, message: str):
+        """统一日志输出"""
+        logger_func = {
+            'INFO': logger.info,
+            'WARNING': logger.warning,
+            'ERROR': logger.error,
+            'SUCCESS': logger.success
+        }.get(level, logger.info)
+        
+        logger_func(message)
+        
+        # 调用日志回调
+        if self.log_callback:
+            try:
+                self.log_callback(level, message)
+            except Exception as e:
+                logger.error(f"日志回调失败: {e}")
+    
+    def _update_progress(self, **kwargs):
+        """更新进度"""
+        if self.progress_callback:
+            try:
+                self.progress_callback(**kwargs)
+            except Exception as e:
+                logger.error(f"进度回调失败: {e}")
+    
+    def _check_stop(self) -> bool:
+        """检查是否应该停止"""
+        if self.stop_flag and self.stop_flag.is_set():
+            return True
+        return False
     
     def _load_config(self, config_file: str) -> Dict:
         """加载配置文件"""
@@ -407,24 +448,24 @@ class GenericNovelCrawler:
     
     def parse_chapter_list(self) -> bool:
         """解析章节列表"""
-        logger.info(f"📖 开始获取章节列表...")
-        logger.info(f"🔗 小说地址: {self.start_url}")
+        self._log('INFO', f"📖 开始获取章节列表...")
+        self._log('INFO', f"🔗 小说地址: {self.start_url}")
         
         # 获取首页
         html = self.get_page(self.start_url)
         if not html:
-            logger.error("❌ 获取首页失败")
+            self._log('ERROR', "❌ 获取首页失败")
             return False
         
         # 解析小说信息
         self.novel_info = self.parse_novel_info(html)
         
         if not self.novel_info.get('title'):
-            logger.error("❌ 解析小说信息失败")
+            self._log('ERROR', "❌ 解析小说信息失败")
             return False
         
-        logger.info(f"📚 小说名称: {self.novel_info.get('title')}")
-        logger.info(f"✍️  作者: {self.novel_info.get('author', '未知')}")
+        self._log('INFO', f"📚 小说名称: {self.novel_info.get('title')}")
+        self._log('INFO', f"✍️  作者: {self.novel_info.get('author', '未知')}")
         
         # 解析章节列表配置
         chapter_list_config = self.config['parsers']['chapter_list']
@@ -600,6 +641,11 @@ class GenericNovelCrawler:
     
     def download_and_save_chapter(self, index: int) -> bool:
         """下载并保存单个章节"""
+        # 检查是否需要停止
+        if self._check_stop():
+            self._log('WARNING', '⚠️  收到停止信号，终止下载')
+            return False
+        
         chapter = self.chapters[index]
         chapter_url = chapter['url']
         chapter_title = chapter['title']
@@ -610,8 +656,14 @@ class GenericNovelCrawler:
                 self.skipped_count += 1
                 self.completed_count += 1
                 progress = (self.completed_count / len(self.chapters)) * 100
-                logger.info(
-                    f"⏭️  [{self.completed_count}/{len(self.chapters)}] {chapter_title} (已下载,跳过) - 进度: {progress:.1f}%"
+                msg = f"⏭️  [{self.completed_count}/{len(self.chapters)}] {chapter_title} (已下载,跳过) - 进度: {progress:.1f}%"
+                self._log('INFO', msg)
+                # 更新进度
+                self._update_progress(
+                    total=len(self.chapters),
+                    completed=self.completed_count,
+                    failed=len(self.redis_cli.smembers(self.redis_failed_key)) if self.redis_cli else 0,
+                    current=chapter_title
                 )
             return True
         
@@ -621,10 +673,17 @@ class GenericNovelCrawler:
         
         # 检查内容是否为空
         if not content or len(content.strip()) == 0:
-            logger.error(f"❌ {chapter_title} 内容为空")
+            self._log('ERROR', f"❌ {chapter_title} 内容为空")
             self.mark_chapter_failed(chapter_url)
             with self.progress_lock:
                 self.completed_count += 1
+                # 更新进度
+                self._update_progress(
+                    total=len(self.chapters),
+                    completed=self.completed_count,
+                    failed=len(self.redis_cli.smembers(self.redis_failed_key)) if self.redis_cli else 0,
+                    current=chapter_title
+                )
             return False
         
         # 保存到数据库
@@ -642,7 +701,7 @@ class GenericNovelCrawler:
                 db.close()
                 download_success = True
             except Exception as e:
-                logger.error(f"❌ {chapter_title} 数据库保存失败: {e}")
+                self._log('ERROR', f"❌ {chapter_title} 数据库保存失败: {e}")
                 db.close()
                 download_success = False
         
@@ -658,8 +717,15 @@ class GenericNovelCrawler:
         with self.progress_lock:
             self.completed_count += 1
             progress = (self.completed_count / len(self.chapters)) * 100
-            logger.info(
-                f"{status_icon} [{self.completed_count}/{len(self.chapters)}] {chapter_title} ({len(content)} 字) - 进度: {progress:.1f}%"
+            msg = f"{status_icon} [{self.completed_count}/{len(self.chapters)}] {chapter_title} ({len(content)} 字) - 进度: {progress:.1f}%"
+            self._log('INFO' if download_success else 'ERROR', msg)
+            
+            # 调用进度回调
+            self._update_progress(
+                total=len(self.chapters),
+                completed=self.completed_count,
+                failed=len(self.redis_cli.smembers(self.redis_failed_key)) if self.redis_cli else 0,
+                current=chapter_title
             )
         
         # 延迟
@@ -863,31 +929,36 @@ class GenericNovelCrawler:
         3. 打印摘要
         """
         try:
-            logger.info("=" * 60)
-            logger.info(f"🚀 开始运行爬虫: {self.site_name}")
-            logger.info(f"📖 书籍ID: {self.book_id}")
-            logger.info("=" * 60)
+            self._log('INFO', "=" * 60)
+            self._log('INFO', f"🚀 开始运行爬虫: {self.site_name}")
+            self._log('INFO', f"📖 书籍ID: {self.book_id}")
+            self._log('INFO', "=" * 60)
             
             # 1. 解析章节列表
             if not self.parse_chapter_list():
-                logger.error("❌ 解析章节列表失败")
+                self._log('ERROR', "❌ 解析章节列表失败")
+                return False
+            
+            # 检查停止标志
+            if self._check_stop():
+                self._log('WARNING', '⚠️  任务被停止')
                 return False
             
             # 2. 下载所有章节
             if not self.download_all_chapters():
-                logger.error("❌ 下载章节失败")
+                self._log('ERROR', "❌ 下载章节失败")
                 return False
             
             # 3. 打印摘要
             self.print_summary()
             
-            logger.info("=" * 60)
-            logger.info("✅ 爬虫运行完成！")
-            logger.info("=" * 60)
+            self._log('INFO', "=" * 60)
+            self._log('SUCCESS', "✅ 爬虫运行完成！")
+            self._log('INFO', "=" * 60)
             
             return True
             
         except Exception as e:
-            logger.error(f"❌ 爬虫运行失败: {e}")
+            self._log('ERROR', f"❌ 爬虫运行失败: {e}")
             raise
 

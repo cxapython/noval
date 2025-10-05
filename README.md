@@ -1,4 +1,4 @@
-# 📚 小说爬虫管理系统 v1.0.0
+# 📚 小说爬虫管理系统 v2.0.0
 
 > 集成爬虫配置管理和小说在线阅读的一体化平台
 
@@ -6,21 +6,24 @@
 [![Flask](https://img.shields.io/badge/Flask-3.0+-green.svg)](https://flask.palletsprojects.com/)
 [![React](https://img.shields.io/badge/React-18+-61dafb.svg)](https://reactjs.org/)
 [![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-red.svg)](https://www.sqlalchemy.org/)
+[![WebSocket](https://img.shields.io/badge/WebSocket-Socket.IO-black.svg)](https://socket.io/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
 ## 🎯 项目简介
 
-这是一个完整的小说爬虫解决方案，将**爬虫配置管理**和**在线阅读**功能整合在一个平台中。
+这是一个完整的小说爬虫解决方案，将**爬虫配置管理**、**任务管理**和**在线阅读**功能整合在一个平台中。
 
 ### ✨ 核心特点
 
+- **🎯 任务管理系统** - 可视化创建、启动、停止、监控爬虫任务（v2.0.0 NEW!）
+- **📡 实时进度追踪** - WebSocket实时推送爬虫进度和日志（v2.0.0 NEW!）
 - **🕷️ 可视化配置爬虫** - 无需编码，通过界面配置爬虫规则
 - **📖 在线阅读体验** - 现代化阅读界面，支持多种主题和阅读模式
 - **🔄 智能文字替换** - 支持预览高亮的批量替换功能
 - **🗄️ SQLAlchemy架构** - 使用ORM模型，代码更优雅易维护
-- **🔍 配置调试功能** - 实时查看后处理规则执行效果，智能空格匹配（v1.0.0 NEW!）
+- **🔍 配置调试功能** - 实时查看后处理规则执行效果，智能空格匹配
 - **🚀 一键启动** - 单个脚本启动所有服务
 - **📊 统一管理** - 前后端整合，简化部署和维护
 
@@ -476,6 +479,75 @@ A: 通过前端界面的爬虫管理页面，可视化配置即可，无需编�
 #### 📚 文档更新
 - 更新README版本号和功能说明
 - 添加更新日志记录
+
+### 🎉 v2.0.0 (2025-10-05) - 任务管理与实时监控
+
+#### 🚀 重大新功能
+- **任务管理系统** - 完整的任务生命周期管理
+  - 可视化创建爬虫任务，无需命令行
+  - 任务状态追踪：等待中、运行中、已完成、失败、已停止
+  - 支持启动、停止、删除任务
+  - 任务列表统计：总任务数、运行中、已完成、失败
+- **实时进度追踪** - WebSocket实时数据推送
+  - 实时显示章节下载进度（百分比、已完成/总数）
+  - 实时日志流：INFO、SUCCESS、WARNING、ERROR级别
+  - 实时更新当前下载章节
+  - 成功/失败章节统计实时更新
+- **任务详情页** - 详细的任务监控面板
+  - 任务基本信息：ID、状态、小说名称、作者、创建时间等
+  - 进度可视化：进度条、统计卡片
+  - 实时日志查看器：支持颜色高亮、自动滚动
+  - 日志持久化：最多保留1000条日志
+
+#### 🛠️ 核心技术升级
+- **后端架构优化**
+  - 新增 `TaskManager` 单例模式任务管理器
+  - 新增 `CrawlerTask` 任务模型类
+  - 集成 Flask-SocketIO 实现 WebSocket 通信
+  - 爬虫支持进度回调和日志回调
+  - 任务支持停止标志（threading.Event）
+- **API接口扩展**
+  - `POST /api/crawler/task/create` - 创建任务
+  - `POST /api/crawler/task/<id>/start` - 启动任务
+  - `POST /api/crawler/task/<id>/stop` - 停止任务
+  - `DELETE /api/crawler/task/<id>/delete` - 删除任务
+  - `GET /api/crawler/tasks` - 获取任务列表
+  - `GET /api/crawler/task/<id>` - 获取任务详情
+  - `GET /api/crawler/task/<id>/logs` - 获取任务日志
+  - `POST /api/crawler/tasks/clear-completed` - 清理已完成任务
+- **前端功能增强**
+  - 新增 `TaskManagerPage` 任务管理页面
+  - 集成 socket.io-client 实现实时通信
+  - 任务创建对话框：支持配置选择、书籍ID/URL输入、参数配置
+  - 任务详情抽屉：展示完整任务信息和实时日志
+  - 导航菜单新增"任务管理"入口
+  - 默认首页改为任务管理页
+
+#### 🔧 爬虫核心改进
+- **GenericNovelCrawler 增强**
+  - 新增 `_log()` 统一日志方法，支持日志回调
+  - 新增 `_update_progress()` 进度更新方法
+  - 新增 `_check_stop()` 停止检查方法
+  - 关键方法添加停止检查点
+  - 下载章节时实时更新进度
+  - 支持任务中断和优雅停止
+
+#### 🎨 用户体验提升
+- 任务状态可视化：不同状态使用不同颜色和图标
+- 实时进度条：活动状态显示动画效果
+- 日志颜色高亮：根据日志级别使用不同颜色
+- 自动刷新：任务列表每5秒自动刷新
+- 批量操作：一键清理已完成任务
+- 响应式布局：支持不同屏幕尺寸
+
+#### 📦 依赖更新
+- **后端**：`flask-socketio==5.5.1`, `python-socketio==5.14.1`
+- **前端**：`socket.io-client`（最新版本）
+
+#### 🐛 Bug修复
+- 修复 `GenericNovelCrawler` 缺少 `run()` 方法的问题
+- 修复 WebSocket 跨域问题
+- 优化任务管理器线程安全
 
 ---
 
