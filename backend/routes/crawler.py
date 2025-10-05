@@ -593,10 +593,10 @@ def test_config():
             temp_config_file = f.name
         
         try:
-            from backend.generic_crawler import GenericNovelCrawler
+            from backend.generic_crawler_debug import GenericNovelCrawlerDebug
             
-            # 创建爬虫实例
-            crawler = GenericNovelCrawler(
+            # 创建爬虫实例（使用调试版本）
+            crawler = GenericNovelCrawlerDebug(
                 config_file=temp_config_file,
                 book_id='test',
                 max_workers=1
@@ -614,11 +614,12 @@ def test_config():
             results = {}
             
             if test_type == 'novel_info':
-                # 测试小说信息解析
-                novel_info = crawler.parse_novel_info(html)
+                # 测试小说信息解析（使用调试模式）
+                result = crawler.parse_novel_info_debug(html)
                 results = {
                     'type': '小说信息',
-                    'data': novel_info
+                    'data': result['data'],
+                    'debug': result['debug']
                 }
             
             elif test_type == 'chapter_list':
@@ -653,14 +654,16 @@ def test_config():
                 }
             
             elif test_type == 'chapter_content':
-                # 测试章节内容解析
-                content = crawler.download_chapter_content(url)
+                # 测试章节内容解析（使用调试模式）
+                result = crawler.download_chapter_content_debug(url)
+                content = result['content']
                 
                 results = {
                     'type': '章节内容',
                     'length': len(content),
-                    'preview': content[:500] if len(content) > 500 else content,
-                    'info': f'内容长度: {len(content)}字，显示前500字'
+                    'full_content': content,  # 返回完整内容
+                    'debug': result['debug'],
+                    'info': f'内容长度: {len(content)}字'
                 }
             
             # 清理临时文件

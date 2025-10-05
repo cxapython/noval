@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { 
   Card, Button, Tabs, Input, InputNumber, Select, 
   Form, Space, Collapse, Tag, message, Spin, Popconfirm,
-  Modal, Alert, Descriptions, Divider 
+  Modal, Alert, Descriptions, Divider, Typography
 } from 'antd'
 import { 
   SaveOutlined, EyeOutlined, CodeOutlined, 
@@ -12,6 +12,8 @@ import {
   ThunderboltOutlined, CheckCircleOutlined 
 } from '@ant-design/icons'
 import axios from 'axios'
+
+const { Text } = Typography
 
 const { TextArea } = Input
 
@@ -1295,23 +1297,173 @@ function TestView({ testUrl, setTestUrl, testType, setTestType, testLoading, tes
 
                 {/* 小说信息结果 */}
                 {testResult.type === '小说信息' && testResult.data && (
-                  <Descriptions bordered column={1} size="small">
-                    {Object.entries(testResult.data).map(([key, value]) => (
-                      <Descriptions.Item key={key} label={getFieldLabel(key)}>
-                        {value !== null && value !== undefined ? (
-                          typeof value === 'object' ? (
-                            <pre style={{ margin: 0 }}>
-                              {JSON.stringify(value, null, 2)}
-                            </pre>
+                  <>
+                    <Descriptions bordered column={1} size="small">
+                      {Object.entries(testResult.data).map(([key, value]) => (
+                        <Descriptions.Item key={key} label={getFieldLabel(key)}>
+                          {value !== null && value !== undefined ? (
+                            typeof value === 'object' ? (
+                              <pre style={{ margin: 0 }}>
+                                {JSON.stringify(value, null, 2)}
+                              </pre>
+                            ) : (
+                              String(value)
+                            )
                           ) : (
-                            String(value)
-                          )
-                        ) : (
-                          <span style={{ color: '#999' }}>null</span>
-                        )}
-                      </Descriptions.Item>
-                    ))}
-                  </Descriptions>
+                            <span style={{ color: '#999' }}>null</span>
+                          )}
+                        </Descriptions.Item>
+                      ))}
+                    </Descriptions>
+                    
+                    {/* 后处理流程调试信息 */}
+                    {testResult.debug && Object.keys(testResult.debug).length > 0 && (
+                      <>
+                        <Divider orientation="left">后处理流程详情</Divider>
+                        <Collapse 
+                          size="small"
+                          items={Object.entries(testResult.debug).map(([fieldName, debugInfo]) => {
+                            const hasProcessSteps = debugInfo.post_process_steps && debugInfo.post_process_steps.length > 0
+                            return {
+                              key: fieldName,
+                              label: (
+                                <Space>
+                                  <strong>{getFieldLabel(fieldName)}</strong>
+                                  {hasProcessSteps && (
+                                    <Tag color="blue">{debugInfo.post_process_steps.length} 个处理步骤</Tag>
+                                  )}
+                                </Space>
+                              ),
+                              children: (
+                                <Space direction="vertical" style={{ width: '100%' }} size="small">
+                                  {/* 原始值 */}
+                                  <div>
+                                    <Text type="secondary">原始值：</Text>
+                                    <div style={{ 
+                                      padding: 8, 
+                                      background: '#f5f5f5', 
+                                      borderRadius: 4,
+                                      marginTop: 4,
+                                      fontFamily: 'monospace'
+                                    }}>
+                                      {debugInfo.raw_value || 'null'}
+                                    </div>
+                                  </div>
+                                  
+                                  {/* 处理步骤 */}
+                                  {hasProcessSteps && (
+                                    <div>
+                                      <Text type="secondary">处理步骤：</Text>
+                                      {debugInfo.post_process_steps.map((step, idx) => (
+                                        <Alert
+                                          key={idx}
+                                          message={
+                                            <Space>
+                                              <Text strong>步骤 {step.step}: {step.method}</Text>
+                                              {step.matched === false && step.match_type === '未匹配' && (
+                                                <Tag color="warning">⚠️ 未匹配</Tag>
+                                              )}
+                                              {step.matched && step.match_type === '智能匹配（空格标准化）' && (
+                                                <Tag color="success">✓ 智能匹配</Tag>
+                                              )}
+                                              {step.matched && step.match_type === '精确匹配' && (
+                                                <Tag color="green">✓ 精确匹配</Tag>
+                                              )}
+                                              {!step.changed && step.method !== 'join' && (
+                                                <Tag color="default">无变化</Tag>
+                                              )}
+                                            </Space>
+                                          }
+                                          description={
+                                            <div style={{ marginTop: 8 }}>
+                                              {step.params && Object.keys(step.params).length > 0 && (
+                                                <div style={{ marginBottom: 8 }}>
+                                                  <Text type="secondary">参数：</Text>
+                                                  <Text code>{JSON.stringify(step.params)}</Text>
+                                                </div>
+                                              )}
+                                              <div>
+                                                <Text type="secondary">
+                                                  {step.match_position === 'context' ? '匹配区域（处理前）：' : '处理前：'}
+                                                </Text>
+                                                <div style={{ 
+                                                  padding: 8, 
+                                                  background: '#fff1f0', 
+                                                  border: '1px solid #ffa39e',
+                                                  borderRadius: 4,
+                                                  marginTop: 4,
+                                                  fontFamily: 'monospace',
+                                                  fontSize: 12,
+                                                  whiteSpace: 'pre-wrap',
+                                                  lineHeight: 1.6,
+                                                  maxHeight: 200,
+                                                  overflow: 'auto'
+                                                }}>
+                                                  {step.before || 'null'}
+                                                </div>
+                                              </div>
+                                              <div style={{ marginTop: 8 }}>
+                                                <Text type="secondary">
+                                                  {step.match_position === 'context' ? '匹配区域（处理后）：' : '处理后：'}
+                                                </Text>
+                                                <div style={{ 
+                                                  padding: 8, 
+                                                  background: '#f6ffed', 
+                                                  border: '1px solid #b7eb8f',
+                                                  borderRadius: 4,
+                                                  marginTop: 4,
+                                                  fontFamily: 'monospace',
+                                                  fontSize: 12,
+                                                  whiteSpace: 'pre-wrap',
+                                                  lineHeight: 1.6,
+                                                  maxHeight: 200,
+                                                  overflow: 'auto'
+                                                }}>
+                                                  {step.after || 'null'}
+                                                </div>
+                                              </div>
+                                              {step.error && (
+                                                <div style={{ marginTop: 8 }}>
+                                                  <Text type="danger">错误：{step.error}</Text>
+                                                </div>
+                                              )}
+                                            </div>
+                                          }
+                                          type={
+                                            step.error ? 'error' : 
+                                            step.matched === false && step.match_type === '未匹配' ? 'warning' : 
+                                            'info'
+                                          }
+                                          showIcon
+                                          style={{ marginTop: 8 }}
+                                        />
+                                      ))}
+                                    </div>
+                                  )}
+                                  
+                                  {/* 最终值 */}
+                                  <div>
+                                    <Text type="secondary">最终值：</Text>
+                                    <div style={{ 
+                                      padding: 8, 
+                                      background: '#e6f7ff', 
+                                      border: '2px solid #1890ff',
+                                      borderRadius: 4,
+                                      marginTop: 4,
+                                      fontFamily: 'monospace',
+                                      fontWeight: 'bold'
+                                    }}>
+                                      {debugInfo.final_value || 'null'}
+                                    </div>
+                                  </div>
+                                </Space>
+                              )
+                            }
+                          })}
+                        />
+                      </>
+                    )}
+                  </>
                 )}
 
                 {/* 章节列表结果 */}
@@ -1349,22 +1501,150 @@ function TestView({ testUrl, setTestUrl, testType, setTestType, testLoading, tes
                       <Descriptions.Item label="内容长度">
                         {testResult.length} 字
                       </Descriptions.Item>
+                      {testResult.debug && (
+                        <>
+                          <Descriptions.Item label="处理页数">
+                            {testResult.debug.pages_processed} 页
+                          </Descriptions.Item>
+                          <Descriptions.Item label="原始内容长度">
+                            {testResult.debug.raw_content_length} 字
+                          </Descriptions.Item>
+                          <Descriptions.Item label="最终内容长度">
+                            {testResult.debug.final_content_length} 字
+                          </Descriptions.Item>
+                          <Descriptions.Item label="清理规则">
+                            {testResult.debug.clean_steps?.length || 0} 条
+                          </Descriptions.Item>
+                        </>
+                      )}
                     </Descriptions>
                     
-                    <Divider>内容预览（前500字）</Divider>
+                    <Divider>
+                      完整内容预览
+                      <Text type="secondary" style={{marginLeft: 8, fontSize: 12}}>
+                        （可滚动查看全部内容）
+                      </Text>
+                    </Divider>
                     
                     <div style={{
                       padding: 16,
                       background: '#f5f5f5',
                       borderRadius: 8,
-                      maxHeight: 400,
+                      maxHeight: 600,
                       overflow: 'auto',
                       whiteSpace: 'pre-wrap',
                       lineHeight: 1.8,
-                      fontSize: 14
+                      fontSize: 14,
+                      border: '1px solid #d9d9d9'
                     }}>
-                      {testResult.preview}
+                      {testResult.full_content || testResult.preview || '内容为空'}
                     </div>
+                    
+                    {/* 后处理流程调试信息 */}
+                    {testResult.debug && testResult.debug.clean_steps && testResult.debug.clean_steps.length > 0 && (
+                      <>
+                        <Divider orientation="left">后处理流程详情（Clean规则）</Divider>
+                        <Space direction="vertical" style={{ width: '100%' }} size="small">
+                          {testResult.debug.clean_steps.map((step, idx) => {
+                            const stepDetails = step.step_details || {}
+                            return (
+                              <Alert
+                                key={idx}
+                                message={
+                                  <Space>
+                                    <Text strong>规则 {step.rule_index}: {step.method}</Text>
+                                    {stepDetails.matched === false && stepDetails.match_type === '未匹配' && (
+                                      <Tag color="warning">⚠️ 未匹配</Tag>
+                                    )}
+                                    {stepDetails.matched && stepDetails.match_type === '智能匹配（空格标准化）' && (
+                                      <Tag color="success">✓ 智能匹配</Tag>
+                                    )}
+                                    {stepDetails.matched && stepDetails.match_type === '精确匹配' && (
+                                      <Tag color="green">✓ 精确匹配</Tag>
+                                    )}
+                                    {!step.changed && (
+                                      <Tag color="default">无变化</Tag>
+                                    )}
+                                    {step.changed && (
+                                      <Tag color="cyan">已生效</Tag>
+                                    )}
+                                  </Space>
+                                }
+                                description={
+                                  <div style={{ marginTop: 8 }}>
+                                    <div style={{ marginBottom: 8 }}>
+                                      <Text type="secondary">参数：</Text>
+                                      <Text code>{JSON.stringify(step.params)}</Text>
+                                    </div>
+                                    <div style={{ marginBottom: 8 }}>
+                                      <Text type="secondary">
+                                        处理前长度：{step.before_length} 字 → 处理后长度：{step.after_length} 字
+                                      </Text>
+                                      {step.changed && (
+                                        <Text type="success" style={{ marginLeft: 8 }}>
+                                          （减少了 {step.before_length - step.after_length} 字）
+                                        </Text>
+                                      )}
+                                    </div>
+                                    {stepDetails.before && stepDetails.after && (
+                                      <>
+                                        <div>
+                                          <Text type="secondary">
+                                            {stepDetails.match_position === 'context' ? '匹配区域（处理前）：' : '处理前片段：'}
+                                          </Text>
+                                          <div style={{ 
+                                            padding: 8, 
+                                            background: '#fff1f0', 
+                                            border: '1px solid #ffa39e',
+                                            borderRadius: 4,
+                                            marginTop: 4,
+                                            fontFamily: 'monospace',
+                                            fontSize: 12,
+                                            maxHeight: 150,
+                                            overflow: 'auto',
+                                            whiteSpace: 'pre-wrap',
+                                            lineHeight: 1.6
+                                          }}>
+                                            {stepDetails.before}
+                                          </div>
+                                        </div>
+                                        <div style={{ marginTop: 8 }}>
+                                          <Text type="secondary">
+                                            {stepDetails.match_position === 'context' ? '匹配区域（处理后）：' : '处理后片段：'}
+                                          </Text>
+                                          <div style={{ 
+                                            padding: 8, 
+                                            background: '#f6ffed', 
+                                            border: '1px solid #b7eb8f',
+                                            borderRadius: 4,
+                                            marginTop: 4,
+                                            fontFamily: 'monospace',
+                                            fontSize: 12,
+                                            maxHeight: 150,
+                                            overflow: 'auto',
+                                            whiteSpace: 'pre-wrap',
+                                            lineHeight: 1.6
+                                          }}>
+                                            {stepDetails.after}
+                                          </div>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                }
+                                type={
+                                  stepDetails.matched === false && stepDetails.match_type === '未匹配' ? 'warning' : 
+                                  step.changed ? 'success' : 
+                                  'info'
+                                }
+                                showIcon
+                                style={{ marginTop: 8 }}
+                              />
+                            )
+                          })}
+                        </Space>
+                      </>
+                    )}
                   </>
                 )}
               </Space>

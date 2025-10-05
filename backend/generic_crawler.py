@@ -251,8 +251,17 @@ class GenericNovelCrawler:
                 elif method == 'replace':
                     old = params.get('old', '')
                     new = params.get('new', '')
+                    # 智能处理：自动处理普通空格和\xa0（不间断空格）的兼容性
                     if isinstance(result, str):
-                        result = result.replace(old, new)
+                        # 先尝试直接替换
+                        if old in result:
+                            result = result.replace(old, new)
+                        else:
+                            # 尝试将result和old都标准化为普通空格后匹配
+                            normalized_result = result.replace('\xa0', ' ')
+                            normalized_old = old.replace('\xa0', ' ')
+                            if normalized_old in normalized_result:
+                                result = normalized_result.replace(normalized_old, new)
                     elif isinstance(result, list):
                         result = [item.replace(old, new) if isinstance(item, str) else item for item in result]
                 
