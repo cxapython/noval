@@ -562,6 +562,30 @@ def test_config():
         if not config:
             return jsonify({'success': False, 'error': '配置不能为空'}), 400
         
+        # 验证配置基本结构
+        required_top_level = ['site_info', 'parsers']
+        missing = [f for f in required_top_level if f not in config]
+        if missing:
+            return jsonify({
+                'success': False,
+                'error': f'配置缺少必需的顶层字段: {", ".join(missing)}'
+            }), 400
+        
+        # 验证 site_info
+        if 'base_url' not in config.get('site_info', {}):
+            return jsonify({
+                'success': False,
+                'error': 'site_info 中缺少 base_url 字段'
+            }), 400
+        
+        # 为测试添加默认的 url_patterns（如果不存在）
+        if 'url_patterns' not in config:
+            config['url_patterns'] = {
+                'book_detail': '/book/{0}',
+                'chapter_list': '/book/{0}/chapters/',
+                'chapter_content': '/chapter/{0}/'
+            }
+        
         # 写入临时配置文件
         import tempfile
         with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False, encoding='utf-8') as f:
@@ -599,7 +623,26 @@ def test_config():
             
             elif test_type == 'chapter_list':
                 # 测试章节列表解析
-                chapter_list_config = config['parsers']['chapter_list']
+                chapter_list_config = config.get('parsers', {}).get('chapter_list', {})
+                
+                # 类型检查
+                if not isinstance(chapter_list_config, dict):
+                    os.remove(temp_config_file)
+                    return jsonify({
+                        'success': False,
+                        'error': f'chapter_list配置格式错误：应为字典类型，实际为{type(chapter_list_config).__name__}'
+                    }), 400
+                
+                # 检查必需字段
+                required_fields = ['items', 'title', 'url']
+                missing_fields = [f for f in required_fields if f not in chapter_list_config]
+                if missing_fields:
+                    os.remove(temp_config_file)
+                    return jsonify({
+                        'success': False,
+                        'error': f'chapter_list配置缺少必需字段：{", ".join(missing_fields)}'
+                    }), 400
+                
                 chapters = crawler._parse_chapters_from_page(html, chapter_list_config)
                 
                 results = {

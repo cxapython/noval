@@ -78,9 +78,10 @@ function ConfigEditorPage() {
 
   const handleFieldChange = (path, value) => {
     if (path === 'root') {
-      // 更新整个根对象
-      setConfigData(value)
-      setJsonText(JSON.stringify(value, null, 2))
+      // 更新整个根对象，并规范化数据类型
+      const normalizedData = normalizeConfigData(value)
+      setConfigData(normalizedData)
+      setJsonText(JSON.stringify(normalizedData, null, 2))
       return
     }
 
@@ -96,8 +97,67 @@ function ConfigEditorPage() {
     }
 
     current[keys[keys.length - 1]] = value
-    setConfigData(newData)
-    setJsonText(JSON.stringify(newData, null, 2))
+    
+    // 规范化数据类型
+    const normalizedData = normalizeConfigData(newData)
+    setConfigData(normalizedData)
+    setJsonText(JSON.stringify(normalizedData, null, 2))
+  }
+  
+  // 规范化配置数据，确保类型正确
+  const normalizeConfigData = (data) => {
+    if (!data || typeof data !== 'object') return data
+    
+    const normalized = JSON.parse(JSON.stringify(data))
+    
+    // 递归处理所有字段
+    const normalize = (obj) => {
+      if (!obj || typeof obj !== 'object') return
+      
+      // 处理 index 字段：确保是数字
+      if ('index' in obj && typeof obj.index === 'string') {
+        const num = parseInt(obj.index, 10)
+        if (!isNaN(num)) {
+          obj.index = num
+        }
+      }
+      
+      // 处理数字字段
+      const numFields = ['timeout', 'max_retries', 'max_pages', 'max_page', 'start_page']
+      numFields.forEach(field => {
+        if (field in obj && typeof obj[field] === 'string') {
+          const num = parseFloat(obj[field])
+          if (!isNaN(num)) {
+            obj[field] = num
+          }
+        }
+      })
+      
+      // 处理浮点数字段
+      if ('delay' in obj && typeof obj.delay === 'string') {
+        const num = parseFloat(obj.delay)
+        if (!isNaN(num)) {
+          obj.delay = num
+        }
+      }
+      
+      // 处理布尔字段
+      if ('enabled' in obj && typeof obj.enabled === 'string') {
+        obj.enabled = obj.enabled === 'true' || obj.enabled === '1'
+      }
+      
+      // 递归处理子对象和数组
+      Object.keys(obj).forEach(key => {
+        if (Array.isArray(obj[key])) {
+          obj[key].forEach(item => normalize(item))
+        } else if (obj[key] && typeof obj[key] === 'object') {
+          normalize(obj[key])
+        }
+      })
+    }
+    
+    normalize(normalized)
+    return normalized
   }
 
   const handleJsonChange = (text) => {
@@ -325,8 +385,10 @@ function FormView({ configData, onChange }) {
     }
     
     if (path.endsWith('.process')) {
+      // 默认使用strip方法（带可选参数）
       return {
-        method: 'strip'
+        method: 'strip',
+        params: {}
       }
     }
     
@@ -402,12 +464,161 @@ function FormView({ configData, onChange }) {
     }
   }
 
+  // 根据method获取需要的参数字段
+  const getParamsForMethod = (method) => {
+    const paramsMap = {
+      'strip': ['chars'],  // 可选参数
+      'replace': ['old', 'new'],
+      'regex_replace': ['pattern', 'repl'],
+      'join': ['separator'],
+      'split': ['separator'],
+      'extract_first': [],  // 无参数
+      'extract_index': ['index']
+    }
+    return paramsMap[method] || []
+  }
+
+  // 渲染动态params对象
+  const renderDynamicParams = (parentPath, paramsObj, methodValue) => {
+    if (!methodValue) {
+      return null
+    }
+    
+    const requiredParams = getParamsForMethod(methodValue)
+    
+    // 如果该方法不需要参数
+    if (requiredParams.length === 0) {
+      return (
+        <Alert
+          message="此方法无需参数"
+          type="info"
+          showIcon
+          style={{ marginTop: 12 }}
+        />
+      )
+    }
+    
+    // 确保params对象存在，如果不存在则初始化为空对象
+    const currentParams = paramsObj || {}
+    
+    return (
+      <div style={{ marginTop: 12, padding: 16, background: '#f0f5ff', borderRadius: 8 }}>
+        <div style={{ marginBottom: 12, fontWeight: 600, color: '#1890ff' }}>
+          ⚙️ 方法参数 (共{requiredParams.length}个)
+        </div>
+        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+          {requiredParams.map((paramKey, idx) => {
+            const paramPath = `${parentPath}.params.${paramKey}`
+            // 确保即使currentParams[paramKey]是undefined也能显示输入框
+            const paramValue = (currentParams && currentParams[paramKey] !== undefined) ? currentParams[paramKey] : ''
+            
+            return (
+              <Form.Item
+                key={`${paramKey}-${idx}`}
+                label={<span style={{ fontSize: 14, fontWeight: 500 }}>{getFieldLabel(paramKey)}</span>}
+                help={getFieldHelp(paramKey)}
+                style={{ marginBottom: 8 }}
+              >
+                {paramKey === 'index' ? (
+                  <InputNumber
+                    value={paramValue}
+                    size="large"
+                    onChange={(val) => onChange(paramPath, val)}
+                    style={{ width: '100%' }}
+                    placeholder="输入索引值"
+                  />
+                ) : (
+                  <Input
+                    value={paramValue}
+                    size="large"
+                    onChange={(e) => onChange(paramPath, e.target.value)}
+                    placeholder={`请输入${getFieldLabel(paramKey)}`}
+                  />
+                )}
+              </Form.Item>
+            )
+          })}
+        </Space>
+      </div>
+    )
+  }
+
   const renderField = (key, value, path = '', level = 0) => {
     const fullPath = path ? `${path}.${key}` : key
     
     // 跳过以 _ 开头的注释字段
     if (key.startsWith('_')) {
       return null
+    }
+    
+    // 特殊处理：如果是包含method的处理规则对象
+    if (value !== null && typeof value === 'object' && !Array.isArray(value) && 'method' in value) {
+      const methodValue = value.method
+      const paramsValue = value.params
+      
+      return (
+        <div key={fullPath} style={{ 
+          marginBottom: 16, 
+          padding: 16, 
+          background: '#fafafa', 
+          borderRadius: 8,
+          border: '1px solid #e0e0e0'
+        }}>
+          {/* Method选择器 */}
+          <Form.Item
+            label={<span style={{ fontSize: 14, fontWeight: 500 }}>处理方法</span>}
+            help={getFieldHelp('method')}
+            style={{ marginBottom: 12 }}
+          >
+            <Select
+              value={methodValue}
+              size="large"
+              onChange={(val) => {
+                // 更新整个对象，确保params正确初始化
+                const newData = JSON.parse(JSON.stringify(configData))
+                const keys = fullPath.split('.')
+                let current = newData
+                
+                // 导航到目标对象
+                for (let i = 0; i < keys.length - 1; i++) {
+                  current = current[keys[i]]
+                }
+                
+                const targetObj = current[keys[keys.length - 1]]
+                targetObj.method = val
+                
+                // 根据方法初始化params
+                const requiredParams = getParamsForMethod(val)
+                if (requiredParams.length > 0) {
+                  const newParams = {}
+                  requiredParams.forEach(param => {
+                    newParams[param] = ''
+                  })
+                  targetObj.params = newParams
+                } else {
+                  // 无参数方法，删除params
+                  delete targetObj.params
+                }
+                
+                onChange('root', newData)
+              }}
+              style={{ width: '100%' }}
+              placeholder="选择处理方法"
+            >
+              <Select.Option value="strip">strip - 去除首尾空白</Select.Option>
+              <Select.Option value="replace">replace - 字符串替换</Select.Option>
+              <Select.Option value="regex_replace">regex_replace - 正则表达式替换</Select.Option>
+              <Select.Option value="join">join - 连接数组元素</Select.Option>
+              <Select.Option value="split">split - 分割字符串</Select.Option>
+              <Select.Option value="extract_first">extract_first - 提取第一个元素</Select.Option>
+              <Select.Option value="extract_index">extract_index - 提取指定索引</Select.Option>
+            </Select>
+          </Form.Item>
+          
+          {/* 动态参数输入 - 直接渲染，不要再被其他组件包裹 */}
+          {methodValue && renderDynamicParams(fullPath, paramsValue, methodValue)}
+        </div>
+      )
     }
     
     // 对象类型 - 使用折叠面板
@@ -441,6 +652,7 @@ function FormView({ configData, onChange }) {
           <Space direction="vertical" style={{ width: '100%' }} size="middle">
             {Object.entries(value)
               .filter(([k]) => !k.startsWith('_'))
+              .filter(([k]) => k !== 'params')  // 跳过params字段，因为它已经在method对象中特殊处理了
               .map(([k, v]) => renderField(k, v, fullPath, level + 1))}
           </Space>
         )
@@ -511,13 +723,19 @@ function FormView({ configData, onChange }) {
                   </Popconfirm>
                 </div>
                 {typeof item === 'object' && item !== null ? (
-                  <Space direction="vertical" style={{ width: '100%' }} size="middle">
-                    {Object.entries(item)
-                      .filter(([k]) => !k.startsWith('_'))
-                      .map(([k, v]) => 
-                        renderField(k, v, `${fullPath}.${idx}`, level + 1)
-                      )}
-                  </Space>
+                  // 检查是否是method对象，如果是则直接调用renderField让它特殊处理
+                  'method' in item ? (
+                    renderField(idx.toString(), item, fullPath, level + 1)
+                  ) : (
+                    <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                      {Object.entries(item)
+                        .filter(([k]) => !k.startsWith('_'))
+                        .filter(([k]) => k !== 'params')
+                        .map(([k, v]) => 
+                          renderField(k, v, `${fullPath}.${idx}`, level + 1)
+                        )}
+                    </Space>
+                  )
                 ) : (
                   renderBasicField(fullPath + '.' + idx, item, `项目 ${idx + 1}`)
                 )}
@@ -569,6 +787,27 @@ function FormView({ configData, onChange }) {
   }
 
   const renderInput = (value, path) => {
+    // 检查是否为 method 字段（处理方法选择器）
+    if (path.includes('.method') || path.endsWith('method')) {
+      return (
+        <Select
+          value={value}
+          size="large"
+          onChange={(val) => onChange(path, val)}
+          style={{ width: '100%' }}
+          placeholder="选择处理方法"
+        >
+          <Select.Option value="strip">strip - 去除首尾空白</Select.Option>
+          <Select.Option value="replace">replace - 字符串替换</Select.Option>
+          <Select.Option value="regex_replace">regex_replace - 正则表达式替换</Select.Option>
+          <Select.Option value="join">join - 连接数组元素</Select.Option>
+          <Select.Option value="split">split - 分割字符串</Select.Option>
+          <Select.Option value="extract_first">extract_first - 提取第一个元素</Select.Option>
+          <Select.Option value="extract_index">extract_index - 提取指定索引</Select.Option>
+        </Select>
+      )
+    }
+
     // null值
     if (value === null) {
       return (
@@ -576,6 +815,7 @@ function FormView({ configData, onChange }) {
           placeholder="null"
           size="large"
           onChange={(e) => onChange(path, e.target.value || null)}
+          style={{ color: '#999' }}
         />
       )
     }
@@ -607,6 +847,9 @@ function FormView({ configData, onChange }) {
       )
     }
 
+    // 检查是否为default字段
+    const isDefaultField = path.includes('.default') || path.endsWith('default')
+
     // 长文本
     if (typeof value === 'string' && (value.length > 60 || value.includes('\n'))) {
       return (
@@ -614,7 +857,10 @@ function FormView({ configData, onChange }) {
           value={value}
           onChange={(e) => onChange(path, e.target.value)}
           autoSize={{ minRows: 4, maxRows: 12 }}
-          style={{ fontSize: 14 }}
+          style={{ 
+            fontSize: 14,
+            color: isDefaultField ? '#999' : 'inherit'
+          }}
         />
       )
     }
@@ -625,6 +871,10 @@ function FormView({ configData, onChange }) {
         value={value}
         size="large"
         onChange={(e) => onChange(path, e.target.value)}
+        style={{ 
+          color: isDefaultField || value === '' ? '#999' : 'inherit'
+        }}
+        placeholder={isDefaultField ? '默认值（留空表示null）' : ''}
       />
     )
   }
@@ -705,13 +955,19 @@ function FormView({ configData, onChange }) {
                     </Popconfirm>
                   </div>
                   {typeof item === 'object' && item !== null ? (
-                    <Space direction="vertical" style={{ width: '100%' }} size="middle">
-                      {Object.entries(item)
-                        .filter(([k]) => !k.startsWith('_'))
-                        .map(([k, v]) => 
-                          renderField(k, v, `${fullPath}.${idx}`, 1)
-                        )}
-                    </Space>
+                    // 检查是否是method对象，如果是则直接调用renderField让它特殊处理
+                    'method' in item ? (
+                      renderField(idx.toString(), item, fullPath, 1)
+                    ) : (
+                      <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                        {Object.entries(item)
+                          .filter(([k]) => !k.startsWith('_'))
+                          .filter(([k]) => k !== 'params')
+                          .map(([k, v]) => 
+                            renderField(k, v, `${fullPath}.${idx}`, 1)
+                          )}
+                      </Space>
+                    )
                   ) : (
                     renderBasicField(fullPath + '.' + idx, item, `项目 ${idx + 1}`)
                   )}
@@ -834,7 +1090,7 @@ function getFieldLabel(key) {
     // 解析配置
     type: '解析类型',
     expression: 'XPath/正则表达式',
-    index: '索引位置',
+    index: '索引位置（Python标准）',
     process: '后处理流程',
     default: '默认值',
     
@@ -871,7 +1127,8 @@ function getFieldLabel(key) {
     pattern: '正则模式',
     repl: '替换文本',
     separator: '分隔符',
-    chars: '字符',
+    chars: '要去除的字符',
+    index: '索引位置',
   }
   return labels[key] || key
 }
@@ -899,8 +1156,8 @@ function getFieldHelp(key) {
     // 解析配置
     type: '解析类型：xpath（推荐）或 regex（正则表达式）',
     expression: 'XPath表达式或正则表达式，用于从HTML中提取数据',
-    index: '获取匹配结果：-1=获取所有（返回列表），0=第一个，1=第二个，-2=最后一个，-3=倒数第二个',
-    default: '当解析失败时使用的默认值',
+    index: '索引位置（Python标准）：0=第一个，1=第二个，-1=最后一个，-2=倒数第二个，999=获取所有（返回列表）',
+    default: '当解析失败时使用的默认值，留空表示null',
     
     // 分页
     enabled: '是否启用该功能，true为启用，false为禁用',
@@ -920,15 +1177,17 @@ function getFieldHelp(key) {
     clean: '内容清理规则列表，用于去除广告、水印等无用信息',
     
     // 处理方法
-    method: '处理方法名称，如：strip、replace、regex_replace、join等',
-    params: '处理方法的参数，不同方法需要不同的参数',
+    method: '选择字符串处理方法，系统会自动展示对应的参数输入框',
+    params: '处理方法的参数，根据选择的方法自动显示',
     
     // 参数
-    old: '要被替换的原字符串',
-    new: '替换后的新字符串',
-    pattern: '正则表达式模式，用于匹配要处理的文本',
-    repl: '正则替换的目标文本',
-    separator: '连接或分割字符串时使用的分隔符，如：\\n（换行）',
+    old: '要被替换的原字符串，例如："作者："',
+    new: '替换后的新字符串，留空表示删除',
+    pattern: '正则表达式模式，例如："广告.*?内容" 用于匹配广告',
+    repl: '正则替换的目标文本，留空表示删除匹配内容',
+    separator: '连接或分割字符串时使用的分隔符，例如："\\n"（换行）、", "（逗号空格）',
+    chars: '要去除的字符，留空表示去除所有空白字符（空格、制表符、换行等）',
+    index: '列表索引位置，0=第一个，-1=最后一个',
   }
   return help[key]
 }

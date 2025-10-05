@@ -35,6 +35,60 @@ REDIS_URL = "redis://@localhost:6379"
 redis_cli = Redis.from_url(REDIS_URL)
 
 
+def safe_int(value, default=0):
+    """
+    安全地将值转换为整数
+    :param value: 要转换的值
+    :param default: 转换失败时的默认值
+    :return: 整数值
+    """
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            logger.warning(f"⚠️  无法将 '{value}' 转换为整数，使用默认值 {default}")
+            return default
+    if isinstance(value, float):
+        return int(value)
+    return default
+
+
+def safe_float(value, default=0.0):
+    """
+    安全地将值转换为浮点数
+    :param value: 要转换的值
+    :param default: 转换失败时的默认值
+    :return: 浮点数值
+    """
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            logger.warning(f"⚠️  无法将 '{value}' 转换为浮点数，使用默认值 {default}")
+            return default
+    return default
+
+
+def safe_bool(value, default=False):
+    """
+    安全地将值转换为布尔值
+    :param value: 要转换的值
+    :param default: 转换失败时的默认值
+    :return: 布尔值
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.lower() in ('true', '1', 'yes', 'on')
+    if isinstance(value, (int, float)):
+        return bool(value)
+    return default
+
+
 class GenericNovelCrawler:
     """通用小说爬虫 - 配置驱动"""
     
@@ -56,7 +110,7 @@ class GenericNovelCrawler:
         self.base_url = self.config['site_info']['base_url']
         self.start_url = self._build_url('book_detail', book_id)
         self.headers = self.config.get('request_config', {}).get('headers', {})
-        self.timeout = self.config.get('request_config', {}).get('timeout', 30)
+        self.timeout = safe_int(self.config.get('request_config', {}).get('timeout', 30), 30)
         
         # 数据存储
         self.chapters = []
@@ -112,9 +166,14 @@ class GenericNovelCrawler:
         :param parser_config: 解析器配置
         :return: 解析结果
         """
+        # 类型检查
+        if not isinstance(parser_config, dict):
+            logger.warning(f"⚠️  parser_config 应为字典类型，实际为 {type(parser_config).__name__}，值为: {parser_config}")
+            return None
+        
         parse_type = parser_config.get('type', 'xpath')
         expression = parser_config.get('expression', '')
-        index = parser_config.get('index', -1)  # -1表示获取全部
+        index = safe_int(parser_config.get('index', -1), -1)
         default = parser_config.get('default', None)
         post_process = parser_config.get('process', [])
         
@@ -123,23 +182,37 @@ class GenericNovelCrawler:
         try:
             if parse_type == 'xpath':
                 root = Selector(text=html)
-                if index == -1:
-                    result = root.xpath(expression).getall()
+                all_results = root.xpath(expression).getall()
+                
+                # 处理索引：支持Python标准的正负数索引
+                if index is None or (isinstance(index, int) and index == 999):
+                    # None 或 999 表示获取所有
+                    result = all_results
+                elif all_results:
+                    # 使用Python标准索引：-1=最后一个, -2=倒数第二, 0=第一个
+                    try:
+                        result = all_results[index]
+                    except IndexError:
+                        logger.warning(f"⚠️  索引 {index} 超出范围，共 {len(all_results)} 个元素")
+                        result = None
                 else:
-                    result = root.xpath(expression).get()
-                    if result is None and index != 0:
-                        # 尝试获取列表中的指定索引
-                        all_results = root.xpath(expression).getall()
-                        if all_results and len(all_results) > index:
-                            result = all_results[index]
+                    result = None
             
             elif parse_type == 'regex':
-                if index == -1:
-                    result = re.findall(expression, html)
-                else:
-                    matches = re.findall(expression, html)
-                    if matches and len(matches) > index:
+                matches = re.findall(expression, html)
+                
+                # 处理索引
+                if index is None or (isinstance(index, int) and index == 999):
+                    # None 或 999 表示获取所有
+                    result = matches
+                elif matches:
+                    try:
                         result = matches[index]
+                    except IndexError:
+                        logger.warning(f"⚠️  索引 {index} 超出范围，共 {len(matches)} 个元素")
+                        result = None
+                else:
+                    result = None
             
             # 应用后处理
             if result is not None and post_process:
@@ -302,11 +375,24 @@ class GenericNovelCrawler:
     def parse_novel_info(self, html: str) -> Dict:
         """解析小说信息"""
         novel_info = {}
-        parsers = self.config['parsers']['novel_info']
+        parsers = self.config.get('parsers', {}).get('novel_info', {})
+        
+        # 验证配置类型
+        if not isinstance(parsers, dict):
+            logger.error(f"❌ novel_info 配置应为字典类型，实际为 {type(parsers).__name__}")
+            return novel_info
         
         for field, parser_config in parsers.items():
-            value = self._parse_with_config(html, parser_config)
-            novel_info[field] = value
+            # 跳过注释字段
+            if field.startswith('_'):
+                continue
+            
+            try:
+                value = self._parse_with_config(html, parser_config)
+                novel_info[field] = value
+            except Exception as e:
+                logger.warning(f"⚠️  解析字段 {field} 失败: {e}")
+                novel_info[field] = None
         
         return novel_info
     
@@ -336,7 +422,7 @@ class GenericNovelCrawler:
         
         # 检查是否有分页
         pagination_config = chapter_list_config.get('pagination')
-        if pagination_config and pagination_config.get('enabled', False):
+        if pagination_config and safe_bool(pagination_config.get('enabled', False), False):
             # 有分页
             max_page = self._get_max_page(html, pagination_config)
             logger.info(f"📄 共 {max_page} 页章节列表")
@@ -388,38 +474,69 @@ class GenericNovelCrawler:
         """从页面解析章节列表"""
         chapters = []
         
+        # 验证配置类型
+        if not isinstance(chapter_list_config, dict):
+            raise TypeError(f"chapter_list_config 应为字典类型，实际为 {type(chapter_list_config).__name__}")
+        
         # 获取章节项配置
         items_config = chapter_list_config.get('items')
         title_config = chapter_list_config.get('title')
         url_config = chapter_list_config.get('url')
         
+        # 验证必需字段
+        if not items_config:
+            raise ValueError("chapter_list_config 缺少 'items' 字段")
+        if not title_config:
+            raise ValueError("chapter_list_config 缺少 'title' 字段")
+        if not url_config:
+            raise ValueError("chapter_list_config 缺少 'url' 字段")
+        
+        # 验证字段类型
+        if not isinstance(items_config, dict):
+            raise TypeError(f"items 配置应为字典类型，实际为 {type(items_config).__name__}")
+        if not isinstance(title_config, dict):
+            raise TypeError(f"title 配置应为字典类型，实际为 {type(title_config).__name__}")
+        if not isinstance(url_config, dict):
+            raise TypeError(f"url 配置应为字典类型，实际为 {type(url_config).__name__}")
+        
         # 先获取所有章节项
         root = Selector(text=html)
         items_xpath = items_config.get('expression', '')
+        if not items_xpath:
+            raise ValueError("items 配置缺少 'expression' 字段")
+        
         chapter_items = root.xpath(items_xpath)
         
         for item in chapter_items:
-            # 解析标题
-            title_expr = title_config.get('expression', '')
-            title = item.xpath(title_expr).get()
-            
-            # 解析URL
-            url_expr = url_config.get('expression', '')
-            url = item.xpath(url_expr).get()
-            
-            if title and url:
-                # 后处理
-                if title_config.get('process'):
-                    title = self._apply_post_process(title, title_config['process'])
+            try:
+                # 解析标题
+                title_expr = title_config.get('expression', '')
+                if not title_expr:
+                    continue
+                title = item.xpath(title_expr).get()
                 
-                # 构建完整URL
-                chapter_url = urljoin(self.base_url, url)
+                # 解析URL
+                url_expr = url_config.get('expression', '')
+                if not url_expr:
+                    continue
+                url = item.xpath(url_expr).get()
                 
-                chapters.append({
-                    'title': title,
-                    'url': chapter_url,
-                    'content': ''
-                })
+                if title and url:
+                    # 后处理
+                    if title_config.get('process'):
+                        title = self._apply_post_process(title, title_config['process'])
+                    
+                    # 构建完整URL
+                    chapter_url = urljoin(self.base_url, url)
+                    
+                    chapters.append({
+                        'title': title,
+                        'url': chapter_url,
+                        'content': ''
+                    })
+            except Exception as e:
+                logger.warning(f"⚠️  解析章节项失败: {e}")
+                continue
         
         return chapters
     
@@ -432,7 +549,7 @@ class GenericNovelCrawler:
         all_content = []
         current_url = chapter_url
         page_num = 1
-        max_pages = self.config['parsers']['chapter_content'].get('max_pages', 50)  # 防止无限循环
+        max_pages = safe_int(self.config['parsers']['chapter_content'].get('max_pages', 50), 50)  # 防止无限循环
         
         content_config = self.config['parsers']['chapter_content']['content']
         next_page_config = self.config['parsers']['chapter_content'].get('next_page')
@@ -452,7 +569,7 @@ class GenericNovelCrawler:
                 all_content.append(content)
             
             # 检查是否有下一页
-            if next_page_config and next_page_config.get('enabled', False):
+            if next_page_config and safe_bool(next_page_config.get('enabled', False), False):
                 next_url = self._parse_with_config(html, next_page_config)
                 if next_url and next_url != current_url:
                     current_url = urljoin(self.base_url, next_url)
@@ -537,7 +654,7 @@ class GenericNovelCrawler:
             )
         
         # 延迟
-        delay = self.config.get('crawler_config', {}).get('delay', 0.3)
+        delay = safe_float(self.config.get('crawler_config', {}).get('delay', 0.3), 0.3)
         time.sleep(delay)
         
         return download_success
