@@ -1,0 +1,160 @@
+{
+  "_comment": "通用小说爬虫配置模板",
+  "_description": "复制此模板并修改为目标网站的配置",
+  
+  "site_info": {
+    "name": "网站标识（英文，用于Redis键）",
+    "base_url": "https://example.com",
+    "description": "网站描述"
+  },
+  
+  "url_templates": {
+    "_comment": "统一的URL模板配置，使用命名参数",
+    "book_detail": "/book/{book_id}",
+    "_comment_book_detail": "书籍详情页（第1页/起始URL），{book_id}为用户输入的书籍ID。用于获取小说信息和第一页章节列表。示例: /book/{book_id} 或 /book/{book_id}.html",
+    
+    "chapter_list_page": "/book/{book_id}/{page}/",
+    "_comment_chapter_list_page": "章节列表翻页URL（从第2页开始），{book_id}为书籍ID，{page}为页码（≥2）。第1页使用book_detail。示例: /book/{book_id}/{page}.html 或 /book/{book_id}_{page}",
+    
+    "chapter_content_page": "/book/{book_id}/{chapter_id}_{page}.html",
+    "_comment_chapter_content_page": "章节内容翻页URL（从第2页开始），{book_id}为书籍ID，{chapter_id}为章节ID，{page}为页码（≥2）。第1页从章节列表的链接直接访问。示例: /book/{book_id}/{chapter_id}_{page}.html 或 /chapter/{book_id}/{chapter_id}/{page}"
+  },
+  
+  "request_config": {
+    "headers": {
+      "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15"
+    },
+    "timeout": 30,
+    "encoding": null,
+    "_comment": "encoding可选: null(自动检测), utf-8, gbk等"
+  },
+  
+  "crawler_config": {
+    "delay": 0.3,
+    "_comment_delay": "每个请求之间的延迟(秒)",
+    "max_retries": 20,
+    "_comment_max_retries": "最大重试次数"
+  },
+  
+  "parsers": {
+    "_comment": "解析器配置",
+    
+    "novel_info": {
+      "_comment": "小说基本信息（仅包含数据库支持的字段）",
+      
+      "title": {
+        "type": "xpath",
+        "_comment_type": "解析类型: xpath 或 regex",
+        "expression": "//div[@class='info']//p[1]/text()",
+        "index": -1,
+        "_comment_index": "索引: 0=第1个, 1=第2个, -1=最后1个, -2=倒数第2个, 999=获取所有(列表)",
+        "default": "",
+        "process": [
+          {"method": "strip"}
+        ]
+      },
+      
+      "author": {
+        "type": "xpath",
+        "expression": "//div[@class='info']//p[2]/text()",
+        "index": -1,
+        "process": [
+          {"method": "strip"},
+          {"method": "replace", "params": {"old": "作者：", "new": ""}}
+        ],
+        "default": ""
+      },
+      
+      "cover_url": {
+        "type": "xpath",
+        "expression": "//img[@class='cover']/@src",
+        "index": -1,
+        "default": "",
+        "_comment": "封面图片URL，对应数据库的 cover_url 字段"
+      }
+    },
+    
+    "chapter_list": {
+      "_comment": "章节列表解析",
+      
+      "pagination": {
+        "enabled": true,
+        "_comment_enabled": "是否有分页",
+        
+        "max_page": {
+          "type": "xpath",
+          "expression": "//ul[@class='pagination']/li/a[1]/text()",
+          "index": 0,
+          "default": "1",
+          "_comment": "从页面提取最大页数"
+        }
+      },
+      
+      "items": {
+        "type": "xpath",
+        "expression": "//div[@class='chapter-list']/ul/li",
+        "_comment": "章节列表项的xpath"
+      },
+      
+      "title": {
+        "type": "xpath",
+        "expression": "./a/text()",
+        "_comment": "相对于items的xpath",
+        "process": [
+          {"method": "strip"}
+        ]
+      },
+      
+      "url": {
+        "type": "xpath",
+        "expression": "./a/@href",
+        "_comment": "章节链接"
+      }
+    },
+    
+    "chapter_content": {
+      "_comment": "章节内容解析",
+      
+      "content": {
+        "type": "xpath",
+        "expression": "//div[@class='content']//text()",
+        "index": 999,
+        "_comment_index": "999获取所有文本节点（-1表示最后一个）",
+        "process": [
+          {"method": "join", "params": {"separator": "\n"}}
+        ]
+      },
+      
+      "next_page": {
+        "enabled": true,
+        "_comment_enabled": "章节是否支持分页。如果enabled为true但没有配置expression，将使用url_templates.chapter_content_page自动构建URL",
+        "type": "xpath",
+        "expression": "//a[contains(text(),'下一页')]/@href",
+        "index": 0,
+        
+        "max_page_xpath": {
+          "type": "xpath",
+          "expression": "//select[@id='page']/option[last()]/text()",
+          "index": 0,
+          "default": "1",
+          "_comment": "从页面提取最大页数的xpath（可选），例如从下拉框或分页信息中提取"
+        },
+        
+        "max_pages_manual": 50,
+        "_comment_max_pages_manual": "手动指定的最大页数（防止无限循环），实际使用时会取xpath提取的最大页和此值中的较大值"
+      }
+    }
+  },
+  
+  "_process_methods": {
+    "_comment": "可用的后处理方法说明",
+    "strip": "去除首尾空白，params: {chars: 可选}",
+    "replace": "字符串替换，params: {old: 旧字符串, new: 新字符串}",
+    "regex_replace": "正则替换，params: {pattern: 正则表达式, repl: 替换文本}",
+    "join": "列表连接，params: {separator: 分隔符}",
+    "split": "字符串分割，params: {separator: 分隔符}",
+    "extract_first": "提取列表第一个元素，无params",
+    "extract_index": "提取列表指定索引，params: {index: 索引}"
+  }
+}
+
