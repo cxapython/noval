@@ -33,12 +33,21 @@ export function generateFieldConfigFromFlow(nodes, edges, fieldName) {
   const processors = getConnectedProcessors(extractorNode.id, nodes, edges);
 
   // 4. 检查第一个节点是否是索引选择器，如果是则提取为 index
-  let indexValue = 999; // 默认返回全部
+  // 索引逻辑：
+  // - 如果有索引选择器：使用其配置的值
+  // - 如果没有索引选择器：
+  //   - content字段默认999（获取所有文本节点）
+  //   - 其他字段默认0（取第一个元素）
+  let indexValue;
   let processStart = 0;
   
   if (processors.length > 0 && processors[0].data.method === 'extract_index') {
+    // 有索引选择器，使用其配置的值
     indexValue = processors[0].data.params?.index ?? -1;
     processStart = 1; // 跳过第一个索引选择器节点
+  } else {
+    // 没有索引选择器，根据字段类型设置默认值
+    indexValue = (fieldName === 'content') ? 999 : 0;
   }
 
   // 5. 构建基础字段配置
@@ -226,8 +235,13 @@ export function generateFlowFromFieldConfig(fieldConfig, fieldName) {
   let prevNodeId = extractorNode.id;
   let xPosition = 500;
 
-  // 2. 如果有索引配置且不是默认的999，创建索引选择器节点
-  if (fieldConfig.index !== undefined && fieldConfig.index !== 999) {
+  // 2. 如果有索引配置且不是默认值，创建索引选择器节点
+  // 逻辑：只有明确指定非默认索引时才创建节点（content字段默认999，其他字段默认0）
+  const shouldCreateIndexNode = fieldConfig.index !== undefined && 
+    !((fieldName === 'content' && fieldConfig.index === 999) || 
+      (fieldName !== 'content' && fieldConfig.index === 0));
+      
+  if (shouldCreateIndexNode) {
     const indexNode = {
       id: `node-${nodeIdCounter++}`,
       type: 'extract-index',
