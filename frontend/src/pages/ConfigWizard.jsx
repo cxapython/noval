@@ -13,6 +13,7 @@ import {
 } from '@ant-design/icons'
 import axios from 'axios'
 import { PostProcessRuleModal, PostProcessRuleInline } from '../components/PostProcessRuleEditor'
+import PaginationConfigForm from '../components/PaginationConfigForm'
 
 const { TextArea } = Input
 const { Text } = Typography
@@ -135,12 +136,15 @@ function ConfigWizard() {
   const [paginationConfig, setPaginationConfig] = useState({
     enabled: false,
     maxPageXpath: '//ul[@class="pagination"]/li/a[1]/text()',
+    maxPageManual: 100,
     urlPattern: '{base_url}/book/{book_id}/{page}/'
   })
   const [contentPaginationEnabled, setContentPaginationEnabled] = useState(true)
-  const [contentNextPageUrlPattern, setContentNextPageUrlPattern] = useState('')
-  const [maxPages, setMaxPages] = useState(50)
-  const [maxPageXpath, setMaxPageXpath] = useState('//select[@id="page"]/option[last()]/text()')
+  const [contentPaginationConfig, setContentPaginationConfig] = useState({
+    maxPageXpath: '//select[@id="page"]/option[last()]/text()',
+    maxPageManual: 50,
+    urlPattern: ''
+  })
   
   // URL模板配置
   const [urlTemplates, setUrlTemplates] = useState({
@@ -432,15 +436,22 @@ function ConfigWizard() {
     const processedChapterListFields = { ...chapterListFields }
     
     // 使用用户配置的分页设置
-    processedChapterListFields.pagination = {
-      enabled: paginationConfig.enabled,
-      max_page: {
-        type: 'xpath',
-        expression: paginationConfig.maxPageXpath,
-        index: 0,
-        default: '1'
-      },
-      url_pattern: paginationConfig.urlPattern
+    if (paginationConfig.enabled) {
+      processedChapterListFields.pagination = {
+        enabled: true,
+        max_page_xpath: {
+          type: 'xpath',
+          expression: paginationConfig.maxPageXpath,
+          index: 0,
+          default: '1'
+        },
+        max_page_manual: paginationConfig.maxPageManual,
+        url_pattern: paginationConfig.urlPattern
+      }
+    } else {
+      processedChapterListFields.pagination = {
+        enabled: false
+      }
     }
     
     // 处理章节内容配置 - 添加翻页和清理支持
@@ -460,21 +471,21 @@ function ConfigWizard() {
       }
       if (contentPaginationEnabled) {
         // 添加最大页数配置
-        processedChapterContentFields.next_page.max_pages_manual = maxPages
+        processedChapterContentFields.next_page.max_pages_manual = contentPaginationConfig.maxPageManual
         
         // 添加xpath提取最大页配置
-        if (maxPageXpath) {
+        if (contentPaginationConfig.maxPageXpath) {
           processedChapterContentFields.next_page.max_page_xpath = {
             type: 'xpath',
-            expression: maxPageXpath,
+            expression: contentPaginationConfig.maxPageXpath,
             index: 0,
             default: '1'
           }
         }
         
         // 添加URL模式（如果有）
-        if (contentNextPageUrlPattern) {
-          processedChapterContentFields.next_page.url_pattern = contentNextPageUrlPattern
+        if (contentPaginationConfig.urlPattern) {
+          processedChapterContentFields.next_page.url_pattern = contentPaginationConfig.urlPattern
         }
       }
     } else if (contentPaginationEnabled) {
@@ -484,16 +495,16 @@ function ConfigWizard() {
         type: 'xpath',
         expression: '//a[contains(text(),"下一页")]/@href',
         index: 0,
-        max_pages_manual: maxPages,
+        max_pages_manual: contentPaginationConfig.maxPageManual,
         max_page_xpath: {
           type: 'xpath',
-          expression: maxPageXpath || '//select[@id="page"]/option[last()]/text()',
+          expression: contentPaginationConfig.maxPageXpath || '//select[@id="page"]/option[last()]/text()',
           index: 0,
           default: '1'
         }
       }
-      if (contentNextPageUrlPattern) {
-        processedChapterContentFields.next_page.url_pattern = contentNextPageUrlPattern
+      if (contentPaginationConfig.urlPattern) {
+        processedChapterContentFields.next_page.url_pattern = contentPaginationConfig.urlPattern
       }
     }
     
@@ -1240,25 +1251,11 @@ function ConfigWizard() {
                     </Form.Item>
                     
                     {paginationConfig.enabled && (
-                      <>
-                        <Form.Item label="最大页数XPath" help="用于从页面中提取总页数的XPath表达式">
-                          <Input
-                            value={paginationConfig.maxPageXpath}
-                            onChange={(e) => setPaginationConfig({...paginationConfig, maxPageXpath: e.target.value})}
-                            placeholder="例如：//ul[@class='pagination']/li/a[1]/text()"
-                          />
-                        </Form.Item>
-                        <Form.Item 
-                          label="分页URL模式" 
-                          help="可用变量: {base_url}, {book_id}, {page}。例如：{base_url}/book/{book_id}/{page}/ 或 {base_url}/book/{book_id}/{page}.html"
-                        >
-                          <Input
-                            value={paginationConfig.urlPattern}
-                            onChange={(e) => setPaginationConfig({...paginationConfig, urlPattern: e.target.value})}
-                            placeholder="例如：{base_url}/book/{book_id}/{page}/"
-                          />
-                        </Form.Item>
-                      </>
+                      <PaginationConfigForm
+                        config={paginationConfig}
+                        onChange={setPaginationConfig}
+                        type="list"
+                      />
                     )}
                   </Form>
                 </div>
@@ -1288,37 +1285,11 @@ function ConfigWizard() {
                     </Form.Item>
                     
                     {contentPaginationEnabled && (
-                      <>
-                        <Divider orientation="left">下一页配置</Divider>
-                        <Form.Item 
-                          label="章节内容翻页URL模式（可选）" 
-                          help="可用变量: {base_url}, {book_id}（小说ID）, {chapter_id}（章节ID）, {page}（页码）。示例: {base_url}/read/{book_id}_{chapter_id}_{page}.html 或 {base_url}/chapter/{book_id}/{chapter_id}/{page}。留空则使用XPath提取的链接"
-                        >
-                          <Input
-                            value={contentNextPageUrlPattern}
-                            onChange={(e) => setContentNextPageUrlPattern(e.target.value)}
-                            placeholder="例如：{base_url}/read/{book_id}_{chapter_id}_{page}.html"
-                          />
-                        </Form.Item>
-                        
-                        <Divider orientation="left">最大页数配置</Divider>
-                        <Form.Item label="从页面提取最大页数XPath（可选）" help="例如从下拉框或分页信息中提取，留空则不提取">
-                          <Input
-                            value={maxPageXpath}
-                            onChange={(e) => setMaxPageXpath(e.target.value)}
-                            placeholder="例如：//select[@id='page']/option[last()]/text()"
-                          />
-                        </Form.Item>
-                        <Form.Item label="手动指定最大翻页数" help="防止无限循环，建议设置为50。实际使用时会取XPath提取的最大页和此值中的较大值">
-                          <InputNumber
-                            value={maxPages}
-                            onChange={setMaxPages}
-                            min={1}
-                            max={200}
-                            style={{ width: '100%' }}
-                          />
-                        </Form.Item>
-                      </>
+                      <PaginationConfigForm
+                        config={contentPaginationConfig}
+                        onChange={setContentPaginationConfig}
+                        type="content"
+                      />
                     )}
                   </Form>
                 </div>

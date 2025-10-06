@@ -264,19 +264,20 @@ class GenericNovelCrawler:
         return True
     
     def _get_max_page(self, html: str, pagination_config: Dict) -> int:
-        """获取最大页数"""
-        max_page_config = pagination_config.get('max_page')
-        if max_page_config:
-            result = self.parser.parse_with_config(html, max_page_config)
-            if result:
-                # 可能需要从文本中提取数字
-                if isinstance(result, str):
-                    numbers = re.findall(r'\d+', result)
-                    if numbers:
-                        return int(numbers[0])
-                elif isinstance(result, (int, float)):
-                    return int(result)
-        return 1
+        """
+        获取章节列表的最大页数
+        :param html: HTML内容
+        :param pagination_config: 分页配置
+        :return: 最大页数
+        """
+        # 获取手动配置的最大页数，兼容旧配置
+        max_page_manual = pagination_config.get('max_page_manual', 100)
+        
+        # 获取xpath配置，兼容旧的max_page字段
+        max_page_xpath_config = pagination_config.get('max_page_xpath') or pagination_config.get('max_page')
+        
+        # 复用章节内容的提取逻辑
+        return self._extract_max_pages_from_html(html, max_page_xpath_config, max_page_manual)
     
     def _build_pagination_url(self, page: int, pagination_config: Dict) -> str:
         """
