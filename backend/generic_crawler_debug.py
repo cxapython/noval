@@ -275,16 +275,27 @@ class GenericNovelCrawlerDebug(GenericNovelCrawler):
         parsers = self.config_manager.get_parsers()
         chapter_content_config = parsers.get('chapter_content', {})
         
-        max_pages = safe_int(chapter_content_config.get('max_pages', 50), 50)
         content_config = chapter_content_config.get('content', {})
         next_page_config = chapter_content_config.get('next_page', {})
         clean_config = chapter_content_config.get('clean', [])
+        
+        # 获取最大页数：优先从next_page配置读取，兼容旧配置
+        max_pages_manual = safe_int(next_page_config.get('max_pages_manual') or chapter_content_config.get('max_pages', 50), 50)
+        max_page_xpath_config = next_page_config.get('max_page_xpath')
+        
+        # 初始化最大页数（默认使用手动配置的值）
+        max_pages = max_pages_manual
         
         debug_info = {
             'pages_processed': 0,
             'raw_content_length': 0,
             'final_content_length': 0,
-            'clean_steps': []
+            'clean_steps': [],
+            'max_pages_config': {
+                'manual': max_pages_manual,
+                'extracted': None,
+                'final': max_pages
+            }
         }
         
         # 获取内容
@@ -293,6 +304,14 @@ class GenericNovelCrawlerDebug(GenericNovelCrawler):
             if not html:
                 logger.warning(f"⚠️  第{page_num}页获取失败")
                 break
+            
+            # 第一页时尝试从页面提取最大页数（调用父类方法）
+            if page_num == 1:
+                max_pages = self._extract_max_pages_from_html(html, max_page_xpath_config, max_pages_manual)
+                # 记录调试信息
+                if max_pages != max_pages_manual:
+                    debug_info['max_pages_config']['extracted'] = max_pages
+                debug_info['max_pages_config']['final'] = max_pages
             
             debug_info['pages_processed'] = page_num
             

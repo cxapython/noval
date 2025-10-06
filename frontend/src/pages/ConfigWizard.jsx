@@ -140,6 +140,7 @@ function ConfigWizard() {
   const [contentPaginationEnabled, setContentPaginationEnabled] = useState(true)
   const [contentNextPageUrlPattern, setContentNextPageUrlPattern] = useState('')
   const [maxPages, setMaxPages] = useState(50)
+  const [maxPageXpath, setMaxPageXpath] = useState('//select[@id="page"]/option[last()]/text()')
   
   // URL模板配置
   const [urlTemplates, setUrlTemplates] = useState({
@@ -451,17 +452,30 @@ function ConfigWizard() {
       processedChapterContentFields.content = chapterContentFields.content
     }
     
-    // 2. max_pages - 最大页数配置
-    processedChapterContentFields.max_pages = maxPages
-    
-    // 3. next_page - 翻页配置
+    // 2. next_page - 翻页配置（包含最大页数配置）
     if (chapterContentFields.next_page) {
       processedChapterContentFields.next_page = {
         ...chapterContentFields.next_page,
         enabled: contentPaginationEnabled
       }
-      if (contentPaginationEnabled && contentNextPageUrlPattern) {
-        processedChapterContentFields.next_page.url_pattern = contentNextPageUrlPattern
+      if (contentPaginationEnabled) {
+        // 添加最大页数配置
+        processedChapterContentFields.next_page.max_pages_manual = maxPages
+        
+        // 添加xpath提取最大页配置
+        if (maxPageXpath) {
+          processedChapterContentFields.next_page.max_page_xpath = {
+            type: 'xpath',
+            expression: maxPageXpath,
+            index: 0,
+            default: '1'
+          }
+        }
+        
+        // 添加URL模式（如果有）
+        if (contentNextPageUrlPattern) {
+          processedChapterContentFields.next_page.url_pattern = contentNextPageUrlPattern
+        }
       }
     } else if (contentPaginationEnabled) {
       // 如果启用翻页但未配置next_page，添加默认配置
@@ -470,7 +484,16 @@ function ConfigWizard() {
         type: 'xpath',
         expression: '//a[contains(text(),"下一页")]/@href',
         index: 0,
-        url_pattern: contentNextPageUrlPattern
+        max_pages_manual: maxPages,
+        max_page_xpath: {
+          type: 'xpath',
+          expression: maxPageXpath || '//select[@id="page"]/option[last()]/text()',
+          index: 0,
+          default: '1'
+        }
+      }
+      if (contentNextPageUrlPattern) {
+        processedChapterContentFields.next_page.url_pattern = contentNextPageUrlPattern
       }
     }
     
@@ -1266,15 +1289,7 @@ function ConfigWizard() {
                     
                     {contentPaginationEnabled && (
                       <>
-                        <Form.Item label="最大翻页数" help="防止无限循环，建议设置为50">
-                          <InputNumber
-                            value={maxPages}
-                            onChange={setMaxPages}
-                            min={1}
-                            max={200}
-                            style={{ width: '100%' }}
-                          />
-                        </Form.Item>
+                        <Divider orientation="left">下一页配置</Divider>
                         <Form.Item 
                           label="章节内容翻页URL模式（可选）" 
                           help="可用变量: {base_url}, {book_id}（小说ID）, {chapter_id}（章节ID）, {page}（页码）。示例: {base_url}/read/{book_id}_{chapter_id}_{page}.html 或 {base_url}/chapter/{book_id}/{chapter_id}/{page}。留空则使用XPath提取的链接"
@@ -1283,6 +1298,24 @@ function ConfigWizard() {
                             value={contentNextPageUrlPattern}
                             onChange={(e) => setContentNextPageUrlPattern(e.target.value)}
                             placeholder="例如：{base_url}/read/{book_id}_{chapter_id}_{page}.html"
+                          />
+                        </Form.Item>
+                        
+                        <Divider orientation="left">最大页数配置</Divider>
+                        <Form.Item label="从页面提取最大页数XPath（可选）" help="例如从下拉框或分页信息中提取，留空则不提取">
+                          <Input
+                            value={maxPageXpath}
+                            onChange={(e) => setMaxPageXpath(e.target.value)}
+                            placeholder="例如：//select[@id='page']/option[last()]/text()"
+                          />
+                        </Form.Item>
+                        <Form.Item label="手动指定最大翻页数" help="防止无限循环，建议设置为50。实际使用时会取XPath提取的最大页和此值中的较大值">
+                          <InputNumber
+                            value={maxPages}
+                            onChange={setMaxPages}
+                            min={1}
+                            max={200}
+                            style={{ width: '100%' }}
                           />
                         </Form.Item>
                       </>

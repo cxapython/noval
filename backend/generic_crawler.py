@@ -399,6 +399,40 @@ class GenericNovelCrawler:
         
         return chapters
     
+    def _extract_max_pages_from_html(self, html: str, max_page_xpath_config: Dict, max_pages_manual: int) -> int:
+        """
+        从HTML页面中提取最大页数
+        :param html: HTML内容
+        :param max_page_xpath_config: xpath配置
+        :param max_pages_manual: 手动配置的最大页数（作为默认值）
+        :return: 提取到的最大页数（如果失败则返回max_pages_manual）
+        """
+        if not max_page_xpath_config:
+            return max_pages_manual
+        
+        try:
+            max_page_from_xpath = self.parser.parse_with_config(html, max_page_xpath_config)
+            if max_page_from_xpath:
+                # 安全地转换为整数
+                max_page_str = str(max_page_from_xpath).strip()
+                # 如果是列表，取第一个元素
+                if isinstance(max_page_from_xpath, list) and max_page_from_xpath:
+                    max_page_str = str(max_page_from_xpath[0]).strip()
+                
+                # 尝试转换为整数
+                if max_page_str and max_page_str.isdigit():
+                    max_page_extracted = int(max_page_str)
+                    # 取xpath提取的最大页和手动配置的最大页中的较大值
+                    final_max_pages = max(max_page_extracted, max_pages_manual)
+                    logger.info(f"✅ 从页面提取到最大页数: {max_page_extracted}, 手动配置: {max_pages_manual}, 实际使用: {final_max_pages}")
+                    return final_max_pages
+                else:
+                    logger.warning(f"⚠️  提取的最大页数格式无效: '{max_page_str}', 使用手动配置的值: {max_pages_manual}")
+        except Exception as e:
+            logger.warning(f"⚠️  提取最大页数失败: {e}, 使用手动配置的值: {max_pages_manual}")
+        
+        return max_pages_manual
+    
     def download_chapter_content(self, chapter_url: str) -> str:
         """
         下载章节内容（支持多页）
@@ -412,10 +446,16 @@ class GenericNovelCrawler:
         parsers = self.config_manager.get_parsers()
         chapter_content_config = parsers.get('chapter_content', {})
         
-        max_pages = chapter_content_config.get('max_pages', 50)
         content_config = chapter_content_config.get('content', {})
         next_page_config = chapter_content_config.get('next_page', {})
         clean_config = chapter_content_config.get('clean', [])
+        
+        # 获取最大页数：优先从next_page配置读取，兼容旧配置
+        max_pages_manual = next_page_config.get('max_pages_manual') or chapter_content_config.get('max_pages', 50)
+        max_page_xpath_config = next_page_config.get('max_page_xpath')
+        
+        # 初始化最大页数（默认使用手动配置的值）
+        max_pages = max_pages_manual
         
         while current_url and page_num <= max_pages:
             html = self.fetcher.get_page(current_url,
@@ -423,6 +463,10 @@ class GenericNovelCrawler:
             if not html:
                 logger.warning(f"⚠️  第{page_num}页获取失败")
                 break
+            
+            # 第一页时尝试从页面提取最大页数
+            if page_num == 1:
+                max_pages = self._extract_max_pages_from_html(html, max_page_xpath_config, max_pages_manual)
             
             # 解析内容
             content = self.parser.parse_with_config(html, content_config)
