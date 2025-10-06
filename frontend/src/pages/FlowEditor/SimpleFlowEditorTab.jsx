@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import ReactFlow, {
   Controls,
   Background,
@@ -20,7 +20,10 @@ import {
   ArrowRightOutlined,
   ArrowLeftOutlined,
   EditOutlined,
-  DeleteOutlined
+  DeleteOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
+  ColumnWidthOutlined
 } from '@ant-design/icons';
 
 import NodePalette from './NodePalette';
@@ -99,6 +102,13 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
   const [novelInfoFields, setNovelInfoFields] = useState({});
   const [chapterListFields, setChapterListFields] = useState({});
   const [chapterContentFields, setChapterContentFields] = useState({});
+  
+  // 面板宽度和显示状态
+  const [leftPanelWidth, setLeftPanelWidth] = useState(280);
+  const [rightPanelWidth, setRightPanelWidth] = useState(300);
+  const [leftPanelVisible, setLeftPanelVisible] = useState(true);
+  const [rightPanelVisible, setRightPanelVisible] = useState(true);
+  const [isResizing, setIsResizing] = useState(null); // 'left' | 'right' | null
 
   // 获取当前步骤配置
   const currentStepConfig = STEPS_CONFIG[currentStep];
@@ -110,6 +120,33 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
     if (currentStep === 2) return chapterContentFields;
     return {};
   };
+  
+  // 处理拖拽调节宽度
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMouseMove = (e) => {
+      if (isResizing === 'left') {
+        const newWidth = Math.max(200, Math.min(500, e.clientX - 20));
+        setLeftPanelWidth(newWidth);
+      } else if (isResizing === 'right') {
+        const newWidth = Math.max(250, Math.min(600, window.innerWidth - e.clientX - 20));
+        setRightPanelWidth(newWidth);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(null);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
   
   // 设置当前步骤的已配置字段
   const setCurrentFields = (fields) => {
@@ -412,14 +449,87 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
         </Steps>
       </Card>
 
-      <div style={{ display: 'flex', flex: 1, gap: 16 }}>
+      <div style={{ display: 'flex', flex: 1, gap: 0, position: 'relative' }}>
         {/* 左侧：节点面板 */}
-        <div style={{ width: 280 }}>
-          <NodePalette />
-        </div>
+        {leftPanelVisible && (
+          <>
+            <div style={{ width: leftPanelWidth, transition: isResizing ? 'none' : 'width 0.3s' }}>
+              <Card 
+                size="small"
+                title={
+                  <Space>
+                    <ColumnWidthOutlined />
+                    <span>组件面板</span>
+                  </Space>
+                }
+                extra={
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<MenuFoldOutlined />}
+                    onClick={() => setLeftPanelVisible(false)}
+                    title="隐藏面板"
+                  />
+                }
+                style={{ height: '100%', overflow: 'hidden' }}
+                bodyStyle={{ padding: 0, height: 'calc(100% - 48px)', overflow: 'auto' }}
+              >
+                <NodePalette />
+              </Card>
+            </div>
+            {/* 左侧调节手柄 */}
+            <div
+              onMouseDown={() => setIsResizing('left')}
+              style={{
+                width: 8,
+                cursor: 'col-resize',
+                background: isResizing === 'left' ? '#1890ff' : 'transparent',
+                transition: 'background 0.2s',
+                position: 'relative',
+                zIndex: 10
+              }}
+              onMouseEnter={(e) => {
+                if (!isResizing) e.target.style.background = '#e6f7ff';
+              }}
+              onMouseLeave={(e) => {
+                if (!isResizing) e.target.style.background = 'transparent';
+              }}
+            >
+              <div style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: 4,
+                height: 40,
+                background: '#d9d9d9',
+                borderRadius: 2
+              }} />
+            </div>
+          </>
+        )}
+
+        {/* 左侧折叠按钮（隐藏时显示） */}
+        {!leftPanelVisible && (
+          <Button
+            type="primary"
+            icon={<MenuUnfoldOutlined />}
+            onClick={() => setLeftPanelVisible(true)}
+            style={{
+              position: 'absolute',
+              left: 8,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              zIndex: 100,
+              height: 80,
+              borderRadius: '0 8px 8px 0'
+            }}
+            title="显示组件面板"
+          />
+        )}
 
         {/* 中间：主要内容 */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16, padding: '0 8px' }}>
           {/* 当前步骤说明和字段选择 */}
           <Card size="small">
             <Alert
@@ -607,14 +717,61 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
           </Card>
         </div>
 
-        {/* 右侧：已配置字段 */}
-        <div style={{ width: 300 }}>
-          <Card 
-            title="已配置字段"
-            size="small"
-            style={{ height: '100%' }}
-            bodyStyle={{ padding: 12, height: 'calc(100% - 50px)', overflow: 'auto' }}
+        {/* 右侧调节手柄 */}
+        {rightPanelVisible && (
+          <div
+            onMouseDown={() => setIsResizing('right')}
+            style={{
+              width: 8,
+              cursor: 'col-resize',
+              background: isResizing === 'right' ? '#1890ff' : 'transparent',
+              transition: 'background 0.2s',
+              position: 'relative',
+              zIndex: 10
+            }}
+            onMouseEnter={(e) => {
+              if (!isResizing) e.target.style.background = '#e6f7ff';
+            }}
+            onMouseLeave={(e) => {
+              if (!isResizing) e.target.style.background = 'transparent';
+            }}
           >
+            <div style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: 4,
+              height: 40,
+              background: '#d9d9d9',
+              borderRadius: 2
+            }} />
+          </div>
+        )}
+
+        {/* 右侧：已配置字段 */}
+        {rightPanelVisible && (
+          <div style={{ width: rightPanelWidth, transition: isResizing ? 'none' : 'width 0.3s' }}>
+            <Card 
+              title={
+                <Space>
+                  <CheckCircleOutlined />
+                  <span>已配置字段</span>
+                </Space>
+              }
+              size="small"
+              style={{ height: '100%' }}
+              bodyStyle={{ padding: 12, height: 'calc(100% - 50px)', overflow: 'auto' }}
+              extra={
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<MenuFoldOutlined />}
+                  onClick={() => setRightPanelVisible(false)}
+                  title="隐藏面板"
+                />
+              }
+            >
             {Object.keys(currentFields).length === 0 ? (
               <div style={{ textAlign: 'center', padding: 40, color: '#999' }}>
                 <div style={{ fontSize: 48, marginBottom: 8 }}>📝</div>
@@ -681,6 +838,26 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
             )}
           </Card>
         </div>
+        )}
+
+        {/* 右侧折叠按钮（隐藏时显示） */}
+        {!rightPanelVisible && (
+          <Button
+            type="primary"
+            icon={<MenuUnfoldOutlined />}
+            onClick={() => setRightPanelVisible(true)}
+            style={{
+              position: 'absolute',
+              right: 8,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              zIndex: 100,
+              height: 80,
+              borderRadius: '8px 0 0 8px'
+            }}
+            title="显示已配置字段面板"
+          />
+        )}
       </div>
     </div>
   );

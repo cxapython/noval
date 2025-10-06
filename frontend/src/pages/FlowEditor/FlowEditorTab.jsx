@@ -15,7 +15,9 @@ import {
   ClearOutlined,
   SaveOutlined,
   EyeOutlined,
-  QuestionCircleOutlined
+  QuestionCircleOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined
 } from '@ant-design/icons';
 
 const { Text } = Typography;
@@ -84,6 +86,33 @@ function FlowEditorTab({ configData, onConfigChange }) {
   // 新增：页面类型和字段选择
   const [selectedPageType, setSelectedPageType] = useState('chapter_content');
   const [selectedField, setSelectedField] = useState('content');
+  
+  // 面板宽度和显示状态
+  const [leftPanelWidth, setLeftPanelWidth] = useState(280);
+  const [leftPanelVisible, setLeftPanelVisible] = useState(true);
+  const [isResizing, setIsResizing] = useState(false);
+
+  // 处理拖拽调节宽度
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMouseMove = (e) => {
+      const newWidth = Math.max(200, Math.min(500, e.clientX - 20));
+      setLeftPanelWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
 
   // 节点数据更新处理
   const handleNodeDataChange = useCallback((nodeId, field, value) => {
@@ -241,9 +270,78 @@ function FlowEditorTab({ configData, onConfigChange }) {
   }, [setNodes, setEdges]);
 
   return (
-    <div style={{ height: 'calc(100vh - 300px)', display: 'flex' }}>
+    <div style={{ height: 'calc(100vh - 300px)', display: 'flex', position: 'relative' }}>
       {/* 左侧：节点面板 */}
-      <NodePalette />
+      {leftPanelVisible && (
+        <>
+          <div style={{ width: leftPanelWidth, transition: isResizing ? 'none' : 'width 0.3s' }}>
+            <Card 
+              size="small"
+              title="组件面板"
+              extra={
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<MenuFoldOutlined />}
+                  onClick={() => setLeftPanelVisible(false)}
+                  title="隐藏面板"
+                />
+              }
+              style={{ height: '100%', overflow: 'hidden' }}
+              bodyStyle={{ padding: 0, height: 'calc(100% - 48px)', overflow: 'auto' }}
+            >
+              <NodePalette />
+            </Card>
+          </div>
+          {/* 调节手柄 */}
+          <div
+            onMouseDown={() => setIsResizing(true)}
+            style={{
+              width: 8,
+              cursor: 'col-resize',
+              background: isResizing ? '#1890ff' : 'transparent',
+              transition: 'background 0.2s',
+              position: 'relative'
+            }}
+            onMouseEnter={(e) => {
+              if (!isResizing) e.target.style.background = '#e6f7ff';
+            }}
+            onMouseLeave={(e) => {
+              if (!isResizing) e.target.style.background = 'transparent';
+            }}
+          >
+            <div style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: 4,
+              height: 40,
+              background: '#d9d9d9',
+              borderRadius: 2
+            }} />
+          </div>
+        </>
+      )}
+
+      {/* 左侧折叠按钮（隐藏时显示） */}
+      {!leftPanelVisible && (
+        <Button
+          type="primary"
+          icon={<MenuUnfoldOutlined />}
+          onClick={() => setLeftPanelVisible(true)}
+          style={{
+            position: 'absolute',
+            left: 8,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            zIndex: 1000,
+            height: 80,
+            borderRadius: '0 8px 8px 0'
+          }}
+          title="显示组件面板"
+        />
+      )}
 
       {/* 中间：画布 */}
       <div style={{ flex: 1, position: 'relative' }} ref={reactFlowWrapper}>
