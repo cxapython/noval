@@ -23,7 +23,9 @@ import {
   DeleteOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
-  ColumnWidthOutlined
+  ColumnWidthOutlined,
+  UpOutlined,
+  DownOutlined
 } from '@ant-design/icons';
 
 import NodePalette from './NodePalette';
@@ -108,6 +110,7 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
   const [rightPanelWidth, setRightPanelWidth] = useState(300);
   const [leftPanelVisible, setLeftPanelVisible] = useState(true);
   const [rightPanelVisible, setRightPanelVisible] = useState(true);
+  const [topConfigVisible, setTopConfigVisible] = useState(true); // 顶部配置栏显示状态
   const [isResizing, setIsResizing] = useState(null); // 'left' | 'right' | null
 
   // 获取当前步骤配置
@@ -529,47 +532,50 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
         )}
 
         {/* 中间：主要内容 */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16, padding: '0 8px' }}>
-          {/* 当前步骤说明和字段选择 */}
-          <Card size="small">
-            <Alert
-              message={`当前步骤: ${currentStepConfig.title}`}
-              description={currentStepConfig.description}
-              type="info"
-              showIcon
-              style={{ marginBottom: 16 }}
-            />
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, padding: '0 8px', position: 'relative' }}>
+          {/* 顶部配置栏 */}
+          {topConfigVisible ? (
+            <Card 
+              size="small" 
+              bodyStyle={{ padding: '12px 16px' }}
+              extra={
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<UpOutlined />}
+                  onClick={() => setTopConfigVisible(false)}
+                  title="隐藏配置栏"
+                >
+                  收起
+                </Button>
+              }
+            >
+              <Alert
+                message={`当前步骤: ${currentStepConfig.title}`}
+                description={currentStepConfig.description}
+                type="info"
+                showIcon
+                style={{ marginBottom: 12 }}
+              />
             
             {/* 章节列表的特殊说明 */}
             {currentStep === 1 && (
               <Alert
                 message="📖 两层提取架构说明"
                 description={
-                  <div style={{ fontSize: 12, lineHeight: '1.8' }}>
-                    <p style={{ marginBottom: 8 }}><strong>第1层 - items（列表项选择器）：</strong></p>
-                    <p style={{ marginBottom: 8, paddingLeft: 16 }}>
-                      • 从整个页面批量选择所有章节容器元素<br/>
-                      • 例如：<code>//ul[@class='chapter-list']/li</code> 选择所有li元素<br/>
-                      • 或：<code>//div[@class='章节项']</code> 选择所有章节div
-                    </p>
-                    
-                    <p style={{ marginBottom: 8 }}><strong>第2层 - title/url（在容器内提取）：</strong></p>
-                    <p style={{ paddingLeft: 16 }}>
-                      • 在每个容器内部提取标题和链接<br/>
-                      • <strong>必须使用相对路径</strong>（以 <code>.</code> 开头）<br/>
-                      • 例如：<code>./a/text()</code> 提取当前容器下的a标签文本<br/>
-                      • 或：<code>./a/@href</code> 提取当前容器下的a标签href属性
-                    </p>
+                  <div style={{ fontSize: 11, lineHeight: '1.6' }}>
+                    <p style={{ marginBottom: 4 }}><strong>第1层 - items：</strong>批量选择所有章节容器（如：<code>//ul/li</code>）</p>
+                    <p style={{ marginBottom: 0 }}><strong>第2层 - title/url：</strong>相对路径提取（如：<code>./a/text()</code>）</p>
                   </div>
                 }
                 type="warning"
                 showIcon
                 closable
-                style={{ marginBottom: 16, background: '#fffbe6' }}
+                style={{ marginBottom: 8, background: '#fffbe6', padding: '6px 12px' }}
               />
             )}
             
-            <Space size="large" style={{ width: '100%', marginBottom: 16 }}>
+            <Space size="middle" style={{ width: '100%', marginBottom: 8 }}>
               <div style={{ flex: 1 }}>
                 <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
                   选择要配置的字段
@@ -607,39 +613,40 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
                     }
                   }}
                   style={{ width: '100%' }}
-                  size="large"
                 >
                   {currentStepConfig.fields.map(field => (
                     <Option 
                       key={field.key} 
                       value={field.key}
                     >
-                      <Space>
-                        {currentFields[field.key] && <CheckCircleOutlined style={{ color: '#52c41a' }} />}
-                        {field.label}
-                        {field.required && <Tag color="red" style={{ marginLeft: 4 }}>必填</Tag>}
-                        {currentFields[field.key] && <Tag color="blue" style={{ fontSize: 11 }}>已配置</Tag>}
+                      <Space size="small">
+                        {currentFields[field.key] && <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 12 }} />}
+                        <span style={{ fontSize: 13 }}>{field.label}</span>
+                        {field.required && <Tag color="red" style={{ fontSize: 11, padding: '0 4px' }}>必填</Tag>}
+                        {currentFields[field.key] && <Tag color="blue" style={{ fontSize: 11, padding: '0 4px' }}>已配置</Tag>}
                       </Space>
                     </Option>
                   ))}
                 </Select>
                 {currentFieldInfo?.note && (
-                  <Text type="secondary" style={{ fontSize: 12, marginTop: 4, display: 'block' }}>
+                  <Text type="secondary" style={{ fontSize: 11, marginTop: 2, display: 'block' }}>
                     💡 {currentFieldInfo.note}
                   </Text>
                 )}
               </div>
 
-              <Space>
+              <Space size="small">
                 <Button
                   type="primary"
+                  size="small"
                   icon={<SaveOutlined />}
                   onClick={handleSaveField}
                   disabled={nodes.length === 0}
                 >
-                  保存字段
+                  保存
                 </Button>
                 <Button
+                  size="small"
                   icon={<ClearOutlined />}
                   onClick={handleClear}
                   disabled={nodes.length === 0}
@@ -648,10 +655,39 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
                 </Button>
               </Space>
             </Space>
-          </Card>
+            </Card>
+          ) : (
+            /* 顶部配置栏收起时显示的展开按钮 */
+            <Button
+              type="primary"
+              icon={<DownOutlined />}
+              onClick={() => setTopConfigVisible(true)}
+              style={{
+                position: 'absolute',
+                top: 8,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                zIndex: 100,
+                borderRadius: '0 0 8px 8px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+              }}
+              title="显示配置栏"
+            >
+              展开配置
+            </Button>
+          )}
 
           {/* 画布区域 */}
-          <div style={{ flex: 1, position: 'relative', border: '1px solid #d9d9d9', borderRadius: 8 }} ref={reactFlowWrapper}>
+          <div 
+            style={{ 
+              flex: 1, 
+              position: 'relative', 
+              border: '1px solid #d9d9d9', 
+              borderRadius: 8,
+              marginTop: topConfigVisible ? 0 : '40px' // 为展开按钮留出空间
+            }} 
+            ref={reactFlowWrapper}
+          >
             {nodes.length === 0 && (
               <div style={{
                 position: 'absolute',

@@ -17,7 +17,9 @@ import {
   EyeOutlined,
   QuestionCircleOutlined,
   MenuFoldOutlined,
-  MenuUnfoldOutlined
+  MenuUnfoldOutlined,
+  UpOutlined,
+  DownOutlined
 } from '@ant-design/icons';
 
 const { Text } = Typography;
@@ -90,6 +92,7 @@ function FlowEditorTab({ configData, onConfigChange }) {
   // 面板宽度和显示状态
   const [leftPanelWidth, setLeftPanelWidth] = useState(280);
   const [leftPanelVisible, setLeftPanelVisible] = useState(true);
+  const [topConfigVisible, setTopConfigVisible] = useState(true); // 顶部配置栏显示状态
   const [isResizing, setIsResizing] = useState(false);
 
   // 处理拖拽调节宽度
@@ -346,24 +349,25 @@ function FlowEditorTab({ configData, onConfigChange }) {
       {/* 中间：画布 */}
       <div style={{ flex: 1, position: 'relative' }} ref={reactFlowWrapper}>
         {/* 顶部配置栏 */}
-        <div style={{
-          position: 'absolute',
-          top: 16,
-          left: 16,
-          right: 16,
-          zIndex: 10,
-          display: 'flex',
-          gap: 16
-        }}>
-          {/* 页面和字段选择 */}
-          <Card 
-            size="small"
-            style={{ 
-              flex: 1,
-              boxShadow: '0 2px 8px rgba(0,0,0,0.15)' 
-            }}
-            bodyStyle={{ padding: '12px 16px' }}
-          >
+        {topConfigVisible ? (
+          <div style={{
+            position: 'absolute',
+            top: 16,
+            left: 16,
+            right: 16,
+            zIndex: 10,
+            display: 'flex',
+            gap: 16
+          }}>
+            {/* 页面和字段选择 */}
+            <Card 
+              size="small"
+              style={{ 
+                flex: 1,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.15)' 
+              }}
+              bodyStyle={{ padding: '12px 16px' }}
+            >
             <Space size="large" style={{ width: '100%' }}>
               <div>
                 <Text type="secondary" style={{ fontSize: 12, marginBottom: 4, display: 'block' }}>
@@ -421,6 +425,17 @@ function FlowEditorTab({ configData, onConfigChange }) {
             size="small"
             style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}
             bodyStyle={{ padding: '12px' }}
+            extra={
+              <Button
+                type="text"
+                size="small"
+                icon={<UpOutlined />}
+                onClick={() => setTopConfigVisible(false)}
+                title="隐藏配置栏"
+              >
+                收起
+              </Button>
+            }
           >
             <Space>
               <Button
@@ -472,7 +487,27 @@ function FlowEditorTab({ configData, onConfigChange }) {
               </Button>
             </Space>
           </Card>
-        </div>
+          </div>
+        ) : (
+          /* 顶部配置栏收起时显示的展开按钮 */
+          <Button
+            type="primary"
+            icon={<DownOutlined />}
+            onClick={() => setTopConfigVisible(true)}
+            style={{
+              position: 'absolute',
+              top: 16,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 10,
+              borderRadius: '0 0 8px 8px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+            }}
+            title="显示配置栏"
+          >
+            展开配置
+          </Button>
+        )}
 
         {/* 提示信息 */}
         {nodes.length === 0 && (
