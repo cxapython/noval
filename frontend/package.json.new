@@ -1,0 +1,6 @@
+{
+  "注意": "这是需要添加到package.json的依赖，运行: npm install reactflow",
+  "新增依赖": {
+    "reactflow": "^11.10.0"
+  }
+}

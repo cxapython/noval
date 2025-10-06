@@ -9,10 +9,11 @@ import {
   SaveOutlined, EyeOutlined, CodeOutlined, 
   CopyOutlined, ArrowLeftOutlined, PlusOutlined, 
   DeleteOutlined, MinusCircleOutlined, ExperimentOutlined,
-  ThunderboltOutlined, CheckCircleOutlined 
+  ThunderboltOutlined, CheckCircleOutlined, ApartmentOutlined 
 } from '@ant-design/icons'
 import axios from 'axios'
 import { POST_PROCESS_METHODS, getMethodParams, initMethodParams } from '../components/PostProcessRuleEditor'
+import SimpleFlowEditorTab from './FlowEditor/SimpleFlowEditorTab'
 
 const { Text } = Typography
 
@@ -273,6 +274,15 @@ function ConfigEditorPage() {
         </span>
       ),
       children: <FormView configData={configData} onChange={handleFieldChange} />
+    },
+    {
+      key: 'flow',
+      label: (
+        <span style={{ fontSize: 16 }}>
+          <ApartmentOutlined /> 流程配置
+        </span>
+      ),
+      children: <SimpleFlowEditorTab configData={configData} onConfigChange={handleFieldChange} />
     },
     {
       key: 'json',
