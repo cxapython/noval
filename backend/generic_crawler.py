@@ -67,7 +67,7 @@ class GenericNovelCrawler:
         
         self.site_name = site_info.get('name')
         self.base_url = site_info.get('base_url')
-        self.start_url = self.config_manager.build_url('book_detail', book_id)
+        self.start_url = self.config_manager.build_url('book_detail', book_id=book_id)
         
         # 初始化HTML解析器
         self.parser = HtmlParser(self.base_url)
@@ -377,9 +377,13 @@ class GenericNovelCrawler:
                 url = item.xpath(url_expr).get()
                 
                 if title and url:
-                    # 后处理
+                    # 后处理 - title
                     if title_config.get('process'):
                         title = self.parser.apply_post_process(title, title_config['process'])
+                    
+                    # 后处理 - url
+                    if url_config.get('process'):
+                        url = self.parser.apply_post_process(url, url_config['process'])
                     
                     # 构建完整URL
                     chapter_url = urljoin(self.base_url, url)

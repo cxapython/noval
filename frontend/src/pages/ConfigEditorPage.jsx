@@ -12,6 +12,7 @@ import {
   ThunderboltOutlined, CheckCircleOutlined 
 } from '@ant-design/icons'
 import axios from 'axios'
+import { POST_PROCESS_METHODS, getMethodParams, initMethodParams } from '../components/PostProcessRuleEditor'
 
 const { Text } = Typography
 
@@ -467,18 +468,9 @@ function FormView({ configData, onChange }) {
     }
   }
 
-  // 根据method获取需要的参数字段
+  // 根据method获取需要的参数字段（使用统一的方法配置）
   const getParamsForMethod = (method) => {
-    const paramsMap = {
-      'strip': ['chars'],  // 可选参数
-      'replace': ['old', 'new'],
-      'regex_replace': ['pattern', 'repl'],
-      'join': ['separator'],
-      'split': ['separator'],
-      'extract_first': [],  // 无参数
-      'extract_index': ['index']
-    }
-    return paramsMap[method] || []
+    return getMethodParams(method).map(p => p.name)
   }
 
   // 渲染动态params对象
@@ -554,7 +546,7 @@ function FormView({ configData, onChange }) {
       return null
     }
     
-    // 特殊处理：如果是包含method的处理规则对象
+    // 特殊处理：如果是包含method的清洗规则对象
     if (value !== null && typeof value === 'object' && !Array.isArray(value) && 'method' in value) {
       const methodValue = value.method
       const paramsValue = value.params
@@ -569,7 +561,7 @@ function FormView({ configData, onChange }) {
         }}>
           {/* Method选择器 */}
           <Form.Item
-            label={<span style={{ fontSize: 14, fontWeight: 500 }}>处理方法</span>}
+            label={<span style={{ fontSize: 14, fontWeight: 500 }}>清洗方法</span>}
             help={getFieldHelp('method')}
             style={{ marginBottom: 12 }}
           >
@@ -590,31 +582,19 @@ function FormView({ configData, onChange }) {
                 const targetObj = current[keys[keys.length - 1]]
                 targetObj.method = val
                 
-                // 根据方法初始化params
-                const requiredParams = getParamsForMethod(val)
-                if (requiredParams.length > 0) {
-                  const newParams = {}
-                  requiredParams.forEach(param => {
-                    newParams[param] = ''
-                  })
-                  targetObj.params = newParams
-                } else {
-                  // 无参数方法，删除params
-                  delete targetObj.params
-                }
+                // 根据方法初始化params（使用统一的初始化方法）
+                targetObj.params = initMethodParams(val)
                 
                 onChange('root', newData)
               }}
               style={{ width: '100%' }}
-              placeholder="选择处理方法"
+              placeholder="选择清洗方法"
             >
-              <Select.Option value="strip">strip - 去除首尾空白</Select.Option>
-              <Select.Option value="replace">replace - 字符串替换</Select.Option>
-              <Select.Option value="regex_replace">regex_replace - 正则表达式替换</Select.Option>
-              <Select.Option value="join">join - 连接数组元素</Select.Option>
-              <Select.Option value="split">split - 分割字符串</Select.Option>
-              <Select.Option value="extract_first">extract_first - 提取第一个元素</Select.Option>
-              <Select.Option value="extract_index">extract_index - 提取指定索引</Select.Option>
+              {POST_PROCESS_METHODS.map(method => (
+                <Select.Option key={method.value} value={method.value}>
+                  {method.label}
+                </Select.Option>
+              ))}
             </Select>
           </Form.Item>
           
@@ -790,7 +770,7 @@ function FormView({ configData, onChange }) {
   }
 
   const renderInput = (value, path) => {
-    // 检查是否为 method 字段（处理方法选择器）
+    // 检查是否为 method 字段（清洗方法选择器）
     if (path.includes('.method') || path.endsWith('method')) {
       return (
         <Select
@@ -798,15 +778,13 @@ function FormView({ configData, onChange }) {
           size="large"
           onChange={(val) => onChange(path, val)}
           style={{ width: '100%' }}
-          placeholder="选择处理方法"
+          placeholder="选择清洗方法"
         >
-          <Select.Option value="strip">strip - 去除首尾空白</Select.Option>
-          <Select.Option value="replace">replace - 字符串替换</Select.Option>
-          <Select.Option value="regex_replace">regex_replace - 正则表达式替换</Select.Option>
-          <Select.Option value="join">join - 连接数组元素</Select.Option>
-          <Select.Option value="split">split - 分割字符串</Select.Option>
-          <Select.Option value="extract_first">extract_first - 提取第一个元素</Select.Option>
-          <Select.Option value="extract_index">extract_index - 提取指定索引</Select.Option>
+          {POST_PROCESS_METHODS.map(method => (
+            <Select.Option key={method.value} value={method.value}>
+              {method.label}
+            </Select.Option>
+          ))}
         </Select>
       )
     }
@@ -1095,7 +1073,7 @@ function getFieldLabel(key) {
     type: '解析类型',
     expression: 'XPath/正则表达式',
     index: '索引位置（Python标准）',
-    process: '后处理流程',
+    process: '清洗规则',
     default: '默认值',
     
     // 分页配置
@@ -1117,11 +1095,8 @@ function getFieldLabel(key) {
     next_page: '下一页',
     max_pages: '最大页数',
     
-    // 清理规则
-    clean: '🧹 清理规则',
-    
-    // 处理方法
-    method: '处理方法',
+    // 清洗方法
+    method: '清洗方法',
     params: '方法参数',
     selector: '选择器',
     
@@ -1178,11 +1153,8 @@ function getFieldHelp(key) {
     content: '章节正文内容的提取规则',
     next_page: '下一页链接的提取规则，用于处理分页章节',
     
-    // 清理
-    clean: '内容清理规则列表，用于去除广告、水印等无用信息',
-    
-    // 处理方法
-    method: '选择字符串处理方法，系统会自动展示对应的参数输入框',
+    // 清洗方法
+    method: '选择数据清洗方法，系统会自动展示对应的参数输入框',
     params: '处理方法的参数，根据选择的方法自动显示',
     
     // 参数

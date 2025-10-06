@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { 
-  Card, List, Button, message, Space, 
+  Card, List, Button, App, Space, 
   Popconfirm, Typography, Tag, Empty,
   Modal, Form, Input, InputNumber, Switch, Tabs
 } from 'antd'
@@ -17,7 +17,9 @@ const { Text } = Typography
 const API_BASE = '/api/crawler'
 
 function CrawlerManager() {
+  const { message } = App.useApp() // 使用 App hook 替代静态 message
   const navigate = useNavigate()
+  const location = useLocation()
   const [configs, setConfigs] = useState([])
   const [loading, setLoading] = useState(false)
   const [editorVisible, setEditorVisible] = useState(false)
@@ -29,9 +31,10 @@ function CrawlerManager() {
   const [currentConfigFilename, setCurrentConfigFilename] = useState('')
   const [runForm] = Form.useForm()
 
+  // 每次组件挂载或location变化时重新加载配置列表
   useEffect(() => {
     loadConfigs()
-  }, [])
+  }, [location])
 
   const loadConfigs = async () => {
     try {

@@ -12,6 +12,7 @@ import {
   ExperimentOutlined, EditOutlined, CodeOutlined
 } from '@ant-design/icons'
 import axios from 'axios'
+import { PostProcessRuleModal, PostProcessRuleInline } from '../components/PostProcessRuleEditor'
 
 const { TextArea } = Input
 const { Text } = Typography
@@ -126,7 +127,7 @@ function ConfigWizard() {
   const [chapterListFields, setChapterListFields] = useState({}) // 章节列表
   const [chapterContentFields, setChapterContentFields] = useState({}) // 章节内容
   
-  const [editingProcess, setEditingProcess] = useState(null) // 编辑规则的字段
+  const [editingProcess, setEditingProcess] = useState(null) // 编辑清洗规则的字段
   const [editingField, setEditingField] = useState(null) // 编辑xpath的字段
   
   
@@ -136,7 +137,6 @@ function ConfigWizard() {
     maxPageXpath: '//ul[@class="pagination"]/li/a[1]/text()',
     urlPattern: '{base_url}/book/{book_id}/{page}/'
   })
-  const [contentCleanRules, setContentCleanRules] = useState([])
   const [contentPaginationEnabled, setContentPaginationEnabled] = useState(true)
   const [contentNextPageUrlPattern, setContentNextPageUrlPattern] = useState('')
   const [maxPages, setMaxPages] = useState(50)
@@ -335,7 +335,7 @@ function ConfigWizard() {
     }
   }
 
-  // 更新字段的处理规则
+  // 更新字段的清洗规则
   const handleUpdateProcess = (fieldName, newProcess) => {
     const currentFields = getCurrentFields()
     setCurrentFields({
@@ -345,7 +345,7 @@ function ConfigWizard() {
         process: newProcess
       }
     })
-    message.success('已更新处理规则')
+    message.success('已更新清洗规则')
     setEditingProcess(null)
   }
 
@@ -443,11 +443,23 @@ function ConfigWizard() {
     }
     
     // 处理章节内容配置 - 添加翻页和清理支持
-    const processedChapterContentFields = { ...chapterContentFields }
+    // 注意：字段顺序很重要，按处理流程排序
+    const processedChapterContentFields = {}
     
-    // 设置内容翻页配置
-    if (processedChapterContentFields.next_page) {
-      processedChapterContentFields.next_page.enabled = contentPaginationEnabled
+    // 1. content - 首先配置内容提取
+    if (chapterContentFields.content) {
+      processedChapterContentFields.content = chapterContentFields.content
+    }
+    
+    // 2. max_pages - 最大页数配置
+    processedChapterContentFields.max_pages = maxPages
+    
+    // 3. next_page - 翻页配置
+    if (chapterContentFields.next_page) {
+      processedChapterContentFields.next_page = {
+        ...chapterContentFields.next_page,
+        enabled: contentPaginationEnabled
+      }
       if (contentPaginationEnabled && contentNextPageUrlPattern) {
         processedChapterContentFields.next_page.url_pattern = contentNextPageUrlPattern
       }
@@ -461,12 +473,6 @@ function ConfigWizard() {
         url_pattern: contentNextPageUrlPattern
       }
     }
-    
-    // 添加max_pages配置
-    processedChapterContentFields.max_pages = maxPages
-    
-    // 添加内容清理规则
-    processedChapterContentFields.clean = contentCleanRules
     
     const config = {
       site_info: {
@@ -846,7 +852,7 @@ function ConfigWizard() {
                           icon={<EditOutlined />}
                           onClick={() => setEditingProcess(fieldName)}
                         >
-                          编辑规则
+                          编辑清洗规则
                         </Button>,
                         <Button
                           size="small"
@@ -870,7 +876,7 @@ function ConfigWizard() {
                             <Text type="secondary">索引: {config.index}</Text>
                             {config.process && config.process.length > 0 && (
                               <Text type="secondary" style={{ marginLeft: 8 }}>
-                                | 后处理: {config.process.map(p => p.method).join(' → ')}
+                                | 清洗规则: {config.process.map(p => p.method).join(' → ')}
                               </Text>
                             )}
                           </div>
@@ -1281,115 +1287,6 @@ function ConfigWizard() {
                         </Form.Item>
                       </>
                     )}
-                    
-                    <Divider />
-                    
-                    <Form.Item label={
-                      <Space>
-                        <span>内容清理规则</span>
-                        <Text type="secondary" style={{ fontSize: 12 }}>(用于去除广告和无关内容)</Text>
-                      </Space>
-                    }>
-                      <Button
-                        type="dashed"
-                        icon={<PlusOutlined />}
-                        onClick={() => setContentCleanRules([...contentCleanRules, { method: 'replace', params: { old: '', new: '' } }])}
-                        block
-                      >
-                        添加清理规则
-                      </Button>
-                    </Form.Item>
-                    
-                    {contentCleanRules.map((rule, index) => (
-                      <Card
-                        key={index}
-                        size="small"
-                        title={`规则 ${index + 1}`}
-                        extra={
-                          <Button
-                            size="small"
-                            danger
-                            icon={<DeleteOutlined />}
-                            onClick={() => setContentCleanRules(contentCleanRules.filter((_, i) => i !== index))}
-                          >
-                            删除
-                          </Button>
-                        }
-                        style={{ marginBottom: 16 }}
-                      >
-                        <Form layout="vertical" size="small">
-                          <Form.Item label="清理方法">
-                            <Select
-                              value={rule.method}
-                              onChange={(value) => {
-                                const newRules = [...contentCleanRules]
-                                newRules[index].method = value
-                                newRules[index].params = value === 'replace' ? { old: '', new: '' } : { pattern: '', repl: '' }
-                                setContentCleanRules(newRules)
-                              }}
-                              style={{ width: '100%' }}
-                            >
-                              <Select.Option value="replace">replace - 字符串替换</Select.Option>
-                              <Select.Option value="regex_replace">regex_replace - 正则替换</Select.Option>
-                            </Select>
-                          </Form.Item>
-                          
-                          {rule.method === 'replace' && (
-                            <>
-                              <Form.Item label="要替换的文本">
-                                <Input
-                                  value={rule.params.old || ''}
-                                  onChange={(e) => {
-                                    const newRules = [...contentCleanRules]
-                                    newRules[index].params.old = e.target.value
-                                    setContentCleanRules(newRules)
-                                  }}
-                                  placeholder="例如：『加入书签，方便阅读』"
-                                />
-                              </Form.Item>
-                              <Form.Item label="替换为">
-                                <Input
-                                  value={rule.params.new || ''}
-                                  onChange={(e) => {
-                                    const newRules = [...contentCleanRules]
-                                    newRules[index].params.new = e.target.value
-                                    setContentCleanRules(newRules)
-                                  }}
-                                  placeholder="通常留空表示删除"
-                                />
-                              </Form.Item>
-                            </>
-                          )}
-                          
-                          {rule.method === 'regex_replace' && (
-                            <>
-                              <Form.Item label="正则表达式">
-                                <Input
-                                  value={rule.params.pattern || ''}
-                                  onChange={(e) => {
-                                    const newRules = [...contentCleanRules]
-                                    newRules[index].params.pattern = e.target.value
-                                    setContentCleanRules(newRules)
-                                  }}
-                                  placeholder="例如：广告.*?内容"
-                                />
-                              </Form.Item>
-                              <Form.Item label="替换为">
-                                <Input
-                                  value={rule.params.repl || ''}
-                                  onChange={(e) => {
-                                    const newRules = [...contentCleanRules]
-                                    newRules[index].params.repl = e.target.value
-                                    setContentCleanRules(newRules)
-                                  }}
-                                  placeholder="通常留空表示删除"
-                                />
-                              </Form.Item>
-                            </>
-                          )}
-                        </Form>
-                      </Card>
-                    ))}
                   </Form>
                 </div>
               )}
@@ -1609,8 +1506,8 @@ function ConfigWizard() {
           </Card>
         )}
 
-        {/* 处理规则编辑对话框 */}
-        <ProcessRuleEditor
+        {/* 清洗规则编辑对话框 - 使用统一组件 */}
+        <PostProcessRuleModal
           visible={!!editingProcess}
           fieldName={editingProcess}
           fieldLabel={editingProcess && FIELD_TYPES[getCurrentPageType()][editingProcess]?.label}
@@ -1683,160 +1580,6 @@ function AttributeExtractorSelector({ attributeType, setAttributeType, customAtt
       </Form>
     </Card>
   );
-}
-
-// Process规则编辑器组件
-function ProcessRuleEditor({ visible, fieldName, fieldLabel, processRules, onSave, onCancel }) {
-  const [rules, setRules] = useState([])
-  
-  // 当对话框打开时，初始化规则
-  useEffect(() => {
-    if (visible && processRules) {
-      setRules(JSON.parse(JSON.stringify(processRules)))
-    }
-  }, [visible, processRules])
-  
-  // 处理方法选项
-  const METHOD_OPTIONS = [
-    { value: 'strip', label: 'strip - 去除首尾空白', params: ['chars'] },
-    { value: 'replace', label: 'replace - 字符串替换', params: ['old', 'new'] },
-    { value: 're_sub', label: 're_sub - 正则替换', params: ['pattern', 'repl'] },
-    { value: 'join', label: 'join - 连接数组', params: ['separator'] },
-    { value: 'split', label: 'split - 分割字符串', params: ['separator'] },
-    { value: 'upper', label: 'upper - 转大写', params: [] },
-    { value: 'lower', label: 'lower - 转小写', params: [] },
-    { value: 'capitalize', label: 'capitalize - 首字母大写', params: [] },
-    { value: 'get_item', label: 'get_item - 获取列表项', params: ['index'] }
-  ]
-  
-  const addRule = () => {
-    setRules([...rules, { method: 'strip', params: {} }])
-  }
-  
-  const removeRule = (index) => {
-    setRules(rules.filter((_, i) => i !== index))
-  }
-  
-  const updateRule = (index, field, value) => {
-    const newRules = [...rules]
-    newRules[index][field] = value
-    setRules(newRules)
-  }
-  
-  const updateRuleParam = (index, paramName, value) => {
-    const newRules = [...rules]
-    newRules[index].params[paramName] = value
-    setRules(newRules)
-  }
-  
-  const handleSave = () => {
-    onSave(rules)
-  }
-  
-  // 获取方法需要的参数
-  const getMethodParams = (method) => {
-    const option = METHOD_OPTIONS.find(opt => opt.value === method)
-    return option ? option.params : []
-  }
-  
-  return (
-    <Modal
-      open={visible}
-      title={
-        <Space>
-          <EditOutlined />
-          <span>编辑处理规则：{fieldLabel}</span>
-        </Space>
-      }
-      width={700}
-      onCancel={onCancel}
-      onOk={handleSave}
-      okText="保存"
-      cancelText="取消"
-    >
-      <Alert
-        message="处理规则说明"
-        description="这些规则将按顺序对提取的内容进行处理。例如：先strip去空格，再replace替换特定字符。"
-        type="info"
-        showIcon
-        closable
-        style={{ marginBottom: 16 }}
-      />
-      
-      <Space direction="vertical" style={{ width: '100%' }} size="middle">
-        {rules.map((rule, index) => (
-          <Card
-            key={index}
-            size="small"
-            title={`规则 ${index + 1}`}
-            extra={
-              <Button
-                size="small"
-                danger
-                icon={<DeleteOutlined />}
-                onClick={() => removeRule(index)}
-              >
-                删除
-              </Button>
-            }
-          >
-            <Form layout="vertical" size="small">
-              <Form.Item label="处理方法">
-                <Select
-                  value={rule.method}
-                  onChange={(value) => {
-                    updateRule(index, 'method', value)
-                    updateRule(index, 'params', {}) // 清空参数
-                  }}
-                  style={{ width: '100%' }}
-                >
-                  {METHOD_OPTIONS.map(opt => (
-                    <Select.Option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </Select.Option>
-                  ))}
-                </Select>
-              </Form.Item>
-              
-              {/* 根据方法动态显示参数 */}
-              {getMethodParams(rule.method).map(paramName => (
-                <Form.Item key={paramName} label={paramName === 'old' ? '原字符串' : paramName === 'new' ? '新字符串' : paramName === 'pattern' ? '正则模式' : paramName === 'repl' ? '替换文本' : paramName === 'separator' ? '分隔符' : paramName === 'chars' ? '要去除的字符' : paramName === 'index' ? '索引位置' : paramName}>
-                  {paramName === 'index' ? (
-                    <InputNumber
-                      value={rule.params[paramName] || 0}
-                      onChange={(value) => updateRuleParam(index, paramName, value)}
-                      style={{ width: '100%' }}
-                      placeholder="0=第一个, -1=最后一个"
-                    />
-                  ) : (
-                    <Input
-                      value={rule.params[paramName] || ''}
-                      onChange={(e) => updateRuleParam(index, paramName, e.target.value)}
-                      placeholder={
-                        paramName === 'separator' ? '例如：\\n 或 , ' :
-                        paramName === 'old' ? '例如：作者：' :
-                        paramName === 'pattern' ? '例如：广告.*?内容' :
-                        '留空使用默认值'
-                      }
-                    />
-                  )}
-                </Form.Item>
-              ))}
-            </Form>
-          </Card>
-        ))}
-        
-        <Button
-          type="dashed"
-          icon={<PlusOutlined />}
-          onClick={addRule}
-          block
-        >
-          添加处理规则
-        </Button>
-      </Space>
-    </Modal>
-  )
 }
 
 export default ConfigWizard

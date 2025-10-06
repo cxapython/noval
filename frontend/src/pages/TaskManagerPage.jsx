@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Card, Table, Tag, Button, Space, Modal, Form, Input, InputNumber,
-  Switch, Tabs, Progress, Typography, Row, Col, Statistic, message,
+  Switch, Tabs, Progress, Typography, Row, Col, Statistic, App,
   Tooltip, Drawer, List, Badge, Empty
 } from 'antd';
 import {
@@ -18,6 +18,7 @@ const { TabPane } = Tabs;
 const API_BASE_URL = 'http://localhost:5001';
 
 function TaskManagerPage() {
+  const { message } = App.useApp(); // 使用 App hook 替代静态 message
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [createModalVisible, setCreateModalVisible] = useState(false);
@@ -38,13 +39,11 @@ function TaskManagerPage() {
     });
 
     socket.on('connect', () => {
-      console.log('✅ WebSocket connected');
-      message.success('实时连接已建立');
+      console.log('✅ WebSocket connected - 实时连接已建立');
     });
 
     socket.on('disconnect', () => {
-      console.log('❌ WebSocket disconnected');
-      message.warning('实时连接已断开');
+      console.log('❌ WebSocket disconnected - 实时连接已断开');
     });
 
     // 监听任务进度更新
