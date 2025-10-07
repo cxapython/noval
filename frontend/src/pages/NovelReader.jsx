@@ -1485,7 +1485,6 @@ function NovelReader() {
                 { value: 'system', label: '系统默认' }
               ]}
             />
-            </Select>
           </div>
 
           <Divider />
