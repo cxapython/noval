@@ -30,12 +30,14 @@
 - ✅ ProcessorNode.jsx：多种数据处理方法的清洗节点
 - ✅ 保持所有节点拖拽、参数配置、选中状态等功能完整
 
-#### SimpleFlowEditorTab.jsx（2025-10-07 - 部分完成）
+#### SimpleFlowEditorTab.jsx（2025-10-07 - 核心完成）
 - ✅ Imports 迁移完成
 - ✅ 通知系统迁移：message → notifications.show()
 - ✅ 图标系统：Ant Design Icons → Tabler Icons
-- ⏳ 待完成：Modal, Steps, Form 等 UI 组件（约1000行）
-- 📝 说明：文件过大（1400行），采用分阶段迁移策略
+- ✅ Modal 系统：7处 Modal.confirm/success/error → modals API
+- ✅ Steps 组件：Steps → Stepper
+- ⏳ 待完成：Select细节优化，部分样式组件
+- 📝 说明：核心功能已完成，剩余为样式细节
 
 ### 🔄 进行中
 
@@ -52,7 +54,7 @@
 - [x] TaskManagerPage.jsx
 - [ ] FlowEditor 相关组件（6个文件，复杂的流程编辑器）
   - [ ] FlowEditorTab.jsx（核心流程编辑器，约1400行）
-  - [~] SimpleFlowEditorTab.jsx（简化编辑器，基础迁移完成，UI待完成）
+  - [🟢] SimpleFlowEditorTab.jsx（核心完成：Modal, Steps, Notifications全部迁移）
   - [x] NodePalette.jsx
   - [x] XPathExtractorNode.jsx
   - [x] RegexExtractorNode.jsx
@@ -69,9 +71,10 @@
 
 ## 📊 迁移统计
 
-- ✅ 已完成：7个组件（3个主要页面 + 4个节点组件）
-- ⏳ 待迁移：3个复杂组件（FlowEditor 主编辑器 2个 + NovelReader 1个）
-- 📈 完成度：约 70%（按组件数）/ 约 80%（按使用频率）
+- ✅ 完全完成：7个组件（3个主要页面 + 4个节点组件）
+- 🟢 核心完成：1个组件（SimpleFlowEditorTab - 核心功能完成）
+- ⏳ 待迁移：2个复杂组件（FlowEditorTab + NovelReader）
+- 📈 完成度：约 80%（按组件数）/ 约 90%（按使用频率）
 
 ## 💡 后续建议
 
