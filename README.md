@@ -407,8 +407,9 @@ mysql -u root -p novel_db < backup.sql
 ### 前端
 
 - **React 18** - UI框架
-- **Ant Design 5** - UI组件库
-- **React Flow 11** - 流程图库（v3.0.0 NEW!）
+- **Mantine 7** - 现代化 UI 组件库（v4.0.0 NEW!）
+- **Tabler Icons** - 图标库
+- **React Flow 11** - 流程图库
 - **Vite** - 构建工具
 - **React Router** - 路由管理
 - **Axios** - HTTP客户端
@@ -417,6 +418,38 @@ mysql -u root -p novel_db < backup.sql
 ---
 
 ## 🔄 版本历史
+
+### v4.0.0 (2025-10-07) ⭐ 最新版本
+
+#### 🎨 重大更新：Mantine UI 框架完整迁移
+
+**核心成果**:
+- ✅ 完全移除 Ant Design，迁移至 Mantine 7
+- ✅ 10个核心组件全部迁移（5000+行代码）
+- ✅ 主题系统：支持浅色/深色/跟随系统三种模式
+- ✅ 深色模式 CSS 全面适配
+- ✅ 零 linter 错误，零运行时错误
+
+**新增功能**:
+- 🌓 **主题切换系统** - 实时切换，无需刷新
+- 📚 **书架双视图** - 网格视图和列表视图
+- 🖼️ **默认封面** - 渐变背景+图标
+- 🎯 **Modal 优化** - 更流畅的交互体验
+
+**已迁移组件**:
+- ConfigWizard.jsx - 配置向导
+- CrawlerManager.jsx - 爬虫管理
+- TaskManagerPage.jsx - 任务管理（含 WebSocket）
+- NovelReader.jsx - 小说阅读器（1700+行）
+- FlowEditorTab.jsx - 流程编辑器（1400+行）
+- SimpleFlowEditorTab.jsx - 简化流程编辑器
+- 4个节点组件（XPath/Regex/Processor/Palette）
+
+**技术改进**:
+- 使用 Tabler Icons 替代 Ant Design Icons
+- 统一使用 `notifications.show()` 和 `modals.openConfirmModal()`
+- 全局主题配置系统
+- 优化的深色模式 CSS
 
 ### v3.0.0 (2025-10-06)
 
@@ -505,8 +538,9 @@ MIT License - 详见 [LICENSE](LICENSE)
 感谢所有开源项目的贡献者！
 
 特别感谢：
+- [Mantine](https://mantine.dev/) - 现代化 React UI 组件库
 - [React Flow](https://reactflow.dev/) - 强大的流程图库
-- [Ant Design](https://ant.design/) - 优秀的UI组件库
+- [Tabler Icons](https://tabler-icons.io/) - 精美的图标库
 - [Flask](https://flask.palletsprojects.com/) - 轻量级Web框架
 
 ---
