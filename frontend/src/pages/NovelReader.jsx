@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { 
   Card, Button, Stack, Group, 
-  Modal, TextInput, Badge, Grid, Drawer, Radio,
+  Modal, TextInput, Textarea, Badge, Grid, Drawer, Radio,
   Slider, Select, Tooltip, Divider, Checkbox, Title, Text,
   Paper, Center, ActionIcon, Box, Progress as MantineProgress
 } from '@mantine/core'
