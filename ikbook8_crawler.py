@@ -3,11 +3,19 @@
 """
 ikbook8 小说爬虫 - 基于通用爬虫框架
 自动生成于配置管理器
+
+运行要求：
+- Python 3.8+
+- 依赖配置文件: config_ikbook8.json
 """
 import sys
 from pathlib import Path
+
+# 添加项目根目录到路径（当前文件所在目录就是项目根目录）
+sys.path.insert(0, str(Path(__file__).parent))
+
 from loguru import logger
-from generic_crawler import GenericNovelCrawler
+from backend.generic_crawler import GenericNovelCrawler
 
 
 class Ikbook8Crawler:
@@ -23,11 +31,13 @@ class Ikbook8Crawler:
         :param max_workers: 并发线程数，默认5
         :param use_proxy: 是否使用代理，默认False
         """
-        config_path = Path(__file__).parent / "config_ikbook8.json"
+        # 配置文件路径（从项目根目录的 configs 目录查找）
+        config_path = Path(__file__).parent / "configs" / "config_ikbook8.json"
         
         if not config_path.exists():
             raise FileNotFoundError(f"配置文件不存在: {config_path}")
         
+        # 初始化通用爬虫
         self.crawler = GenericNovelCrawler(
             config_file=str(config_path),
             book_id=book_id,
@@ -44,6 +54,7 @@ class Ikbook8Crawler:
             logger.info(f"📚 开始爬取 ikbook8 小说")
             logger.info("=" * 60)
             
+            # 执行爬取
             self.crawler.run()
             
             logger.info("=" * 60)
@@ -101,6 +112,7 @@ def main():
     
     args = parser.parse_args()
     
+    # 创建并运行爬虫
     try:
         crawler = Ikbook8Crawler(
             book_id=args.book_id,

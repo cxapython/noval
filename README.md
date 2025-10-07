@@ -294,17 +294,22 @@ open http://localhost:3000/crawler
 
 ```bash
 # 基本使用
-python3.8 ikbook8_crawler.py 书籍ID
+python3.8 ikbook8_crawler.py 12345
 
 # 使用代理
-python3.8 ikbook8_crawler.py 书籍ID --proxy
+python3.8 ikbook8_crawler.py 12345 --proxy
 
 # 指定并发数
-python3.8 ikbook8_crawler.py 书籍ID --workers 10
+python3.8 ikbook8_crawler.py 12345 --workers 10
+
+# 组合使用
+python3.8 ikbook8_crawler.py 12345 --proxy --workers 10
 
 # 查看帮助
 python3.8 ikbook8_crawler.py --help
 ```
+
+**注意：** 生成的爬虫文件保存在项目根目录，依赖 `configs/` 目录下的配置文件。
 
 ---
 

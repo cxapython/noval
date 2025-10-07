@@ -16,7 +16,8 @@ crawler_bp = Blueprint('crawler', __name__)
 
 CONFIG_DIR = Path(__file__).parent.parent.parent / 'configs'
 CONFIG_PATTERN = "config_*.json"
-CRAWLER_DIR = Path(__file__).parent.parent.parent / 'crawler-manager' / 'backend' / 'crawlers'
+# 爬虫文件直接保存到项目根目录，方便运行
+CRAWLER_DIR = Path(__file__).parent.parent.parent
 
 
 @crawler_bp.route('/configs', methods=['GET'])
@@ -242,7 +243,6 @@ def generate_crawler(filename):
         
         crawler_content = generate_crawler_code(site_name, filename)
         crawler_filename = f"{site_name}_crawler.py"
-        relative_path = f"crawler-manager/backend/crawlers/{crawler_filename}"
         
         logger.info(f"📝 生成爬虫代码: {crawler_filename}")
         
@@ -250,7 +250,7 @@ def generate_crawler(filename):
             'success': True, 
             'message': f'爬虫代码已生成',
             'filename': crawler_filename,
-            'path': relative_path,
+            'path': crawler_filename,
             'content': crawler_content
         })
     
@@ -274,21 +274,17 @@ def save_crawler():
         if not filename.endswith('_crawler.py'):
             return jsonify({'success': False, 'error': '无效的文件名'}), 400
         
-        # 确保爬虫目录存在
-        CRAWLER_DIR.mkdir(parents=True, exist_ok=True)
-        
-        # 保存文件
+        # 保存文件到项目根目录
         crawler_path = CRAWLER_DIR / filename
         with open(crawler_path, 'w', encoding='utf-8') as f:
             f.write(content)
         
-        relative_path = f"crawler-manager/backend/crawlers/{filename}"
-        logger.info(f"✅ 保存爬虫文件: {relative_path}")
+        logger.info(f"✅ 保存爬虫文件: {filename}")
         
         return jsonify({
             'success': True, 
-            'message': f'爬虫文件已保存: {relative_path}',
-            'path': relative_path
+            'message': f'爬虫文件已保存: {filename}',
+            'path': filename
         })
     
     except Exception as e:
@@ -897,8 +893,8 @@ def generate_crawler_code(site_name: str, config_file: str) -> str:
 import sys
 from pathlib import Path
 
-# 添加项目根目录到路径
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+# 添加项目根目录到路径（当前文件所在目录就是项目根目录）
+sys.path.insert(0, str(Path(__file__).parent))
 
 from loguru import logger
 from backend.generic_crawler import GenericNovelCrawler
@@ -918,7 +914,7 @@ class {site_name.capitalize()}Crawler:
         :param use_proxy: 是否使用代理，默认False
         """
         # 配置文件路径（从项目根目录的 configs 目录查找）
-        config_path = Path(__file__).parent.parent.parent.parent / "configs" / "{config_file}"
+        config_path = Path(__file__).parent / "configs" / "{config_file}"
         
         if not config_path.exists():
             raise FileNotFoundError(f"配置文件不存在: {{config_path}}")
@@ -964,17 +960,17 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 使用示例:
-  # 从项目根目录运行
-  python crawler-manager/backend/crawlers/{site_name}_crawler.py 12345
+  # 基本用法
+  python {site_name}_crawler.py 12345
   
   # 使用代理
-  python crawler-manager/backend/crawlers/{site_name}_crawler.py 12345 --proxy
+  python {site_name}_crawler.py 12345 --proxy
   
   # 指定并发数
-  python crawler-manager/backend/crawlers/{site_name}_crawler.py 12345 --workers 10
+  python {site_name}_crawler.py 12345 --workers 10
   
   # 组合使用
-  python crawler-manager/backend/crawlers/{site_name}_crawler.py 12345 --proxy --workers 10
+  python {site_name}_crawler.py 12345 --proxy --workers 10
         """
     )
     
