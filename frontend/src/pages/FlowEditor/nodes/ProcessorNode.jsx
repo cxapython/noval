@@ -1,6 +1,6 @@
 import { Handle, Position, NodeResizer } from 'reactflow';
-import { Card, Input, InputNumber, Tooltip } from 'antd';
-import { QuestionCircleOutlined } from '@ant-design/icons';
+import { Card, Tooltip, NumberInput, TextInput } from '@mantine/core';
+import { IconHelp } from '@tabler/icons-react';
 
 function ProcessorNode({ data, id, selected }) {
   const handleChange = (field, value) => {
@@ -36,24 +36,32 @@ function ProcessorNode({ data, id, selected }) {
               <div style={{ marginBottom: 4, fontSize: 11, color: '#64748b', fontWeight: 600 }}>
                 原字符串
               </div>
-              <Input
+              <TextInput
                 placeholder="要替换的文本"
                 value={params.old || ''}
-                onChange={(e) => handleChange('old', e.target.value)}
-                size="small"
-                style={{ borderRadius: 6, border: '1px solid #e2e8f0' }}
+                onChange={(e) => handleChange('old', e.currentTarget.value)}
+                size="xs"
+                styles={{
+                  input: {
+                    fontSize: 12
+                  }
+                }}
               />
             </div>
             <div>
               <div style={{ marginBottom: 4, fontSize: 11, color: '#64748b', fontWeight: 600 }}>
                 新字符串
               </div>
-              <Input
+              <TextInput
                 placeholder="替换为（留空=删除）"
                 value={params.new || ''}
-                onChange={(e) => handleChange('new', e.target.value)}
-                size="small"
-                style={{ borderRadius: 6, border: '1px solid #e2e8f0' }}
+                onChange={(e) => handleChange('new', e.currentTarget.value)}
+                size="xs"
+                styles={{
+                  input: {
+                    fontSize: 12
+                  }
+                }}
               />
             </div>
           </>
@@ -63,25 +71,36 @@ function ProcessorNode({ data, id, selected }) {
         return (
           <>
             <div style={{ marginBottom: 8 }}>
-              <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>
+              <div style={{ marginBottom: 4, fontSize: 12, color: '#666', fontWeight: 600 }}>
                 正则表达式
               </div>
-              <Input
+              <TextInput
                 placeholder="\\d+"
                 value={params.pattern || ''}
-                onChange={(e) => handleChange('pattern', e.target.value)}
-                size="small"
+                onChange={(e) => handleChange('pattern', e.currentTarget.value)}
+                size="xs"
+                styles={{
+                  input: {
+                    fontSize: 12,
+                    fontFamily: 'Consolas, Monaco, "Courier New", monospace'
+                  }
+                }}
               />
             </div>
             <div>
-              <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>
+              <div style={{ marginBottom: 4, fontSize: 12, color: '#666', fontWeight: 600 }}>
                 替换文本
               </div>
-              <Input
+              <TextInput
                 placeholder="替换为"
                 value={params.repl || ''}
-                onChange={(e) => handleChange('repl', e.target.value)}
-                size="small"
+                onChange={(e) => handleChange('repl', e.currentTarget.value)}
+                size="xs"
+                styles={{
+                  input: {
+                    fontSize: 12
+                  }
+                }}
               />
             </div>
           </>
@@ -90,14 +109,19 @@ function ProcessorNode({ data, id, selected }) {
       case 'join':
         return (
           <div>
-            <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>
+            <div style={{ marginBottom: 4, fontSize: 12, color: '#666', fontWeight: 600 }}>
               分隔符
             </div>
-            <Input
+            <TextInput
               placeholder="\\n"
               value={params.separator ?? '\n'}
-              onChange={(e) => handleChange('separator', e.target.value)}
-              size="small"
+              onChange={(e) => handleChange('separator', e.currentTarget.value)}
+              size="xs"
+              styles={{
+                input: {
+                  fontSize: 12
+                }
+              }}
             />
           </div>
         );
@@ -105,14 +129,19 @@ function ProcessorNode({ data, id, selected }) {
       case 'split':
         return (
           <div>
-            <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>
+            <div style={{ marginBottom: 4, fontSize: 12, color: '#666', fontWeight: 600 }}>
               分隔符
             </div>
-            <Input
+            <TextInput
               placeholder=" "
               value={params.separator ?? ' '}
-              onChange={(e) => handleChange('separator', e.target.value)}
-              size="small"
+              onChange={(e) => handleChange('separator', e.currentTarget.value)}
+              size="xs"
+              styles={{
+                input: {
+                  fontSize: 12
+                }
+              }}
             />
           </div>
         );
@@ -120,15 +149,20 @@ function ProcessorNode({ data, id, selected }) {
       case 'extract_index':
         return (
           <div>
-            <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>
+            <div style={{ marginBottom: 4, fontSize: 12, color: '#666', fontWeight: 600 }}>
               索引位置
             </div>
-            <InputNumber
+            <NumberInput
               placeholder="-1"
               value={params.index ?? -1}
               onChange={(v) => handleChange('index', v)}
-              size="small"
-              style={{ width: '100%' }}
+              size="xs"
+              hideControls
+              styles={{
+                input: {
+                  fontSize: 12
+                }
+              }}
             />
             <div style={{ marginTop: 6, fontSize: 11, color: '#999', lineHeight: '1.5' }}>
               • -1 = 最后一个<br/>
@@ -182,8 +216,30 @@ function ProcessorNode({ data, id, selected }) {
         minHeight={140}
       />
       <Card 
-        size="small" 
-        title={
+        padding="xs"
+        radius="md"
+        withBorder={!selected}
+        style={{ 
+          width: '100%',
+          height: '100%',
+          boxShadow: selected 
+            ? `0 12px 28px ${methodConfig.color}30, 0 0 0 3px ${methodConfig.color}20` 
+            : '0 2px 8px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(15, 23, 42, 0.02)',
+          background: '#ffffff',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column'
+        }}
+      >
+        <Card.Section 
+          withBorder 
+          inheritPadding 
+          py="xs"
+          style={{
+            background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+            flexShrink: 0
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{
               width: 24,
@@ -199,66 +255,48 @@ function ProcessorNode({ data, id, selected }) {
               {methodConfig.icon}
             </div>
             <span style={{ fontSize: 13, fontWeight: 600, color: '#1e293b' }}>{methodConfig.label}</span>
-            <Tooltip title={data.description || '数据清洗处理节点'}>
-              <QuestionCircleOutlined style={{ fontSize: 11, color: '#94a3b8' }} />
+            <Tooltip label={data.description || '数据清洗处理节点'} withArrow>
+              <IconHelp size={14} style={{ color: '#94a3b8', cursor: 'help' }} />
             </Tooltip>
           </div>
-        }
-        style={{ 
-          width: '100%',
-          height: '100%',
-          border: selected ? 'none' : '1px solid #e2e8f0',
-          boxShadow: selected 
-            ? `0 12px 28px ${methodConfig.color}30, 0 0 0 3px ${methodConfig.color}20` 
-            : '0 2px 8px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(15, 23, 42, 0.02)',
-          borderRadius: 10,
-          background: '#ffffff',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column'
-        }}
-        headStyle={{
-          minHeight: 40,
-          padding: '8px 14px',
-          background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
-          borderBottom: '1px solid #e2e8f0',
-          flexShrink: 0
-        }}
-        bodyStyle={{
-          padding: '12px 14px',
-          background: '#ffffff',
-          overflow: 'auto',
-          height: 'calc(100% - 40px)'
-        }}
-      >
-        <Handle 
-          type="target" 
-          position={Position.Left}
-          style={{ 
-            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-            width: 12,
-            height: 12,
-            border: '3px solid #fff',
-            boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
-            transition: 'all 0.2s ease'
-          }}
-        />
-        <Handle 
-          type="source" 
-          position={Position.Right}
-          style={{ 
-            background: `linear-gradient(135deg, ${methodConfig.color} 0%, ${methodConfig.color}dd 100%)`,
-            width: 12,
-            height: 12,
-            border: '3px solid #fff',
-            boxShadow: `0 2px 8px ${methodConfig.color}50`,
-            transition: 'all 0.2s ease'
-          }}
-        />
+        </Card.Section>
         
-        <div style={{ fontSize: 12 }}>
-          {renderParamInputs()}
-        </div>
+        <Card.Section 
+          style={{
+            padding: '12px 14px',
+            overflow: 'auto',
+            flex: 1
+          }}
+        >
+          <Handle 
+            type="target" 
+            position={Position.Left}
+            style={{ 
+              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              width: 12,
+              height: 12,
+              border: '3px solid #fff',
+              boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
+              transition: 'all 0.2s ease'
+            }}
+          />
+          <Handle 
+            type="source" 
+            position={Position.Right}
+            style={{ 
+              background: `linear-gradient(135deg, ${methodConfig.color} 0%, ${methodConfig.color}dd 100%)`,
+              width: 12,
+              height: 12,
+              border: '3px solid #fff',
+              boxShadow: `0 2px 8px ${methodConfig.color}50`,
+              transition: 'all 0.2s ease'
+            }}
+          />
+          
+          <div style={{ fontSize: 12 }}>
+            {renderParamInputs()}
+          </div>
+        </Card.Section>
       </Card>
     </>
   );
