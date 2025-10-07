@@ -9,23 +9,22 @@ import ReactFlow, {
   MarkerType
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { Button, Space, message, Modal, Card, Alert, Divider, Select, Radio, Typography } from 'antd';
+import { Button, Group, Stack, Modal, Card, Alert, Divider, Select, Radio, Text } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
+import { modals } from '@mantine/modals';
 import {
-  PlayCircleOutlined,
-  ClearOutlined,
-  SaveOutlined,
-  EyeOutlined,
-  QuestionCircleOutlined,
-  MenuFoldOutlined,
-  MenuUnfoldOutlined,
-  UpOutlined,
-  DownOutlined,
-  FullscreenOutlined,
-  FullscreenExitOutlined
-} from '@ant-design/icons';
-
-const { Text } = Typography;
-const { Option } = Select;
+  IconPlayerPlay,
+  IconClearAll,
+  IconDeviceFloppy,
+  IconEye,
+  IconHelp,
+  IconLayoutSidebarLeftCollapse,
+  IconLayoutSidebarRightCollapse,
+  IconChevronUp,
+  IconChevronDown,
+  IconMaximize,
+  IconMinimize
+} from '@tabler/icons-react';
 
 import NodePalette from './NodePalette';
 import XPathExtractorNode from './nodes/XPathExtractorNode';
@@ -140,7 +139,11 @@ function FlowEditorTab({ configData, onConfigChange }) {
   const toggleFullscreen = () => {
     setIsFullscreen(!isFullscreen);
     if (!isFullscreen) {
-      message.success('已进入全屏模式，按ESC键退出');
+      notifications.show({
+        title: '成功',
+        message: '已进入全屏模式，按ESC键退出',
+        color: 'green'
+      });
     }
   };
 
@@ -212,7 +215,11 @@ function FlowEditorTab({ configData, onConfigChange }) {
       };
 
       setNodes((nds) => nds.concat(newNode));
-      message.success(`已添加节点: ${type}`);
+      notifications.show({
+        title: '成功',
+        message: `已添加节点: ${type}`,
+        color: 'green'
+      });
     },
     [reactFlowInstance, setNodes, handleNodeDataChange]
   );
@@ -228,17 +235,18 @@ function FlowEditorTab({ configData, onConfigChange }) {
       // 验证流程
       const errors = validateFlow(nodes, edges);
       if (errors.length > 0) {
-        Modal.error({
+        modals.open({
           title: '流程验证失败',
-          content: (
-            <div>
+          children: (
+            <Stack gap="xs">
               {errors.map((err, idx) => (
-                <div key={idx} style={{ color: '#ff4d4f', marginBottom: 4 }}>
+                <Text key={idx} c="red" size="sm">
                   • {err}
-                </div>
+                </Text>
               ))}
-            </div>
-          )
+            </Stack>
+          ),
+          centered: true
         });
         return;
       }
@@ -252,9 +260,17 @@ function FlowEditorTab({ configData, onConfigChange }) {
       });
       setPreviewVisible(true);
       
-      message.success('配置生成成功！');
+      notifications.show({
+        title: '成功',
+        message: '配置生成成功！',
+        color: 'green'
+      });
     } catch (error) {
-      message.error(`生成失败: ${error.message}`);
+      notifications.show({
+        title: '错误',
+        message: `生成失败: ${error.message}`,
+        color: 'red'
+      });
       console.error(error);
     }
   }, [nodes, edges, selectedPageType, selectedField]);
@@ -282,19 +298,34 @@ function FlowEditorTab({ configData, onConfigChange }) {
     // 调用父组件的更新方法
     onConfigChange('root', newConfigData);
 
-    message.success(`配置已应用到 parsers.${pageType}.${field}！请切换到JSON视图查看并保存`);
+    notifications.show({
+      title: '成功',
+      message: `配置已应用到 parsers.${pageType}.${field}！请切换到JSON视图查看并保存`,
+      color: 'green'
+    });
     setPreviewVisible(false);
   }, [generatedConfig, configData, onConfigChange]);
 
   // 清空画布
   const handleClear = useCallback(() => {
-    Modal.confirm({
+    modals.openConfirmModal({
       title: '确认清空',
-      content: '确定要清空当前流程吗？此操作不可恢复。',
-      onOk: () => {
+      children: (
+        <Text size="sm">
+          确定要清空当前流程吗？此操作不可恢复。
+        </Text>
+      ),
+      labels: { confirm: '确认', cancel: '取消' },
+      confirmProps: { color: 'red' },
+      centered: true,
+      onConfirm: () => {
         setNodes([]);
         setEdges([]);
-        message.success('画布已清空');
+        notifications.show({
+          title: '成功',
+          message: '画布已清空',
+          color: 'green'
+        });
       }
     });
   }, [setNodes, setEdges]);
@@ -318,7 +349,7 @@ function FlowEditorTab({ configData, onConfigChange }) {
       {/* 全屏切换按钮 */}
       <Button
         type={isFullscreen ? 'default' : 'primary'}
-        icon={isFullscreen ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
+        icon={isFullscreen ? <IconMinimize size={18} /> : <IconMaximize size={18} />}
         onClick={toggleFullscreen}
         style={{
           position: 'absolute',
@@ -343,7 +374,7 @@ function FlowEditorTab({ configData, onConfigChange }) {
                 <Button
                   type="text"
                   size="small"
-                  icon={<MenuFoldOutlined />}
+                  icon={<IconLayoutSidebarLeftCollapse size={18} />}
                   onClick={() => setLeftPanelVisible(false)}
                   title="隐藏面板"
                 />
@@ -389,7 +420,7 @@ function FlowEditorTab({ configData, onConfigChange }) {
       {!leftPanelVisible && (
         <Button
           type="primary"
-          icon={<MenuUnfoldOutlined />}
+          icon={<IconLayoutSidebarRightCollapse size={18} />}
           onClick={() => setLeftPanelVisible(true)}
           style={{
             position: 'absolute',
@@ -487,7 +518,7 @@ function FlowEditorTab({ configData, onConfigChange }) {
               <Button
                 type="text"
                 size="small"
-                icon={<UpOutlined />}
+                icon={<IconChevronUp size={18} />}
                 onClick={() => setTopConfigVisible(false)}
                 title="隐藏配置栏"
               >
@@ -498,46 +529,59 @@ function FlowEditorTab({ configData, onConfigChange }) {
             <Space>
               <Button
                 type="primary"
-                icon={<PlayCircleOutlined />}
+                icon={<IconPlayerPlay size={18} />}
                 onClick={handleGenerateConfig}
               >
                 生成配置
               </Button>
               <Button
-                icon={<ClearOutlined />}
+                icon={<IconClearAll size={18} />}
                 onClick={handleClear}
               >
                 清空
               </Button>
               <Button
-                icon={<QuestionCircleOutlined />}
+                leftSection={<IconHelp size={18} />}
                 onClick={() => {
-                  Modal.info({
+                  modals.open({
                     title: '使用说明',
-                    width: 600,
-                    content: (
-                      <div>
-                        <p><strong>1. 选择页面类型和字段</strong></p>
-                        <p>顶部选择要配置的页面类型（小说信息/章节列表/章节内容）和具体字段</p>
+                    size: 'lg',
+                    children: (
+                      <Stack gap="md">
+                        <div>
+                          <Text fw={600} mb="xs">1. 选择页面类型和字段</Text>
+                          <Text size="sm">顶部选择要配置的页面类型（小说信息/章节列表/章节内容）和具体字段</Text>
+                        </div>
                         
-                        <p><strong>2. 拖拽组件</strong></p>
-                        <p>从左侧面板拖拽组件到画布</p>
+                        <div>
+                          <Text fw={600} mb="xs">2. 拖拽组件</Text>
+                          <Text size="sm">从左侧面板拖拽组件到画布</Text>
+                        </div>
                         
-                        <p><strong>3. 连接节点</strong></p>
-                        <p>从节点右侧的圆点拖动到下一个节点的左侧圆点</p>
+                        <div>
+                          <Text fw={600} mb="xs">3. 连接节点</Text>
+                          <Text size="sm">从节点右侧的圆点拖动到下一个节点的左侧圆点</Text>
+                        </div>
                         
-                        <p><strong>4. 配置参数</strong></p>
-                        <p>点击节点，直接在卡片中填写参数</p>
+                        <div>
+                          <Text fw={600} mb="xs">4. 配置参数</Text>
+                          <Text size="sm">点击节点，直接在卡片中填写参数</Text>
+                        </div>
                         
-                        <p><strong>5. 生成配置</strong></p>
-                        <p>点击"生成配置"按钮，预览并应用到JSON</p>
+                        <div>
+                          <Text fw={600} mb="xs">5. 生成配置</Text>
+                          <Text size="sm">点击"生成配置"按钮，预览并应用到JSON</Text>
+                        </div>
                         
                         <Divider />
                         
-                        <p><strong>💡 示例流程：</strong></p>
-                        <p>XPath提取 → 合并数组 → 字符替换 → 去除空格</p>
-                      </div>
-                    )
+                        <div>
+                          <Text fw={600}>💡 示例流程：</Text>
+                          <Text size="sm">XPath提取 → 合并数组 → 字符替换 → 去除空格</Text>
+                        </div>
+                      </Stack>
+                    ),
+                    centered: true
                   });
                 }}
               >
@@ -550,7 +594,7 @@ function FlowEditorTab({ configData, onConfigChange }) {
           /* 顶部配置栏收起时显示的展开按钮 */
           <Button
             type="primary"
-            icon={<DownOutlined />}
+            icon={<IconChevronDown size={18} />}
             onClick={() => setTopConfigVisible(true)}
             style={{
               position: 'absolute',
