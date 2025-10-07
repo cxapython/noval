@@ -1,10 +1,12 @@
-# 📚 小说爬虫管理系统 v3.0.0
+# 📚 小说爬虫管理系统 v4.0.0
 
-> 集成爬虫配置管理和小说在线阅读的一体化平台
+> 集成爬虫配置管理和小说在线阅读的一体化平台 | 现代化 UI 升级中
 
-[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.8.2-blue.svg)](https://www.python.org/)
 [![Flask](https://img.shields.io/badge/Flask-3.0+-green.svg)](https://flask.palletsprojects.com/)
 [![React](https://img.shields.io/badge/React-18+-61dafb.svg)](https://reactjs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-18.10.0-success.svg)](https://nodejs.org/)
+[![Mantine](https://img.shields.io/badge/Mantine-7.0-339af0.svg)](https://mantine.dev/)
 [![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-red.svg)](https://www.sqlalchemy.org/)
 [![ReactFlow](https://img.shields.io/badge/ReactFlow-11+-purple.svg)](https://reactflow.dev/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -32,22 +34,44 @@
 
 ### 环境要求
 
-- **Python 3.8+** (测试版本: Python 3.8.2)
-- **Node.js 16+** (推荐版本: Node.js 18)
-- **MySQL 5.7+**
-- **Redis** (可选，用于任务状态缓存)
+| 软件 | 版本 | 说明 |
+|-----|------|-----|
+| **Python** | 3.8.2 | 后端运行环境 |
+| **Node.js** | 18.10.0 | 前端构建环境 |
+| **npm** | 8.19.2 | 包管理工具 |
+| **MySQL** | 5.7+ | 数据库（可选） |
+| **Redis** | 最新 | 任务缓存（可选） |
 
-### 一键启动
+### 一键启动（推荐）⭐
 
 ```bash
 # 1. 克隆项目
 git clone git@github.com:cxapython/noval.git
 cd noval
 
-# 2. 安装Python依赖
+# 2. 安装依赖
 pip install -r requirements.txt
+cd frontend && npm install && cd ..
 
-# 3. 安装前端依赖
+# 3. 一键启动所有服务
+./start.sh
+
+# 访问地址（根据终端输出）
+# 前端: http://localhost:3010
+# 后端: http://localhost:5001
+# Demo: http://localhost:3010/demo
+
+# 4. 停止服务
+./stop.sh
+```
+
+### 手动启动（调试用）
+
+```bash
+# 终端1 - 启动后端
+python3 backend/api.py
+
+# 终端2 - 启动前端
 cd frontend && npm install && cd ..
 
 # 4. 配置数据库

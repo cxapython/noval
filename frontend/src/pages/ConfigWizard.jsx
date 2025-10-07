@@ -1,22 +1,32 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Card, Steps, Button, Input, App, Spin, Alert, Space,
-  Form, Select, Image, Tag, List, Divider, Tooltip, Checkbox,
-  Collapse, Descriptions, Typography, Modal, InputNumber, Radio, Switch
+  Card, Button, TextInput, Textarea, Loader, Alert, Group, Stack,
+  Image, Badge, Divider, Tooltip, Checkbox,
+  Accordion, Text, Modal, NumberInput, Switch, Title, Center
+} from '@mantine/core'
+import { 
+  Form as AntForm, 
+  Input as AntInput, 
+  Select as AntSelect, 
+  List as AntList, 
+  Descriptions as AntDescriptions, 
+  Radio as AntRadio,
+  Steps as AntSteps 
 } from 'antd'
 import {
-  ArrowLeftOutlined, ArrowRightOutlined, SaveOutlined,
-  ThunderboltOutlined, EyeOutlined, CopyOutlined,
-  CheckCircleOutlined, PlusOutlined, DeleteOutlined,
-  ExperimentOutlined, EditOutlined, CodeOutlined
-} from '@ant-design/icons'
+  IconArrowLeft, IconArrowRight, IconDeviceFloppy,
+  IconBolt, IconEye, IconCopy,
+  IconCircleCheck, IconPlus, IconTrash,
+  IconFlask, IconEdit, IconCode
+} from '@tabler/icons-react'
 import axios from 'axios'
+import { notifications } from '@mantine/notifications'
 import { PostProcessRuleModal, PostProcessRuleInline } from '../components/PostProcessRuleEditor'
 import PaginationConfigForm from '../components/PaginationConfigForm'
 
-const { TextArea } = Input
-const { Text } = Typography
+
+
 const API_BASE = 'http://localhost:5001/api/crawler'
 
 // 字段类型定义（仅包含数据库支持的字段）
@@ -84,7 +94,7 @@ const processXPathExpression = (expression, attributeType, customAttribute, sele
       }
       message.info(`已添加自定义属性@${customAttribute}提取: ${processedExpression}`);
     } else {
-      message.warning('请输入自定义属性名称');
+      notifications.show({ title: '提示', message: '请输入自定义属性名称', color: 'yellow' });
       return { valid: false };
     }
   }
@@ -97,7 +107,7 @@ const processXPathExpression = (expression, attributeType, customAttribute, sele
 };
 
 function ConfigWizard() {
-  const { message } = App.useApp() // 使用 App hook 替代静态 message
+   // 使用 App hook 替代静态 message
   const navigate = useNavigate()
   
   // 步骤控制：0=小说信息, 1=章节列表, 2=章节内容, 3=配置预览
@@ -193,12 +203,12 @@ function ConfigWizard() {
     if (currentStep === 1 && targetUrl === novelInfoUrl && !rerenderOption && pageData) {
       // 直接使用已有的渲染数据
       setChapterListUrl(targetUrl)
-      message.success('使用已有的渲染数据！')
+      notifications.show({ title: '成功', message: '使用已有的渲染数据！', color: 'green' })
       return
     }
     
     if (!targetUrl) {
-      message.warning('请输入目标URL')
+      notifications.show({ title: '提示', message: '请输入目标URL', color: 'yellow' })
       return
     }
 
@@ -225,7 +235,7 @@ function ConfigWizard() {
           }
         }
         
-        message.success('页面渲染成功！')
+        notifications.show({ title: '成功', message: '页面渲染成功！', color: 'green' })
       } else {
         message.error('渲染失败: ' + response.data.error)
       }
@@ -244,7 +254,7 @@ function ConfigWizard() {
     }
     
     if (!cssSelector && !elementText) {
-      message.warning('请输入CSS选择器或元素文本')
+      notifications.show({ title: '提示', message: '请输入CSS选择器或元素文本', color: 'yellow' })
       return
     }
 
@@ -258,7 +268,7 @@ function ConfigWizard() {
 
       if (response.data.success) {
         setXpathSuggestions(response.data.suggestions)
-        message.success(`生成了 ${response.data.suggestions.length} 个XPath建议`)
+        notifications.show({ title: '成功', message: `生成了 ${response.data.suggestions.length} 个XPath建议`, color: 'green' })
       } else {
         message.error('生成失败: ' + response.data.error)
       }
@@ -272,7 +282,7 @@ function ConfigWizard() {
   // 保存已识别的字段
   const handleSaveField = () => {
     if (!selectedXpath && !editingField) {
-      message.warning('请先选择一个XPath')
+      notifications.show({ title: '提示', message: '请先选择一个XPath', color: 'yellow' })
       return
     }
 
@@ -303,7 +313,7 @@ function ConfigWizard() {
       [selectedFieldType]: fieldConfig
     })
 
-    message.success(`已保存字段: ${fieldInfo.label}`)
+    notifications.show({ title: '成功', message: `已保存字段: ${fieldInfo.label}`, color: 'green' })
     
     // 清空当前选择，准备识别下一个字段
     setCssSelector('')
@@ -323,7 +333,7 @@ function ConfigWizard() {
     const newFields = { ...currentFields }
     delete newFields[fieldName]
     setCurrentFields(newFields)
-    message.success('已删除字段')
+    notifications.show({ title: '成功', message: '已删除字段', color: 'green' })
   }
 
   // 编辑字段的xpath
@@ -350,7 +360,7 @@ function ConfigWizard() {
         process: newProcess
       }
     })
-    message.success('已更新清洗规则')
+    notifications.show({ title: '成功', message: '已更新清洗规则', color: 'green' })
     setEditingProcess(null)
   }
 
@@ -360,7 +370,7 @@ function ConfigWizard() {
     const currentFields = getCurrentFields()
     
     if (Object.keys(currentFields).length === 0) {
-      message.warning('请至少配置一个字段')
+      notifications.show({ title: '提示', message: '请至少配置一个字段', color: 'yellow' })
       return
     }
 
@@ -397,7 +407,7 @@ function ConfigWizard() {
   const handleGenerateConfig = () => {
     console.log('执行handleGenerateConfig函数');
     if (!siteName || !baseUrl) {
-      message.warning('请填写网站名称和基础URL')
+      notifications.show({ title: '提示', message: '请填写网站名称和基础URL', color: 'yellow' })
       return
     }
     
@@ -557,7 +567,7 @@ function ConfigWizard() {
     console.log('执行handleSaveConfig函数');
     if (!generatedConfig) {
       console.error('generatedConfig为空，无法保存');
-      message.warning('请先生成配置')
+      notifications.show({ title: '提示', message: '请先生成配置', color: 'yellow' })
       return
     }
 
@@ -581,7 +591,7 @@ function ConfigWizard() {
       console.log('保存配置响应:', response.data)
 
       if (response.data.success) {
-        message.success('配置已保存到配置管理！')
+        notifications.show({ title: '成功', message: '配置已保存到配置管理！', color: 'green' })
         setSaveStatus('success')
         setSaveMessage(`配置文件 ${response.data.filename} 已成功保存！`)
         // 添加时间戳参数，确保返回时CrawlerManager组件能检测到location变化
@@ -625,9 +635,9 @@ function ConfigWizard() {
     <div className="fade-in" style={{ padding: '0 24px 24px' }}>
       <Card>
         <div style={{ marginBottom: 24 }}>
-          <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+          <Group style={{ width: '100%', justifyContent: 'space-between' }}>
             <Button
-              icon={<ArrowLeftOutlined />}
+              icon={<IconArrowLeft />}
               onClick={() => navigate('/crawler')}
             >
               返回列表
@@ -636,10 +646,10 @@ function ConfigWizard() {
               🧙 配置智能向导
             </h2>
             <div style={{ width: 80 }} />
-          </Space>
+          </Group>
         </div>
 
-        <Steps current={currentStep} items={steps} style={{ marginBottom: 32 }} />
+        <AntSteps current={currentStep} items={steps} style={{ marginBottom: 32 }} />
 
         {/* 步骤0-2：配置各层级字段 */}
         {(currentStep === 0 || currentStep === 1 || currentStep === 2) && (
@@ -670,24 +680,22 @@ function ConfigWizard() {
             {/* 网站基本信息（仅在第一步显示） */}
             {currentStep === 0 && (
               <Card title="网站信息" size="small" style={{ marginBottom: 24, background: '#f0f5ff' }}>
-                <Form layout="vertical">
-                  <Form.Item label="网站名称" required help="用于生成配置文件名，如 ikbook8">
-                    <Input
-                      value={siteName}
+                <AntForm layout="vertical">
+                  <AntForm.Item label="网站名称" required help="用于生成配置文件名，如 ikbook8">
+                    <AntInput                       value={siteName}
                       onChange={(e) => setSiteName(e.target.value)}
                       placeholder="例如：ikbook8"
                       size="large"
                     />
-                  </Form.Item>
-                  <Form.Item label="网站基础URL" required help="网站的域名，如 https://m.ikbook8.com">
-                    <Input
-                      value={baseUrl}
+                  </AntForm.Item>
+                  <AntForm.Item label="网站基础URL" required help="网站的域名，如 https://m.ikbook8.com">
+                    <AntInput                       value={baseUrl}
                       onChange={(e) => setBaseUrl(e.target.value)}
                       placeholder="例如：https://m.ikbook8.com"
                       size="large"
                     />
-                  </Form.Item>
-                </Form>
+                  </AntForm.Item>
+                </AntForm>
               </Card>
             )}
 
@@ -702,47 +710,44 @@ function ConfigWizard() {
                   closable
                   style={{ marginBottom: 16 }}
                 />
-                <Form layout="vertical">
-                  <Form.Item 
+                <AntForm layout="vertical">
+                  <AntForm.Item 
                     label="书籍详情页URL模板（第1页）" 
                     help="示例：/book/{book_id} 或 /book/{book_id}.html。这是起始页，用于获取小说信息和第一页章节列表"
                   >
-                    <Input
-                      value={urlTemplates.bookDetail}
+                    <AntInput                       value={urlTemplates.bookDetail}
                       onChange={(e) => setUrlTemplates({...urlTemplates, bookDetail: e.target.value})}
                       placeholder="/book/{book_id}"
                     />
-                  </Form.Item>
-                  <Form.Item 
+                  </AntForm.Item>
+                  <AntForm.Item 
                     label="章节列表翻页URL模板（第2页起）" 
                     help="示例：/book/{book_id}/{page}/ 或 /book/{book_id}_{page}。从第2页开始使用，{page}≥2"
                   >
-                    <Input
-                      value={urlTemplates.chapterListPage}
+                    <AntInput                       value={urlTemplates.chapterListPage}
                       onChange={(e) => setUrlTemplates({...urlTemplates, chapterListPage: e.target.value})}
                       placeholder="/book/{book_id}/{page}/"
                     />
-                  </Form.Item>
-                  <Form.Item 
+                  </AntForm.Item>
+                  <AntForm.Item 
                     label="章节内容翻页URL模板（第2页起）" 
                     help="示例：/book/{book_id}/{chapter_id}_{page}.html 或 /chapter/{book_id}/{chapter_id}/{page}。章节内容第2页开始使用"
                   >
-                    <Input
-                      value={urlTemplates.chapterContentPage}
+                    <AntInput                       value={urlTemplates.chapterContentPage}
                       onChange={(e) => setUrlTemplates({...urlTemplates, chapterContentPage: e.target.value})}
                       placeholder="/book/{book_id}/{chapter_id}_{page}.html"
                     />
-                  </Form.Item>
-                </Form>
+                  </AntForm.Item>
+                </AntForm>
               </Card>
             )}
 
               {/* 页面渲染区 */}
             <Card title="渲染目标页面" size="small" style={{ marginBottom: 24 }}>
-              <Form layout="vertical">
+              <AntForm layout="vertical">
                 {/* 选择配置模式 - 是否需要渲染页面 */}
-                <Form.Item label="配置模式选择">
-                  <Radio.Group 
+                <AntForm.Item label="配置模式选择">
+                  <AntRadio.Group 
                     value={!manualCssOption} 
                     onChange={(e) => {
                       setManualCssOption(!e.target.value)
@@ -751,21 +756,21 @@ function ConfigWizard() {
                       setSelectedXpath(null)
                     }}
                   >
-                    <Radio.Button value={true}>渲染页面配置</Radio.Button>
-                    <Radio.Button value={false}>手动输入XPath</Radio.Button>
-                  </Radio.Group>
+                    <AntRadio.Button value={true}>渲染页面配置</AntRadio.Button>
+                    <AntRadio.Button value={false}>手动输入XPath</AntRadio.Button>
+                  </AntRadio.Group>
                   <div style={{ marginTop: 8, color: '#666' }}>
                     {!manualCssOption ? '通过渲染页面，智能生成XPath建议' : '直接手动输入XPath，无需渲染页面'}
                   </div>
-                </Form.Item>
+                </AntForm.Item>
                 
                 {/* 仅在非手动模式下显示渲染相关选项 */}
                 {!manualCssOption && (
                   <>
                     {/* 重新渲染选项 - 仅在章节列表页面显示 */}
                     {currentStep === 1 && novelInfoUrl && (
-                      <Form.Item label="是否重新渲染">
-                        <Radio.Group 
+                      <AntForm.Item label="是否重新渲染">
+                        <AntRadio.Group 
                           value={rerenderOption} 
                           onChange={(e) => {
                             setRerenderOption(e.target.value)
@@ -775,18 +780,18 @@ function ConfigWizard() {
                             }
                           }}
                         >
-                          <Radio.Button value={true}>重新渲染新页面</Radio.Button>
-                          <Radio.Button value={false}>使用小说信息页面</Radio.Button>
-                        </Radio.Group>
+                          <AntRadio.Button value={true}>重新渲染新页面</AntRadio.Button>
+                          <AntRadio.Button value={false}>使用小说信息页面</AntRadio.Button>
+                        </AntRadio.Group>
                         <div style={{ marginTop: 8, color: '#666' }}>
                           {rerenderOption ? '将渲染新页面获取章节列表' : '将重用小说信息页面数据，无需重新渲染'}
                         </div>
-                      </Form.Item>
+                      </AntForm.Item>
                     )}
                     
                     {/* 目标URL输入框，当选择不重新渲染时隐藏 */}
                     {(currentStep !== 1 || rerenderOption || !novelInfoUrl) && (
-                      <Form.Item 
+                      <AntForm.Item 
                         label="目标URL" 
                         required
                         help={
@@ -795,8 +800,7 @@ function ConfigWizard() {
                           '任一章节内容页URL'
                         }
                       >
-                        <Input
-                          value={targetUrl}
+                        <AntInput                           value={targetUrl}
                           onChange={(e) => setTargetUrl(e.target.value)}
                           placeholder={
                             currentStep === 0 ? '例如：https://m.ikbook8.com/book/41934.html' :
@@ -805,13 +809,13 @@ function ConfigWizard() {
                           }
                           size="large"
                         />
-                      </Form.Item>
+                      </AntForm.Item>
                     )}
 
                     <Button
                       type="primary"
                       size="large"
-                      icon={<ThunderboltOutlined />}
+                      icon={<IconBolt />}
                       onClick={handleRenderPage}
                       loading={renderLoading}
                       block
@@ -820,7 +824,7 @@ function ConfigWizard() {
                     </Button>
                   </>
                 )}
-              </Form>
+              </AntForm>
 
               {!manualCssOption && pageData && (
                 <div style={{ marginTop: 24 }}>
@@ -861,29 +865,27 @@ function ConfigWizard() {
             {Object.keys(getCurrentFields()).length > 0 && (
               <Card 
                 title={
-                  <Space>
-                    <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                  <Group>
+                    <IconCircleCheck style={{ color: '#52c41a' }} />
                     <span>已配置字段 ({Object.keys(getCurrentFields()).length})</span>
-                  </Space>
+                  </Group>
                 } 
                 size="small" 
                 style={{ marginBottom: 24, background: '#f6ffed', border: '1px solid #b7eb8f' }}
               >
-                <List
-                  dataSource={Object.entries(getCurrentFields())}
+                <AntList                   dataSource={Object.entries(getCurrentFields())}
                   renderItem={([fieldName, config]) => (
-                    <List.Item
-                      actions={[
+                    <AntList.Item                       actions={[
                         <Button
                           size="small"
-                          icon={<EditOutlined />}
+                          icon={<IconEdit />}
                           onClick={() => handleEditField(fieldName)}
                         >
                           修改xpath
                         </Button>,
                         <Button
                           size="small"
-                          icon={<EditOutlined />}
+                          icon={<IconEdit />}
                           onClick={() => setEditingProcess(fieldName)}
                         >
                           编辑清洗规则
@@ -891,19 +893,19 @@ function ConfigWizard() {
                         <Button
                           size="small"
                           danger
-                          icon={<DeleteOutlined />}
+                          icon={<IconTrash />}
                           onClick={() => handleRemoveField(fieldName)}
                         >
                           删除
                         </Button>
                       ]}
                     >
-                      <List.Item.Meta
+                      <AntList.Item.Meta
                         title={
-                          <Space>
-                            <Tag color="green">{FIELD_TYPES[getCurrentPageType()][fieldName]?.label || fieldName}</Tag>
+                          <Group>
+                            <Badge color="green">{FIELD_TYPES[getCurrentPageType()][fieldName]?.label || fieldName}</Badge>
                             <Text code style={{ fontSize: 12 }}>{config.expression}</Text>
-                          </Space>
+                          </Group>
                         }
                         description={
                           <div style={{ fontSize: 12 }}>
@@ -916,7 +918,7 @@ function ConfigWizard() {
                           </div>
                         }
                       />
-                    </List.Item>
+                    </AntList.Item>
                   )}
                 />
               </Card>
@@ -942,27 +944,26 @@ function ConfigWizard() {
                 />
               )}
               
-              <Space direction="vertical" style={{ width: '100%' }} size="large">
-                <Form layout="vertical">
-                  <Form.Item label="选择要配置的字段" required>
-                    <Select
-                      value={selectedFieldType}
+              <Stack style={{ width: '100%' }} size="large">
+                <AntForm layout="vertical">
+                  <AntForm.Item label="选择要配置的字段" required>
+                    <AntSelect                       value={selectedFieldType}
                       onChange={(value) => {
                         setSelectedFieldType(value);
                         // 为特殊字段类型提供提示
                         if (value === 'url' || value === 'next_page') {
-                          message.info('链接类型字段可能需要提取@href属性，请根据需要选择合适的提取方式');
+                          notifications.show({ title: '提示', message: '链接类型字段可能需要提取@href属性，请根据需要选择合适的提取方式', color: 'blue' });
                         } else if (value === 'cover_url') {
-                          message.info('图片URL可能在不同属性中(src, data-src, data-original等)，请根据实际情况选择');
+                          notifications.show({ title: '提示', message: '图片URL可能在不同属性中(src, data-src, data-original等)，请根据实际情况选择', color: 'blue' });
                         }
                       }}
                       size="large"
                       style={{ width: '100%' }}
                     >
                       {Object.entries(FIELD_TYPES[getCurrentPageType()]).map(([key, info]) => (
-                        <Select.Option key={key} value={key} disabled={!!getCurrentFields()[key] && editingField !== key}>
-                          <Space>
-                            {getCurrentFields()[key] && <CheckCircleOutlined style={{ color: '#52c41a' }} />}
+                        <AntSelect.Option key={key} value={key} disabled={!!getCurrentFields()[key] && editingField !== key}>
+                          <Group>
+                            {getCurrentFields()[key] && <IconCircleCheck style={{ color: '#52c41a' }} />}
                             <span>{info.label}</span>
                             {info.note && <Text type="secondary" style={{ fontSize: 12 }}>({info.note})</Text>}
                             {(key === 'url' || key === 'next_page') && 
@@ -971,49 +972,47 @@ function ConfigWizard() {
                             {key === 'cover_url' && 
                               <Text type="secondary" style={{ fontSize: 12 }}>(可能需要指定图片属性)</Text>
                             }
-                          </Space>
-                        </Select.Option>
+                          </Group>
+                        </AntSelect.Option>
                       ))}
-                    </Select>
-                  </Form.Item>
+                    </AntSelect>
+                  </AntForm.Item>
 
                 {!manualCssOption && (
-                  <Form.Item label="XPath生成方式">
-                    <Radio.Group 
+                  <AntForm.Item label="XPath生成方式">
+                    <AntRadio.Group 
                       value={false} 
                       onChange={() => {}}
                     >
-                      <Radio.Button value={false}>智能生成XPath</Radio.Button>
-                    </Radio.Group>
-                  </Form.Item>
+                      <AntRadio.Button value={false}>智能生成XPath</AntRadio.Button>
+                    </AntRadio.Group>
+                  </AntForm.Item>
                 )}
                 
                 {/* 根据选择的模式显示不同的表单 */}
                 {!manualCssOption ? (
                   // 智能生成模式
                   <>
-                    <Form.Item label="CSS选择器（推荐）">
-                      <Input
-                        value={cssSelector}
+                    <AntForm.Item label="CSS选择器（推荐）">
+                      <AntInput                         value={cssSelector}
                         onChange={(e) => setCssSelector(e.target.value)}
                         placeholder="例如：div.book-info > h1"
                         size="large"
                       />
-                    </Form.Item>
+                    </AntForm.Item>
 
-                    <Form.Item label="或者输入元素文本">
-                      <Input
-                        value={elementText}
+                    <AntForm.Item label="或者输入元素文本">
+                      <AntInput                         value={elementText}
                         onChange={(e) => setElementText(e.target.value)}
                         placeholder="例如：洪荒：开局斩杀混沌魔神"
                         size="large"
                       />
-                    </Form.Item>
+                    </AntForm.Item>
 
                     <Button
                       type="primary"
                       size="large"
-                      icon={<ThunderboltOutlined />}
+                      icon={<IconBolt />}
                       onClick={handleGenerateXpath}
                       loading={xpathLoading}
                       block
@@ -1024,16 +1023,15 @@ function ConfigWizard() {
                 ) : (
                   // 手动配置模式
                   <>
-                    <Form.Item label="直接输入XPath表达式">
-                      <Input
-                        value={manualXpath}
+                    <AntForm.Item label="直接输入XPath表达式">
+                      <AntInput                         value={manualXpath}
                         onChange={(e) => {
                           setManualXpath(e.target.value)
                         }}
                         placeholder="例如：//div[@class='book-info']/h1"
                         size="large"
                       />
-                    </Form.Item>
+                    </AntForm.Item>
                     <Alert
                       message="XPath手动输入提示"
                       description="直接输入XPath表达式，然后配置属性提取方式，最后点击下方的按钮保存字段。"
@@ -1052,7 +1050,7 @@ function ConfigWizard() {
                     <Button
                       type="primary"
                       size="large"
-                      icon={<SaveOutlined />}
+                      icon={<IconDeviceFloppy />}
                       onClick={() => {
                         // 设置选中的XPath
                         setSelectedXpath(manualXpath)
@@ -1085,7 +1083,7 @@ function ConfigWizard() {
                             [selectedFieldType]: fieldConfig
                           })
                       
-                          message.success(`已保存字段: ${fieldInfo.label}`)
+                          notifications.show({ title: '成功', message: `已保存字段: ${fieldInfo.label}`, color: 'green' })
                           
                           // 清空当前选择，准备识别下一个字段
                           setManualXpath('')
@@ -1094,7 +1092,7 @@ function ConfigWizard() {
                           setAttributeType('auto')
                           setCustomAttribute('')
                         } else {
-                          message.warning('请输入XPath表达式')
+                          notifications.show({ title: '提示', message: '请输入XPath表达式', color: 'yellow' })
                         }
                       }}
                       block
@@ -1103,7 +1101,7 @@ function ConfigWizard() {
                     </Button>
                   </>
                 )}
-              </Form>
+              </AntForm>
 
               {xpathSuggestions.length > 0 && (
                 <>
@@ -1116,15 +1114,13 @@ function ConfigWizard() {
                     closable
                     style={{ marginBottom: 16 }}
                   />
-                  <List
-                    dataSource={xpathSuggestions}
+                  <AntList                     dataSource={xpathSuggestions}
                     renderItem={(item, index) => (
-                      <List.Item
-                        actions={[
+                      <AntList.Item                         actions={[
                           <Button
                             type={selectedXpath === item.xpath ? 'primary' : 'default'}
                             size="small"
-                            icon={selectedXpath === item.xpath ? <CheckCircleOutlined /> : <EyeOutlined />}
+                            icon={selectedXpath === item.xpath ? <IconCircleCheck /> : <IconEye />}
                             onClick={() => {
                               setSelectedXpath(item.xpath)
                               setManualXpath('') // 清空手动输入
@@ -1134,24 +1130,24 @@ function ConfigWizard() {
                           </Button>,
                           <Button
                             size="small"
-                            icon={<CopyOutlined />}
+                            icon={<IconCopy />}
                             onClick={() => {
                               navigator.clipboard.writeText(item.xpath)
-                              message.success('已复制到剪贴板')
+                              notifications.show({ title: '成功', message: '已复制到剪贴板', color: 'green' })
                             }}
                           >
                             复制
                           </Button>
                         ]}
                       >
-                        <List.Item.Meta
+                        <AntList.Item.Meta
                           title={
-                            <Space>
-                              <Tag color={item.priority <= 2 ? 'green' : item.priority <= 4 ? 'blue' : 'orange'}>
+                            <Group>
+                              <Badge color={item.priority <= 2 ? 'green' : item.priority <= 4 ? 'blue' : 'orange'}>
                                 {item.type}
-                              </Tag>
+                              </Badge>
                               <span style={{ fontFamily: 'monospace', fontSize: 13 }}>{item.xpath}</span>
-                            </Space>
+                            </Group>
                           }
                           description={
                             <div style={{ fontSize: 12 }}>
@@ -1159,15 +1155,14 @@ function ConfigWizard() {
                             </div>
                           }
                         />
-                      </List.Item>
+                      </AntList.Item>
                     )}
                   />
                   
                   <Divider>或手动输入XPath</Divider>
-                  <Form layout="vertical">
-                    <Form.Item label="自定义XPath表达式" help="如果自动生成的建议都不合适，可以手动输入XPath">
-                      <Input
-                        value={manualXpath}
+                  <AntForm layout="vertical">
+                    <AntForm.Item label="自定义XPath表达式" help="如果自动生成的建议都不合适，可以手动输入XPath">
+                      <AntInput                         value={manualXpath}
                         onChange={(e) => {
                           setManualXpath(e.target.value)
                           if (e.target.value) {
@@ -1176,10 +1171,10 @@ function ConfigWizard() {
                         }}
                         placeholder="例如：//div[@class='book-info']/h1"
                         size="large"
-                        prefix={<EditOutlined />}
+                        prefix={<IconEdit />}
                       />
-                    </Form.Item>
-                  </Form>
+                    </AntForm.Item>
+                  </AntForm>
                 </>
               )}
 
@@ -1203,7 +1198,7 @@ function ConfigWizard() {
                   <Button
                     type="primary"
                     size="large"
-                    icon={<SaveOutlined />}
+                    icon={<IconDeviceFloppy />}
                     onClick={handleSaveField}
                     style={{ marginTop: 12, width: '100%' }}
                   >
@@ -1211,7 +1206,7 @@ function ConfigWizard() {
                   </Button>
                 </div>
               )}
-            </Space>
+            </Stack>
           </Card>
 
 
@@ -1219,10 +1214,10 @@ function ConfigWizard() {
           {(currentStep === 1 || currentStep === 2) && (
             <Card 
               title={
-                <Space>
-                  <ExperimentOutlined style={{ color: '#1890ff' }} />
+                <Group>
+                  <IconFlask style={{ color: '#1890ff' }} />
                   <span>高级配置（可选）</span>
-                </Space>
+                </Group>
               }
               size="small" 
               style={{ marginBottom: 24, background: '#f0f5ff', border: '1px solid #adc6ff' }}
@@ -1237,8 +1232,8 @@ function ConfigWizard() {
                     showIcon
                     style={{ marginBottom: 16 }}
                   />
-                  <Form layout="vertical">
-                    <Form.Item label="启用章节列表分页">
+                  <AntForm layout="vertical">
+                    <AntForm.Item label="启用章节列表分页">
                       <Switch
                         checked={paginationConfig.enabled}
                         onChange={(checked) => setPaginationConfig({...paginationConfig, enabled: checked})}
@@ -1248,7 +1243,7 @@ function ConfigWizard() {
                       <div style={{ marginTop: 8, color: '#666', fontSize: 12 }}>
                         {paginationConfig.enabled ? '将自动爬取所有分页的章节列表' : '仅爬取当前页面的章节列表'}
                       </div>
-                    </Form.Item>
+                    </AntForm.Item>
                     
                     {paginationConfig.enabled && (
                       <PaginationConfigForm
@@ -1257,7 +1252,7 @@ function ConfigWizard() {
                         type="list"
                       />
                     )}
-                  </Form>
+                  </AntForm>
                 </div>
               )}
               
@@ -1271,8 +1266,8 @@ function ConfigWizard() {
                     showIcon
                     style={{ marginBottom: 16 }}
                   />
-                  <Form layout="vertical">
-                    <Form.Item label="启用章节内容分页">
+                  <AntForm layout="vertical">
+                    <AntForm.Item label="启用章节内容分页">
                       <Switch
                         checked={contentPaginationEnabled}
                         onChange={setContentPaginationEnabled}
@@ -1282,7 +1277,7 @@ function ConfigWizard() {
                       <div style={{ marginTop: 8, color: '#666', fontSize: 12 }}>
                         {contentPaginationEnabled ? '将自动获取多页章节内容' : '仅获取单页章节内容'}
                       </div>
-                    </Form.Item>
+                    </AntForm.Item>
                     
                     {contentPaginationEnabled && (
                       <PaginationConfigForm
@@ -1291,7 +1286,7 @@ function ConfigWizard() {
                         type="content"
                       />
                     )}
-                  </Form>
+                  </AntForm>
                 </div>
               )}
             </Card>
@@ -1310,7 +1305,7 @@ function ConfigWizard() {
             >
               上一步
             </Button>
-            <Space>
+            <Group>
               <Button
                 type="default"
                 onClick={() => {
@@ -1327,7 +1322,7 @@ function ConfigWizard() {
               </Button>
               <Button
                 type="primary"
-                icon={<ArrowRightOutlined />}
+                icon={<IconArrowRight />}
                 onClick={() => {
                   console.log('点击按钮，当前步骤:', currentStep);
                   if (currentStep === 2) {
@@ -1342,7 +1337,7 @@ function ConfigWizard() {
               >
                 {currentStep === 2 ? '生成配置' : '下一步'}
               </Button>
-            </Space>
+            </Group>
           </div>
 
           {/* 测试功能已移除 */}
@@ -1378,73 +1373,73 @@ function ConfigWizard() {
               />
             )}
 
-            <Space direction="vertical" style={{ width: '100%' }} size="large">
+            <Stack style={{ width: '100%' }} size="large">
               {/* 配置摘要 */}
               <Card title="配置摘要" size="small" type="inner">
-                <Descriptions bordered column={1} size="small">
-                  <Descriptions.Item label="网站名称">
+                <AntDescriptions bordered column={1} size="small">
+                  <AntDescriptions.Item label="网站名称">
                     {siteName}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="网站URL">
+                  </AntDescriptions.Item>
+                  <AntDescriptions.Item label="网站URL">
                     {baseUrl}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="小说信息字段">
-                    <Space wrap>
+                  </AntDescriptions.Item>
+                  <AntDescriptions.Item label="小说信息字段">
+                    <Group wrap>
                       {Object.keys(novelInfoFields).map(field => (
-                        <Tag key={field} color="green">
+                        <Badge key={field} color="green">
                           {FIELD_TYPES.novel_info[field]?.label || field}
-                        </Tag>
+                        </Badge>
                       ))}
-                    </Space>
+                    </Group>
                     <Text type="secondary" style={{ marginLeft: 8 }}>
                       ({Object.keys(novelInfoFields).length} 个)
                     </Text>
-                  </Descriptions.Item>
-                  <Descriptions.Item label="章节列表字段">
-                    <Space wrap>
+                  </AntDescriptions.Item>
+                  <AntDescriptions.Item label="章节列表字段">
+                    <Group wrap>
                       {Object.keys(chapterListFields).map(field => (
-                        <Tag key={field} color="blue">
+                        <Badge key={field} color="blue">
                           {FIELD_TYPES.chapter_list[field]?.label || field}
-                        </Tag>
+                        </Badge>
                       ))}
-                    </Space>
+                    </Group>
                     <Text type="secondary" style={{ marginLeft: 8 }}>
                       ({Object.keys(chapterListFields).length} 个)
                     </Text>
-                  </Descriptions.Item>
-                  <Descriptions.Item label="章节内容字段">
-                    <Space wrap>
+                  </AntDescriptions.Item>
+                  <AntDescriptions.Item label="章节内容字段">
+                    <Group wrap>
                       {Object.keys(chapterContentFields).map(field => (
-                        <Tag key={field} color="orange">
+                        <Badge key={field} color="orange">
                           {FIELD_TYPES.chapter_content[field]?.label || field}
-                        </Tag>
+                        </Badge>
                       ))}
-                    </Space>
+                    </Group>
                     <Text type="secondary" style={{ marginLeft: 8 }}>
                       ({Object.keys(chapterContentFields).length} 个)
                     </Text>
-                  </Descriptions.Item>
-                </Descriptions>
+                  </AntDescriptions.Item>
+                </AntDescriptions>
               </Card>
 
 
               {/* JSON配置 */}
               <Card 
                 title={
-                  <Space>
-                    <CodeOutlined />
+                  <Group>
+                    <IconCode />
                     <span>JSON配置</span>
-                  </Space>
+                  </Group>
                 }
                 size="small" 
                 type="inner"
                 extra={
                   <Button
                     size="small"
-                    icon={<CopyOutlined />}
+                    icon={<IconCopy />}
                     onClick={() => {
                       navigator.clipboard.writeText(JSON.stringify(generatedConfig, null, 2))
-                      message.success('配置已复制到剪贴板')
+                      notifications.show({ title: '成功', message: '配置已复制到剪贴板', color: 'green' })
                     }}
                   >
                     复制JSON
@@ -1465,13 +1460,13 @@ function ConfigWizard() {
                   </pre>
                 </div>
               </Card>
-            </Space>
+            </Stack>
 
             <div style={{ marginTop: 24, display: 'flex', justifyContent: 'space-between' }}>
               {saveStatus === 'success' ? (
                 <Button 
                   type="primary"
-                  icon={<ArrowLeftOutlined />}
+                  icon={<IconArrowLeft />}
                   onClick={() => navigate('/crawler')}
                 >
                   返回配置列表
@@ -1481,12 +1476,12 @@ function ConfigWizard() {
                   上一步
                 </Button>
               )}
-              <Space>
+              <Group>
                 <Button
-                  icon={<CopyOutlined />}
+                  icon={<IconCopy />}
                   onClick={() => {
                     navigator.clipboard.writeText(JSON.stringify(generatedConfig, null, 2))
-                    message.success('配置已复制到剪贴板')
+                    notifications.show({ title: '成功', message: '配置已复制到剪贴板', color: 'green' })
                   }}
                 >
                   复制JSON
@@ -1495,7 +1490,7 @@ function ConfigWizard() {
                   <Button
                     type="primary"
                     size="large"
-                    icon={<SaveOutlined />}
+                    icon={<IconDeviceFloppy />}
                     onClick={() => {
                       console.log('点击保存配置按钮');
                       handleSaveConfig();
@@ -1505,7 +1500,7 @@ function ConfigWizard() {
                     {saving ? '保存中...' : '保存配置'}
                   </Button>
                 )}
-              </Space>
+              </Group>
             </div>
           </Card>
         )}
@@ -1528,60 +1523,60 @@ function ConfigWizard() {
 function AttributeExtractorSelector({ attributeType, setAttributeType, customAttribute, setCustomAttribute }) {
   return (
     <Card title="属性提取设置" size="small" style={{ marginTop: 16, marginBottom: 16 }}>
-      <Form layout="vertical">
-        <Form.Item label="提取方式">
-          <Radio.Group 
+      <AntForm layout="vertical">
+        <AntForm.Item label="提取方式">
+          <AntRadio.Group 
             value={attributeType} 
             onChange={(e) => setAttributeType(e.target.value)}
             style={{ width: '100%' }}
           >
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <Radio value="auto">
-                <Space>
+            <Stack style={{ width: '100%' }}>
+              <AntRadio value="auto">
+                <Group>
                   <span>自动选择</span>
                   <Text type="secondary" style={{ fontSize: 12 }}>
                     (根据字段类型自动选择适合的属性)
                   </Text>
-                </Space>
-              </Radio>
-              <Radio value="text">
-                <Space>
+                </Group>
+              </AntRadio>
+              <AntRadio value="text">
+                <Group>
                   <span>提取文本</span>
                   <Text type="secondary" style={{ fontSize: 12 }}>
                     (使用text()函数，仅提取当前节点的文本)
                   </Text>
-                </Space>
-              </Radio>
-              <Radio value="string">
-                <Space>
+                </Group>
+              </AntRadio>
+              <AntRadio value="string">
+                <Group>
                   <span>提取所有文本</span>
                   <Text type="secondary" style={{ fontSize: 12 }}>
                     (使用string(.)函数，提取当前节点及其子节点的所有文本)
                   </Text>
-                </Space>
-              </Radio>
-              <Radio value="custom">
-                <Space>
+                </Group>
+              </AntRadio>
+              <AntRadio value="custom">
+                <Group>
                   <span>自定义属性</span>
                   <Text type="secondary" style={{ fontSize: 12 }}>
                     (提取指定的属性值，如title, data-value等)
                   </Text>
-                </Space>
-              </Radio>
-            </Space>
-          </Radio.Group>
-        </Form.Item>
+                </Group>
+              </AntRadio>
+            </Stack>
+          </AntRadio.Group>
+        </AntForm.Item>
         
         {attributeType === 'custom' && (
-          <Form.Item label="属性名称">
-            <Input 
+          <AntForm.Item label="属性名称">
+            <AntInput 
               value={customAttribute} 
               onChange={(e) => setCustomAttribute(e.target.value)}
               placeholder="例如：title, data-value, alt等"
             />
-          </Form.Item>
+          </AntForm.Item>
         )}
-      </Form>
+      </AntForm>
     </Card>
   );
 }

@@ -7,6 +7,7 @@ import ConfigEditorPage from './pages/ConfigEditorPage'
 import ConfigWizard from './pages/ConfigWizard'
 import NovelReader from './pages/NovelReader'
 import TaskManagerPage from './pages/TaskManagerPage'
+import MantineDemo from './components/MantineDemo'
 import './App.css'
 
 function App() {
@@ -25,7 +26,8 @@ function App() {
         <Router>
           <Layout>
             <Routes>
-              <Route path="/" element={<Navigate to="/tasks" replace />} />
+              <Route path="/" element={<Navigate to="/demo" replace />} />
+              <Route path="/demo" element={<MantineDemo />} />
               <Route path="/tasks" element={<TaskManagerPage />} />
               <Route path="/crawler" element={<CrawlerManager />} />
               <Route path="/crawler/edit" element={<ConfigEditorPage />} />

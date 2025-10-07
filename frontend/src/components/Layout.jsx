@@ -1,69 +1,92 @@
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Layout as AntLayout, Menu, Typography } from 'antd'
-import { SettingOutlined, BookOutlined, GithubOutlined, UnorderedListOutlined } from '@ant-design/icons'
-
-const { Header, Content, Footer } = AntLayout
-const { Title } = Typography
+import { AppShell, Group, Title, ActionIcon, Tabs, Text } from '@mantine/core'
+import { IconSettings, IconBook, IconBrandGithub, IconList } from '@tabler/icons-react'
 
 function Layout({ children }) {
   const location = useLocation()
   const navigate = useNavigate()
 
-  const menuItems = [
-    {
-      key: '/tasks',
-      icon: <UnorderedListOutlined />,
-      label: '任务管理'
-    },
-    {
-      key: '/crawler',
-      icon: <SettingOutlined />,
-      label: '爬虫配置'
-    },
-    {
-      key: '/reader',
-      icon: <BookOutlined />,
-      label: '小说阅读'
-    }
-  ]
+  // 确定当前激活的标签
+  const getActiveTab = () => {
+    if (location.pathname.startsWith('/reader')) return '/reader'
+    if (location.pathname.startsWith('/crawler')) return '/crawler'
+    if (location.pathname.startsWith('/tasks')) return '/tasks'
+    if (location.pathname.startsWith('/demo')) return '/demo'
+    return location.pathname
+  }
 
-  const handleMenuClick = ({ key }) => {
-    navigate(key)
+  const handleTabChange = (value) => {
+    if (value) {
+      navigate(value)
+    }
   }
 
   return (
-    <AntLayout>
-      <Header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
-          <Title level={4} style={{ margin: 0, color: '#1890ff' }}>
-            📚 小说爬虫管理系统 v2.0.0
-          </Title>
-          <Menu
-            mode="horizontal"
-            selectedKeys={[location.pathname.startsWith('/reader') ? '/reader' : location.pathname.startsWith('/crawler') ? '/crawler' : location.pathname]}
-            items={menuItems}
-            onClick={handleMenuClick}
-            style={{ flex: 1, minWidth: 400, border: 'none' }}
-          />
-        </div>
-        <a 
-          href="https://github.com" 
-          target="_blank" 
-          rel="noopener noreferrer"
-          style={{ color: '#666', fontSize: '20px' }}
-        >
-          <GithubOutlined />
-        </a>
-      </Header>
+    <AppShell
+      header={{ height: 60 }}
+      footer={{ height: 50 }}
+      padding="md"
+    >
+      <AppShell.Header>
+        <Group h="100%" px="md" justify="space-between">
+          <Group>
+            <Title order={4} c="blue">
+              📚 小说爬虫管理系统 v4.0.0
+            </Title>
+            
+            <Tabs 
+              value={getActiveTab()} 
+              onChange={handleTabChange}
+              variant="pills"
+              ml="xl"
+            >
+              <Tabs.List>
+                <Tabs.Tab 
+                  value="/tasks" 
+                  leftSection={<IconList size={16} />}
+                >
+                  任务管理
+                </Tabs.Tab>
+                <Tabs.Tab 
+                  value="/crawler" 
+                  leftSection={<IconSettings size={16} />}
+                >
+                  爬虫配置
+                </Tabs.Tab>
+                <Tabs.Tab 
+                  value="/reader" 
+                  leftSection={<IconBook size={16} />}
+                >
+                  小说阅读
+                </Tabs.Tab>
+              </Tabs.List>
+            </Tabs>
+          </Group>
 
-      <Content style={{ padding: '24px', minHeight: 'calc(100vh - 134px)' }}>
+          <ActionIcon
+            component="a"
+            href="https://github.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            variant="subtle"
+            color="gray"
+            size="lg"
+          >
+            <IconBrandGithub size={20} />
+          </ActionIcon>
+        </Group>
+      </AppShell.Header>
+
+      <AppShell.Main>
         {children}
-      </Content>
+      </AppShell.Main>
 
-      <Footer style={{ textAlign: 'center', background: '#fff' }}>
-        小说爬虫管理系统 ©2025 | 基于配置驱动的通用爬虫框架
-      </Footer>
-    </AntLayout>
+      <AppShell.Footer p="xs">
+        <Text ta="center" size="sm" c="dimmed">
+          小说爬虫管理系统 ©2025 | 基于配置驱动的通用爬虫框架
+        </Text>
+      </AppShell.Footer>
+    </AppShell>
   )
 }
 

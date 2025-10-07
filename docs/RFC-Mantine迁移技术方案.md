@@ -19,6 +19,7 @@
 - [6. 关键技术决策](#6-关键技术决策)
 - [7. 风险与挑战](#7-风险与挑战)
 - [8. 测试策略](#8-测试策略)
+- [9. 启动与部署](#9-启动与部署)
 
 ---
 
@@ -51,22 +52,35 @@
 ### 1.2 技术栈
 
 ```yaml
+开发环境:
+  - Python: 3.8.2
+  - Node.js: 18.10.0
+  - npm: 8.19.2
+  - 操作系统: macOS/Linux
+
 核心框架:
   - React: 18.x
   - Vite: 4.x
   - TypeScript: 5.x (可选，暂时保持JS)
 
 UI框架:
-  - @mantine/core: ^7.x
-  - @mantine/hooks: ^7.x
-  - @mantine/form: ^7.x
-  - @mantine/notifications: ^7.x
-  - @emotion/react: ^11.x (Mantine依赖)
+  - @mantine/core: ^7.0.0
+  - @mantine/hooks: ^7.0.0
+  - @mantine/form: ^7.0.0
+  - @mantine/notifications: ^7.0.0
+  - @tabler/icons-react: ^2.40.0
+  - @emotion/react: ^11.11.0 (Mantine依赖)
 
 保持不变:
   - React Router: v6
   - React Flow: 最新版 (流程编辑器)
   - Axios: 最新版 (HTTP客户端)
+
+后端技术栈:
+  - Flask: Python Web框架
+  - Flask-CORS: 跨域支持
+  - Flask-SocketIO: WebSocket支持
+  - SQLAlchemy: 数据库ORM
 ```
 
 ### 1.3 项目范围
@@ -1093,19 +1107,203 @@ export const COMPONENT_MAPPING = {
 
 ---
 
+## 9. 启动与部署
+
+### 9.1 开发环境要求
+
+**必需环境：**
+```bash
+Python: 3.8.2
+Node.js: 18.10.0
+npm: 8.19.2
+操作系统: macOS/Linux
+```
+
+**检查环境版本：**
+```bash
+python3 --version  # 应显示 Python 3.8.2
+node --version     # 应显示 v18.10.0
+npm --version      # 应显示 8.19.2
+```
+
+### 9.2 一键启动
+
+**启动所有服务（推荐）：**
+```bash
+# 在项目根目录执行
+./start.sh
+```
+
+**启动脚本功能：**
+- ✅ 自动检查并停止旧进程
+- ✅ 启动后端API服务（端口：5001）
+- ✅ 启动前端开发服务器（端口：自动选择 3000-3010）
+- ✅ 显示实际运行端口和访问地址
+- ✅ 记录所有进程PID到 `.pids` 文件
+- ✅ 输出详细的启动日志
+
+**启动输出示例：**
+```
+==================================
+📚 小说爬虫管理系统 v4.0
+==================================
+
+🔧 环境信息：
+  Python: 3.8.2
+  Node: v18.10.0
+  npm: 8.19.2
+==================================
+
+🚀 启动服务...
+
+📡 启动后端API (端口: 5001)...
+  ✓ 后端PID: 12345
+  ✓ 后端服务启动成功
+
+🎨 启动前端界面...
+  ✓ 前端PID: 12346
+
+==================================
+✅ 启动完成！
+==================================
+
+📋 访问地址：
+  前端: http://localhost:3010
+  后端API: http://localhost:5001
+
+🧪 测试页面：
+  Mantine Demo: http://localhost:3010/demo
+
+📊 日志文件：
+  后端: logs/backend.log (tail -f logs/backend.log)
+  前端: logs/frontend.log (tail -f logs/frontend.log)
+
+🛑 停止服务: ./stop.sh
+==================================
+```
+
+### 9.3 一键停止
+
+**停止所有服务：**
+```bash
+# 在项目根目录执行
+./stop.sh
+```
+
+**停止脚本功能：**
+- ✅ 读取 `.pids` 文件，逐个停止进程
+- ✅ 清理残留的后端进程
+- ✅ 清理残留的前端进程
+- ✅ 检查端口占用情况
+- ✅ 显示详细的停止日志
+
+### 9.4 手动启动（开发调试）
+
+**单独启动后端：**
+```bash
+# 终端1
+cd /Users/chennan/pythonproject/demo/noval
+python3 backend/api.py
+```
+
+**单独启动前端：**
+```bash
+# 终端2
+cd /Users/chennan/pythonproject/demo/noval/frontend
+npm run dev
+```
+
+### 9.5 访问地址
+
+**主要访问地址：**
+- **前端界面**: http://localhost:3010 (端口可能变化，查看启动日志)
+- **后端API**: http://localhost:5001
+- **Mantine Demo**: http://localhost:3010/demo
+
+**功能页面：**
+- 任务管理：http://localhost:3010/tasks
+- 爬虫管理：http://localhost:3010/crawler
+- 配置编辑：http://localhost:3010/crawler/edit
+- 智能向导：http://localhost:3010/crawler/wizard
+- 小说阅读：http://localhost:3010/reader
+
+### 9.6 日志查看
+
+**实时查看日志：**
+```bash
+# 后端日志
+tail -f logs/backend.log
+
+# 前端日志
+tail -f logs/frontend.log
+
+# 同时查看两个日志
+tail -f logs/backend.log logs/frontend.log
+```
+
+### 9.7 常见问题
+
+**问题1：端口被占用**
+```bash
+# 查看端口占用
+lsof -i :5001  # 后端端口
+lsof -i :3000  # 前端端口
+
+# 清理进程
+./stop.sh
+```
+
+**问题2：启动失败**
+```bash
+# 查看错误日志
+cat logs/backend.log
+cat logs/frontend.log
+
+# 检查依赖
+cd frontend && npm install
+pip install -r requirements.txt
+```
+
+**问题3：前端页面空白**
+- ✅ 确认后端服务已启动（访问 http://localhost:5001）
+- ✅ 检查浏览器控制台是否有错误
+- ✅ 清除浏览器缓存后刷新
+- ✅ 查看 `logs/frontend.log` 日志
+
+**问题4：Demo页面打不开**
+- ⚠️ **最常见原因：后端服务未启动**
+- 解决方案：执行 `./start.sh` 启动所有服务
+- 验证：访问 http://localhost:5001 应该能看到后端响应
+
+### 9.8 开发建议
+
+**推荐工作流：**
+1. 使用 `./start.sh` 启动所有服务
+2. 前端代码修改会自动热更新
+3. 后端代码修改需要重启后端服务
+4. 使用 `./stop.sh` 停止所有服务
+
+**进程管理：**
+- 所有进程PID记录在 `.pids` 文件
+- 使用 `ps -p $(cat .pids)` 查看进程状态
+- 停止脚本会自动清理所有相关进程
+
+---
+
 **文档版本历史**
 
 | 版本 | 日期 | 作者 | 变更说明 |
 |-----|------|------|---------|
 | 1.0 | 2025-10-07 | AI Assistant | 初始版本 |
+| 1.1 | 2025-10-07 | AI Assistant | 添加启动与部署章节 |
 
 ---
 
 **下一步行动**
 
 1. ✅ 创建迁移分支 `feature/ui-migration-mantine`
-2. ⏳ 安装Mantine依赖
-3. ⏳ 配置MantineProvider和主题
+2. ✅ 安装Mantine依赖
+3. ✅ 配置MantineProvider和主题
 4. ⏳ 开始Phase 2：公共组件迁移
 
 ---

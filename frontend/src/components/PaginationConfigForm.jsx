@@ -1,4 +1,4 @@
-import { Form, Input, InputNumber, Divider } from 'antd'
+import { TextInput, NumberInput, Divider, Stack } from '@mantine/core'
 
 /**
  * 分页配置表单组件
@@ -43,64 +43,52 @@ function PaginationConfigForm({
   const text = texts[type]
   
   return (
-    <>
-      <Divider orientation="left">最大页数配置</Divider>
-      <Form.Item 
-        label={text.xpathLabel}
-        help={xpathPlaceholder || text.xpathHelp}
-      >
-        <Input
-          value={config.maxPageXpath}
-          onChange={(e) => handleChange('maxPageXpath', e.target.value)}
-          placeholder={xpathPlaceholder || text.xpathDefault}
-        />
-      </Form.Item>
+    <Stack gap="md">
+      <Divider label="最大页数配置" labelPosition="left" />
       
-      <Form.Item 
+      <TextInput
+        label={text.xpathLabel}
+        description={xpathPlaceholder || text.xpathHelp}
+        value={config.maxPageXpath || ''}
+        onChange={(e) => handleChange('maxPageXpath', e.target.value)}
+        placeholder={xpathPlaceholder || text.xpathDefault}
+      />
+      
+      <NumberInput
         label={text.maxPageLabel}
-        help={text.maxPageHelp}
-      >
-        <InputNumber
-          value={config.maxPageManual}
-          onChange={(val) => handleChange('maxPageManual', val)}
-          min={1}
-          max={type === 'list' ? 1000 : 200}
-          style={{ width: '100%' }}
-        />
-      </Form.Item>
+        description={text.maxPageHelp}
+        value={config.maxPageManual}
+        onChange={(val) => handleChange('maxPageManual', val)}
+        min={1}
+        max={type === 'list' ? 1000 : 200}
+      />
       
       {type === 'list' && (
         <>
-          <Divider orientation="left">分页URL配置</Divider>
-          <Form.Item 
+          <Divider label="分页URL配置" labelPosition="left" />
+          <TextInput
             label={text.urlLabel}
-            help={urlPatternHelp || "可用变量: {base_url}, {book_id}, {page}。例如：{base_url}/book/{book_id}/{page}/ 或 {base_url}/book/{book_id}/{page}.html"}
-          >
-            <Input
-              value={config.urlPattern}
-              onChange={(e) => handleChange('urlPattern', e.target.value)}
-              placeholder={urlPatternPlaceholder || text.urlDefault}
-            />
-          </Form.Item>
+            description={urlPatternHelp || "可用变量: {base_url}, {book_id}, {page}。例如：{base_url}/book/{book_id}/{page}/ 或 {base_url}/book/{book_id}/{page}.html"}
+            value={config.urlPattern || ''}
+            onChange={(e) => handleChange('urlPattern', e.target.value)}
+            placeholder={urlPatternPlaceholder || text.urlDefault}
+          />
         </>
       )}
       
       {type === 'content' && config.urlPattern !== undefined && (
         <>
-          <Divider orientation="left">下一页配置</Divider>
-          <Form.Item 
+          <Divider label="下一页配置" labelPosition="left" />
+          <TextInput
             label={text.urlLabel}
-            help={urlPatternHelp || "可用变量: {base_url}, {book_id}（小说ID）, {chapter_id}（章节ID）, {page}（页码）。示例: {base_url}/read/{book_id}_{chapter_id}_{page}.html 或 {base_url}/chapter/{book_id}/{chapter_id}/{page}。留空则使用XPath提取的链接"}
-          >
-            <Input
-              value={config.urlPattern}
-              onChange={(e) => handleChange('urlPattern', e.target.value)}
-              placeholder={urlPatternPlaceholder || text.urlDefault}
-            />
-          </Form.Item>
+            description={urlPatternHelp || "可用变量: {base_url}, {book_id}（小说ID）, {chapter_id}（章节ID）, {page}（页码）。示例: {base_url}/read/{book_id}_{chapter_id}_{page}.html 或 {base_url}/chapter/{book_id}/{chapter_id}/{page}。留空则使用XPath提取的链接"}
+            value={config.urlPattern || ''}
+            onChange={(e) => handleChange('urlPattern', e.target.value)}
+            placeholder={urlPatternPlaceholder || text.urlDefault}
+          />
         </>
       )}
-    </>
+    </Stack>
   )
 }
 
