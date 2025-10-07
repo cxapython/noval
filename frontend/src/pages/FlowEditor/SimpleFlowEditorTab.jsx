@@ -9,28 +9,27 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { 
-  Button, Space, message, Modal, Card, Steps, Select, 
-  List, Tag, Divider, Typography, Alert, Switch, Form, Input, InputNumber
-} from 'antd';
-
-const { TextArea } = Input;
+  Button, Group, Stack, Modal, Card, Stepper, Select, 
+  Badge, Divider, Text, Alert, Switch, NumberInput, TextInput, Textarea
+} from '@mantine/core';
+import { notifications } from '@mantine/notifications';
 import {
-  PlayCircleOutlined,
-  ClearOutlined,
-  SaveOutlined,
-  CheckCircleOutlined,
-  ArrowRightOutlined,
-  ArrowLeftOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  MenuFoldOutlined,
-  MenuUnfoldOutlined,
-  ColumnWidthOutlined,
-  UpOutlined,
-  DownOutlined,
-  FullscreenOutlined,
-  FullscreenExitOutlined
-} from '@ant-design/icons';
+  IconPlayerPlay,
+  IconClearAll,
+  IconDeviceFloppy,
+  IconCircleCheck,
+  IconArrowRight,
+  IconArrowLeft,
+  IconEdit,
+  IconTrash,
+  IconLayoutSidebarLeftCollapse,
+  IconLayoutSidebarRightCollapse,
+  IconColumnInsertRight,
+  IconChevronUp,
+  IconChevronDown,
+  IconMaximize,
+  IconMinimize
+} from '@tabler/icons-react';
 
 import NodePalette from './NodePalette';
 import XPathExtractorNode from './nodes/XPathExtractorNode';
@@ -39,10 +38,6 @@ import ProcessorNode from './nodes/ProcessorNode';
 import PaginationConfigForm from '../../components/PaginationConfigForm';
 import { generateFieldConfigFromFlow, validateFlow, generateFlowFromFieldConfig } from './configGenerator';
 import './FlowEditor.css';
-
-const { Text } = Typography;
-const { Option } = Select;
-const { Step } = Steps;
 
 // 注册自定义节点类型
 const nodeTypes = {
@@ -207,7 +202,11 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
   const toggleFullscreen = () => {
     setIsFullscreen(!isFullscreen);
     if (!isFullscreen) {
-      message.success('已进入全屏模式，按ESC键退出');
+      notifications.show({
+        title: '成功',
+        message: '已进入全屏模式，按ESC键退出',
+        color: 'green'
+      });
     }
   };
   
@@ -326,14 +325,22 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
         [selectedField]: fieldConfig
       });
 
-      message.success(`已保存字段: ${selectedField}`);
+      notifications.show({
+        title: '成功',
+        message: `已保存字段: ${selectedField}`,
+        color: 'green'
+      });
       
       // 清空画布，准备配置下一个字段
       setNodes([]);
       setEdges([]);
       
     } catch (error) {
-      message.error(`保存失败: ${error.message}`);
+      notifications.show({
+        title: '错误',
+        message: `保存失败: ${error.message}`,
+        color: 'red'
+      });
       console.error(error);
     }
   }, [nodes, edges, selectedField, currentStep, getCurrentFields, setCurrentFields, setNodes, setEdges]);
@@ -344,7 +351,11 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
     const fieldConfig = currentFields[fieldKey];
     
     if (!fieldConfig) {
-      message.error('找不到字段配置');
+      notifications.show({
+        title: '错误',
+        message: '找不到字段配置',
+        color: 'red'
+      });
       return;
     }
 
@@ -369,9 +380,17 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
         setSelectedField(fieldKey);
         
         const fieldInfo = currentStepConfig.fields.find(f => f.key === fieldKey);
-        message.success(`已加载 "${fieldInfo?.label || fieldKey}" 的流程，可以进行编辑`);
+        notifications.show({
+          title: '成功',
+          message: `已加载 "${fieldInfo?.label || fieldKey}" 的流程，可以进行编辑`,
+          color: 'green'
+        });
       } catch (error) {
-        message.error(`加载配置失败: ${error.message}`);
+        notifications.show({
+          title: '错误',
+          message: `加载配置失败: ${error.message}`,
+          color: 'red'
+        });
         console.error('加载配置错误:', error);
       }
     };
@@ -406,7 +425,11 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
         const newFields = { ...currentFields };
         delete newFields[fieldKey];
         setCurrentFields(newFields);
-        message.success('已删除字段配置');
+        notifications.show({
+          title: '成功',
+          message: '已删除字段配置',
+          color: 'green'
+        });
       }
     });
   };
@@ -419,7 +442,11 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
       onOk: () => {
         setNodes([]);
         setEdges([]);
-        message.success('画布已清空');
+        notifications.show({
+          title: '成功',
+          message: '画布已清空',
+          color: 'green'
+        });
       }
     });
   }, [setNodes, setEdges]);
@@ -431,7 +458,11 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
     const missingFields = requiredFields.filter(f => !currentFields[f.key]);
 
     if (missingFields.length > 0) {
-      message.warning(`请配置必填字段: ${missingFields.map(f => f.label).join('、')}`);
+      notifications.show({
+        title: '警告',
+        message: `请配置必填字段: ${missingFields.map(f => f.label).join('、')}`,
+        color: 'orange'
+      });
       return;
     }
 
@@ -460,7 +491,11 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
   const handleGenerateFinalConfig = () => {
     // 验证网站基本信息
     if (!siteInfo.name || !siteInfo.base_url) {
-      message.error('请填写网站名称和基础URL');
+      notifications.show({
+        title: '错误',
+        message: '请填写网站名称和基础URL',
+        color: 'red'
+      });
       return;
     }
     
@@ -567,7 +602,11 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
     // 调用父组件的更新方法
     onConfigChange('root', newConfigData);
 
-    message.success('配置已生成！请切换到JSON视图查看并保存');
+    notifications.show({
+      title: '成功',
+      message: '配置已生成！请切换到JSON视图查看并保存',
+      color: 'green'
+    });
     
     Modal.success({
       title: '配置生成成功',
@@ -595,7 +634,11 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
   const handleSiteInfoConfirm = () => {
     // 验证必填字段
     if (!siteInfo.name || !siteInfo.base_url) {
-      message.error('请填写网站名称和基础URL');
+      notifications.show({
+        title: '错误',
+        message: '请填写网站名称和基础URL',
+        color: 'red'
+      });
       return;
     }
     
