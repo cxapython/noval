@@ -1,33 +1,28 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { ConfigProvider, App as AntApp } from 'antd'
-import zhCN from 'antd/locale/zh_CN'
+import { MantineProvider, createTheme } from '@mantine/core'
+import { ModalsProvider } from '@mantine/modals'
+import { Notifications } from '@mantine/notifications'
 import Layout from './components/Layout'
 import CrawlerManager from './pages/CrawlerManager'
 import ConfigEditorPage from './pages/ConfigEditorPage'
 import ConfigWizard from './pages/ConfigWizard'
 import NovelReader from './pages/NovelReader'
 import TaskManagerPage from './pages/TaskManagerPage'
-import MantineDemo from './components/MantineDemo'
+import mantineTheme from './theme'
 import './App.css'
 
 function App() {
+  // 从 localStorage 获取保存的主题，默认为 auto
+  const savedColorScheme = localStorage.getItem('mantine-color-scheme') || 'auto'
+
   return (
-    <ConfigProvider
-      locale={zhCN}
-      theme={{
-        token: {
-          colorPrimary: '#4a90e2',
-          borderRadius: 8,
-          fontSize: 14,
-        },
-      }}
-    >
-      <AntApp>
+    <MantineProvider theme={mantineTheme} defaultColorScheme={savedColorScheme}>
+      <ModalsProvider>
+        <Notifications position="top-right" zIndex={30000} />
         <Router>
           <Layout>
             <Routes>
-              <Route path="/" element={<Navigate to="/demo" replace />} />
-              <Route path="/demo" element={<MantineDemo />} />
+              <Route path="/" element={<Navigate to="/crawler" replace />} />
               <Route path="/tasks" element={<TaskManagerPage />} />
               <Route path="/crawler" element={<CrawlerManager />} />
               <Route path="/crawler/edit" element={<ConfigEditorPage />} />
@@ -37,8 +32,8 @@ function App() {
             </Routes>
           </Layout>
         </Router>
-      </AntApp>
-    </ConfigProvider>
+      </ModalsProvider>
+    </MantineProvider>
   )
 }
 

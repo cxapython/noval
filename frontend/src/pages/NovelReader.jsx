@@ -13,7 +13,7 @@ import {
   IconList, IconSearch, IconBookmarks,
   IconSettings, IconHighlight, IconEdit,
   IconTrash, IconPlus, IconStar, IconStarFilled,
-  IconSwitchHorizontal
+  IconSwitchHorizontal, IconGridDots, IconLayoutList
 } from '@tabler/icons-react'
 import axios from 'axios'
 import './NovelReader.css'
@@ -38,6 +38,7 @@ function NovelReader() {
   const [bookmarkVisible, setBookmarkVisible] = useState(false)
   const [settingsVisible, setSettingsVisible] = useState(false)
   const [replaceVisible, setReplaceVisible] = useState(false)
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem('bookshelf-view-mode') || 'grid') // 'grid' or 'list'
   
   // 功能状态
   const [searchResults, setSearchResults] = useState([])
@@ -755,7 +756,7 @@ function NovelReader() {
   }
 
   const handleDeleteNovel = async (novel) => {
-    modals.openConfirmModal({
+    const modalId = modals.openConfirmModal({
       title: '确认删除',
       children: (
         <Text size="sm">
@@ -765,6 +766,11 @@ function NovelReader() {
       labels: { confirm: '确认', cancel: '取消' },
       confirmProps: { color: 'red' },
       centered: true,
+      closeOnCancel: true,
+      closeOnConfirm: false, // 等待异步操作完成后再关闭
+      onCancel: () => {
+        modals.close(modalId)
+      },
       onConfirm: async () => {
         try {
           const response = await axios.delete(`${API_BASE}/novel/${novel.id}`)
@@ -788,6 +794,8 @@ function NovelReader() {
             message: '删除失败：' + error.message,
             color: 'red'
           })
+        } finally {
+          modals.close(modalId)
         }
       }
     })
@@ -804,12 +812,31 @@ function NovelReader() {
 
   const currentTheme = themeStyles[settings.theme] || themeStyles.light
 
+  // 视图切换函数
+  const toggleViewMode = () => {
+    const newMode = viewMode === 'grid' ? 'list' : 'grid'
+    setViewMode(newMode)
+    localStorage.setItem('bookshelf-view-mode', newMode)
+  }
+
   // 渲染小说列表
   if (!novelId) {
     return (
       <div className="fade-in">
         <Card>
-          <Title order={3}>📚 我的书架</Title>
+          <Group justify="space-between" mb="md">
+            <Title order={3}>📚 我的书架</Title>
+            <Tooltip label={viewMode === 'grid' ? '切换到列表视图' : '切换到卡片视图'}>
+              <ActionIcon
+                variant="light"
+                size="lg"
+                onClick={toggleViewMode}
+              >
+                {viewMode === 'grid' ? <IconLayoutList size={20} /> : <IconGridDots size={20} />}
+              </ActionIcon>
+            </Tooltip>
+          </Group>
+          
           {loading ? (
             <Center style={{ padding: '40px' }}>
               <Text>加载中...</Text>
@@ -818,7 +845,7 @@ function NovelReader() {
             <Center style={{ padding: '40px' }}>
               <Text c="dimmed">暂无小说，请先运行爬虫采集数据</Text>
             </Center>
-          ) : (
+          ) : viewMode === 'grid' ? (
             <Grid gutter="md">
               {novels.map((novel) => (
                 <Grid.Col key={novel.id} span={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
@@ -849,12 +876,15 @@ function NovelReader() {
                           display: 'flex', 
                           alignItems: 'center', 
                           justifyContent: 'center',
+                          flexDirection: 'column',
                           background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                           color: '#fff',
-                          fontSize: 72,
-                          fontWeight: 'bold'
+                          gap: 12
                         }}>
-                          {novel.title[0]}
+                          <IconBook size={80} stroke={1.5} />
+                          <Text size="xl" fw={700} style={{ letterSpacing: 1 }}>
+                            {novel.title.substring(0, 4)}
+                          </Text>
                         </div>
                       )}
                     </Card.Section>
@@ -899,6 +929,100 @@ function NovelReader() {
                 </Grid.Col>
               ))}
             </Grid>
+          ) : (
+            <Stack gap="xs">
+              {novels.map((novel) => (
+                <Card
+                  key={novel.id}
+                  shadow="sm"
+                  padding="md"
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => navigate(`/reader/${novel.id}`)}
+                >
+                  <Group wrap="nowrap" gap="md">
+                    {/* 封面缩略图 */}
+                    <div style={{ flexShrink: 0 }}>
+                      {novel.cover_url ? (
+                        <img 
+                          alt={novel.title}
+                          src={novel.cover_url}
+                          style={{ 
+                            width: 80, 
+                            height: 106, 
+                            objectFit: 'cover',
+                            borderRadius: 6
+                          }}
+                        />
+                      ) : (
+                        <div style={{ 
+                          width: 80,
+                          height: 106,
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center',
+                          flexDirection: 'column',
+                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                          color: '#fff',
+                          borderRadius: 6,
+                          gap: 6
+                        }}>
+                          <IconBook size={32} stroke={1.5} />
+                          <Text size="xs" fw={600}>
+                            {novel.title.substring(0, 2)}
+                          </Text>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* 小说信息 */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <Group justify="space-between" mb="xs">
+                        <Text fw={600} size="lg" lineClamp={1}>{novel.title}</Text>
+                        <Badge color="blue" variant="light">
+                          {novel.total_chapters}章
+                        </Badge>
+                      </Group>
+                      
+                      <Stack gap={4}>
+                        <Text size="sm" c="dimmed">👤 {novel.author || '未知作者'}</Text>
+                        <Text size="sm" c="dimmed">
+                          📖 {novel.total_chapters || 0} 章 | 📝 {Math.floor((novel.total_words || 0) / 10000)} 万字
+                        </Text>
+                      </Stack>
+                    </div>
+                    
+                    {/* 操作按钮 */}
+                    <Group gap="xs">
+                      <Tooltip label="编辑">
+                        <ActionIcon
+                          variant="subtle"
+                          size="lg"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleEditNovel(novel)
+                          }}
+                        >
+                          <IconEdit size={18} />
+                        </ActionIcon>
+                      </Tooltip>
+                      <Tooltip label="删除">
+                        <ActionIcon
+                          variant="subtle"
+                          color="red"
+                          size="lg"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDeleteNovel(novel)
+                          }}
+                        >
+                          <IconTrash size={18} />
+                        </ActionIcon>
+                      </Tooltip>
+                    </Group>
+                  </Group>
+                </Card>
+              ))}
+            </Stack>
           )}
         </Card>
         
