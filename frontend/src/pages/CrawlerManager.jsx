@@ -1,23 +1,24 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { 
-  Card, List, Button, App, Space, 
-  Popconfirm, Typography, Tag, Empty,
-  Modal, Form, Input, InputNumber, Switch, Tabs
-} from 'antd'
+  Card, Button, Group, Stack, 
+  Modal, TextInput, NumberInput, Switch, Tabs,
+  SimpleGrid, Text, Badge, ActionIcon, Title
+} from '@mantine/core'
 import { 
-  PlusOutlined, DeleteOutlined, 
-  FileTextOutlined, EditOutlined,
-  ExperimentOutlined, PlayCircleOutlined,
-  AppstoreOutlined
-} from '@ant-design/icons'
+  IconPlus, IconTrash, 
+  IconFileText, IconEdit,
+  IconFlask, IconPlayerPlay,
+  IconApps
+} from '@tabler/icons-react'
+import { notifications } from '@mantine/notifications'
+import { modals } from '@mantine/modals'
+import { useForm } from '@mantine/form'
 import axios from 'axios'
 
-const { Text } = Typography
 const API_BASE = '/api/crawler'
 
 function CrawlerManager() {
-  const { message } = App.useApp() // 使用 App hook 替代静态 message
   const navigate = useNavigate()
   const location = useLocation()
   const [configs, setConfigs] = useState([])
@@ -26,7 +27,30 @@ function CrawlerManager() {
   // 运行爬虫对话框状态
   const [runModalVisible, setRunModalVisible] = useState(false)
   const [currentConfigFilename, setCurrentConfigFilename] = useState('')
-  const [runForm] = Form.useForm()
+  
+  // Mantine useForm
+  const runForm = useForm({
+    initialValues: {
+      book_id: '',
+      start_url: '',
+      max_workers: 5,
+      use_proxy: false
+    },
+    validate: {
+      book_id: (value, values) => {
+        if (!value && !values.start_url) {
+          return '请输入书籍ID或完整URL'
+        }
+        return null
+      },
+      start_url: (value, values) => {
+        if (!value && !values.book_id) {
+          return '请输入书籍ID或完整URL'
+        }
+        return null
+      }
+    }
+  })
 
   // 每次组件挂载或location变化时重新加载配置列表
   useEffect(() => {
@@ -41,7 +65,11 @@ function CrawlerManager() {
         setConfigs(response.data.configs)
       }
     } catch (error) {
-      message.error('加载配置失败: ' + error.message)
+      notifications.show({
+        title: '错误',
+        message: '加载配置失败: ' + error.message,
+        color: 'red'
+      })
     } finally {
       setLoading(false)
     }
@@ -55,30 +83,51 @@ function CrawlerManager() {
     navigate('/crawler/edit')
   }
 
-  const handleDelete = async (filename) => {
-    try {
-      await axios.delete(`${API_BASE}/config/${filename}`)
-      message.success('删除成功！')
-      loadConfigs()
-    } catch (error) {
-      message.error('删除失败: ' + error.message)
-    }
+  const handleDelete = (filename) => {
+    modals.openConfirmModal({
+      title: '确认删除',
+      children: (
+        <Text size="sm">
+          确定删除此配置吗？此操作不可撤销。
+        </Text>
+      ),
+      labels: { confirm: '删除', cancel: '取消' },
+      confirmProps: { color: 'red' },
+      onConfirm: async () => {
+        try {
+          await axios.delete(`${API_BASE}/config/${filename}`)
+          notifications.show({
+            title: '成功',
+            message: '删除成功！',
+            color: 'green'
+          })
+          loadConfigs()
+        } catch (error) {
+          notifications.show({
+            title: '错误',
+            message: '删除失败: ' + error.message,
+            color: 'red'
+          })
+        }
+      },
+    })
   }
 
   const handleRun = (config) => {
     setCurrentConfigFilename(config.filename)
-    runForm.resetFields()
-    runForm.setFieldsValue({
-      max_workers: 5,
-      use_proxy: false
-    })
+    runForm.reset()
     setRunModalVisible(true)
   }
 
   const handleRunSubmit = async () => {
+    const validation = runForm.validate()
+    if (validation.hasErrors) {
+      return
+    }
+    
     try {
-      const values = await runForm.validateFields()
       setLoading(true)
+      const values = runForm.values
       
       const response = await axios.post(`${API_BASE}/run-crawler`, {
         config_filename: currentConfigFilename,
@@ -89,15 +138,20 @@ function CrawlerManager() {
       })
       
       if (response.data.success) {
-        message.success(response.data.message)
+        notifications.show({
+          title: '成功',
+          message: response.data.message,
+          color: 'green'
+        })
         setRunModalVisible(false)
       }
     } catch (error) {
-      if (error.response) {
-        message.error('运行失败: ' + (error.response.data.error || error.message))
-      } else {
-        message.error('运行失败: ' + error.message)
-      }
+      const errorMsg = error.response?.data?.error || error.message
+      notifications.show({
+        title: '错误',
+        message: '运行失败: ' + errorMsg,
+        color: 'red'
+      })
     } finally {
       setLoading(false)
     }
@@ -105,224 +159,208 @@ function CrawlerManager() {
 
   return (
     <div className="fade-in">
-      <Card 
-        title={
-          <Space>
-            <AppstoreOutlined />
-            <span>爬虫配置管理</span>
-          </Space>
-        }
-        extra={
-          <Space>
-            <Button 
-              size="large"
-              icon={<ExperimentOutlined />} 
-              onClick={() => navigate('/crawler/wizard')}
+      <Card shadow="sm" padding="lg" radius="md" withBorder>
+        <Stack gap="lg">
+          <Group justify="space-between">
+            <Group>
+              <IconApps size={24} />
+              <Title order={3}>爬虫配置管理</Title>
+            </Group>
+            <Group>
+              <Button 
+                size="md"
+                leftSection={<IconFlask size={18} />} 
+                onClick={() => navigate('/crawler/wizard')}
+                variant="light"
+              >
+                智能向导
+              </Button>
+              <Button 
+                size="md"
+                leftSection={<IconPlus size={18} />} 
+                onClick={handleCreateNew}
+              >
+                新建配置
+              </Button>
+            </Group>
+          </Group>
+
+          {configs.length === 0 ? (
+            <Card 
+              shadow="xs" 
+              padding="xl" 
+              style={{ 
+                textAlign: 'center',
+                background: 'var(--mantine-color-gray-0)'
+              }}
             >
-              智能向导
-            </Button>
-            <Button 
-              type="primary" 
-              size="large"
-              icon={<PlusOutlined />} 
-              onClick={handleCreateNew}
+              <Stack align="center" gap="md">
+                <IconFileText size={64} color="var(--mantine-color-gray-5)" />
+                <Text c="dimmed">暂无配置文件</Text>
+                <Button 
+                  size="lg"
+                  leftSection={<IconPlus size={18} />} 
+                  onClick={handleCreateNew}
+                >
+                  创建第一个配置
+                </Button>
+              </Stack>
+            </Card>
+          ) : (
+            <SimpleGrid
+              cols={{ base: 1, sm: 2, md: 2, lg: 3, xl: 4 }}
+              spacing="md"
             >
-              新建配置
-            </Button>
-          </Space>
-        }
-      >
-        {configs.length === 0 ? (
-          <Empty 
-            description="暂无配置文件"
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-          >
-            <Button 
-              type="primary" 
-              size="large"
-              icon={<PlusOutlined />} 
-              onClick={handleCreateNew}
-            >
-              创建第一个配置
-            </Button>
-          </Empty>
-        ) : (
-          <List
-            loading={loading}
-            grid={{ gutter: 16, xs: 1, sm: 2, md: 2, lg: 3, xl: 4, xxl: 4 }}
-            dataSource={configs}
-            renderItem={(config) => (
-              <List.Item>
+              {configs.map((config) => (
                 <Card
-                  hoverable
-                  actions={[
+                  key={config.filename}
+                  shadow="sm"
+                  padding="lg"
+                  radius="md"
+                  withBorder
+                  style={{ cursor: 'pointer' }}
+                >
+                  <Card.Section withBorder inheritPadding py="xs">
+                    <Group justify="space-between">
+                      <Group gap="xs">
+                        <IconFileText size={20} color="var(--mantine-color-blue-6)" />
+                        <Text fw={600} size="sm">{config.name}</Text>
+                      </Group>
+                    </Group>
+                  </Card.Section>
+
+                  <Stack gap="xs" mt="md" mb="md">
+                    <Text size="xs" c="dimmed" lineClamp={1}>
+                      {config.base_url}
+                    </Text>
+                    {config.description && (
+                      <Badge color="blue" variant="light">
+                        {config.description}
+                      </Badge>
+                    )}
+                  </Stack>
+
+                  <Group gap="xs" mt="md">
                     <Button 
-                      type="text" 
-                      icon={<PlayCircleOutlined />}
+                      variant="light"
+                      color="green"
+                      size="xs"
+                      leftSection={<IconPlayerPlay size={14} />}
                       onClick={() => handleRun(config)}
-                      style={{color: '#52c41a'}}
+                      style={{ flex: 1 }}
                     >
                       运行
-                    </Button>,
+                    </Button>
                     <Button 
-                      type="text" 
-                      icon={<EditOutlined />}
+                      variant="light"
+                      size="xs"
+                      leftSection={<IconEdit size={14} />}
                       onClick={() => handleEdit(config.filename)}
+                      style={{ flex: 1 }}
                     >
                       编辑
-                    </Button>,
-                    <Popconfirm
-                      title="确定删除此配置？"
-                      onConfirm={() => handleDelete(config.filename)}
+                    </Button>
+                    <ActionIcon 
+                      variant="light"
+                      color="red"
+                      size="lg"
+                      onClick={() => handleDelete(config.filename)}
                     >
-                      <Button 
-                        type="text" 
-                        danger 
-                        icon={<DeleteOutlined />}
-                      >
-                        删除
-                      </Button>
-                    </Popconfirm>
-                  ]}
-                >
-                  <Card.Meta
-                    avatar={<FileTextOutlined style={{ fontSize: 32, color: '#1890ff' }} />}
-                    title={config.name}
-                    description={
-                      <div>
-                        <Text type="secondary" ellipsis style={{ fontSize: 12 }}>
-                          {config.base_url}
-                        </Text>
-                        {config.description && (
-                          <div style={{ marginTop: 8 }}>
-                            <Tag color="blue">{config.description}</Tag>
-                          </div>
-                        )}
-                      </div>
-                    }
-                  />
+                      <IconTrash size={16} />
+                    </ActionIcon>
+                  </Group>
                 </Card>
-              </List.Item>
-            )}
-          />
-        )}
+              ))}
+            </SimpleGrid>
+          )}
+        </Stack>
       </Card>
 
       {/* 运行爬虫对话框 */}
       <Modal
+        opened={runModalVisible}
+        onClose={() => setRunModalVisible(false)}
         title={
-          <Space>
-            <PlayCircleOutlined style={{color: '#52c41a'}} />
-            <span>运行爬虫</span>
-          </Space>
+          <Group gap="xs">
+            <IconPlayerPlay color="var(--mantine-color-green-6)" />
+            <Text fw={600}>运行爬虫</Text>
+          </Group>
         }
-        open={runModalVisible}
-        onOk={handleRunSubmit}
-        onCancel={() => setRunModalVisible(false)}
-        okText="开始运行"
-        cancelText="取消"
-        width={600}
-        confirmLoading={loading}
+        size="lg"
+        centered
       >
-        <Form
-          form={runForm}
-          layout="vertical"
-          style={{marginTop: 24}}
-        >
-          <Tabs
-            items={[
-              {
-                key: 'book_id',
-                label: '书籍ID',
-                children: (
-                  <Form.Item
-                    name="book_id"
-                    label="书籍ID"
-                    tooltip="从小说URL中提取的数字ID，例如：41934"
-                    rules={[
-                      ({ getFieldValue }) => ({
-                        validator(_, value) {
-                          if (value || getFieldValue('start_url')) {
-                            return Promise.resolve()
-                          }
-                          return Promise.reject(new Error('请输入书籍ID或完整URL'))
-                        },
-                      }),
-                    ]}
-                  >
-                    <Input 
-                      placeholder="例如：41934" 
-                      size="large"
-                    />
-                  </Form.Item>
-                )
-              },
-              {
-                key: 'start_url',
-                label: '完整URL',
-                children: (
-                  <Form.Item
-                    name="start_url"
-                    label="起始URL"
-                    tooltip="小说详情页的完整URL，系统会自动提取书籍ID"
-                    rules={[
-                      ({ getFieldValue }) => ({
-                        validator(_, value) {
-                          if (value || getFieldValue('book_id')) {
-                            return Promise.resolve()
-                          }
-                          return Promise.reject(new Error('请输入书籍ID或完整URL'))
-                        },
-                      }),
-                    ]}
-                  >
-                    <Input 
-                      placeholder="例如：https://m.ikbook8.com/book/41934.html" 
-                      size="large"
-                    />
-                  </Form.Item>
-                )
-              }
-            ]}
-          />
+        <form onSubmit={runForm.onSubmit(handleRunSubmit)}>
+          <Stack gap="md">
+            <Tabs defaultValue="book_id">
+              <Tabs.List>
+                <Tabs.Tab value="book_id">书籍ID</Tabs.Tab>
+                <Tabs.Tab value="start_url">完整URL</Tabs.Tab>
+              </Tabs.List>
 
-          <Form.Item
-            name="max_workers"
-            label="并发线程数"
-            tooltip="同时下载的章节数量，建议5-10"
-            initialValue={5}
-          >
-            <InputNumber
+              <Tabs.Panel value="book_id" pt="md">
+                <TextInput
+                  label="书籍ID"
+                  description="从小说URL中提取的数字ID，例如：41934"
+                  placeholder="例如：41934"
+                  size="md"
+                  {...runForm.getInputProps('book_id')}
+                />
+              </Tabs.Panel>
+
+              <Tabs.Panel value="start_url" pt="md">
+                <TextInput
+                  label="起始URL"
+                  description="小说详情页的完整URL，系统会自动提取书籍ID"
+                  placeholder="例如：https://m.ikbook8.com/book/41934.html"
+                  size="md"
+                  {...runForm.getInputProps('start_url')}
+                />
+              </Tabs.Panel>
+            </Tabs>
+
+            <NumberInput
+              label="并发线程数"
+              description="同时下载的章节数量，建议5-10"
               min={1}
               max={20}
-              style={{width: '100%'}}
-              size="large"
+              size="md"
+              {...runForm.getInputProps('max_workers')}
             />
-          </Form.Item>
 
-          <Form.Item
-            name="use_proxy"
-            label="使用代理"
-            valuePropName="checked"
-            initialValue={false}
-          >
-            <Switch />
-          </Form.Item>
+            <Switch
+              label="使用代理"
+              {...runForm.getInputProps('use_proxy', { type: 'checkbox' })}
+            />
 
-          <div style={{
-            padding: 12,
-            background: '#e6f7ff',
-            border: '1px solid #91d5ff',
-            borderRadius: 4,
-            fontSize: 13,
-            color: '#666'
-          }}>
-            <Text type="secondary">
-              💡 提示：爬虫将在后台运行，你可以继续使用其他功能。
-              运行日志可在后端控制台查看。
-            </Text>
-          </div>
-        </Form>
+            <Card 
+              padding="md" 
+              style={{ 
+                background: 'var(--mantine-color-blue-0)',
+                border: '1px solid var(--mantine-color-blue-2)'
+              }}
+            >
+              <Text size="sm" c="dimmed">
+                💡 提示：爬虫将在后台运行，你可以继续使用其他功能。
+                运行日志可在后端控制台查看。
+              </Text>
+            </Card>
+
+            <Group justify="flex-end" mt="md">
+              <Button 
+                variant="default" 
+                onClick={() => setRunModalVisible(false)}
+              >
+                取消
+              </Button>
+              <Button 
+                type="submit"
+                loading={loading}
+              >
+                开始运行
+              </Button>
+            </Group>
+          </Stack>
+        </form>
       </Modal>
     </div>
   )

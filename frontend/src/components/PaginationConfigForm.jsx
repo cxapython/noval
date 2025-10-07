@@ -1,4 +1,4 @@
-import { Form, Input, InputNumber, Divider } from 'antd'
+import { TextInput, NumberInput, Divider, Stack } from '@mantine/core'
 
 /**
  * 分页配置表单组件
@@ -22,85 +22,41 @@ function PaginationConfigForm({
   const texts = {
     list: {
       maxPageLabel: '手动指定最大页数',
-      maxPageHelp: '防止无限循环，建议设置为100。实际使用时会取XPath提取的最大页和此值中的较大值',
+      maxPageHelp: '防止无限循环，建议设置为100。章节列表翻页将使用第一步配置的"章节列表翻页URL模板"',
       xpathLabel: '从页面提取最大页数XPath（可选）',
-      xpathHelp: '例如从分页导航或页码信息中提取，留空则不提取',
-      xpathDefault: '//ul[@class="pagination"]/li/a[1]/text()',
-      urlLabel: '分页URL模式',
-      urlDefault: '{base_url}/book/{book_id}/{page}/'
+      xpathHelp: '例如从分页导航或页码信息中提取，留空则使用手动指定的最大页数',
+      xpathDefault: '//ul[@class="pagination"]/li/a[1]/text()'
     },
     content: {
       maxPageLabel: '手动指定最大翻页数',
-      maxPageHelp: '防止无限循环，建议设置为50。实际使用时会取XPath提取的最大页和此值中的较大值',
+      maxPageHelp: '防止无限循环，建议设置为50。章节内容翻页将使用第一步配置的"章节内容翻页URL模板"',
       xpathLabel: '从页面提取最大页数XPath（可选）',
-      xpathHelp: '例如从下拉框或分页信息中提取，留空则不提取',
-      xpathDefault: '//select[@id="page"]/option[last()]/text()',
-      urlLabel: '章节内容翻页URL模式（可选）',
-      urlDefault: '{base_url}/read/{book_id}_{chapter_id}_{page}.html'
+      xpathHelp: '例如从下拉框或分页信息中提取，留空则使用手动指定的最大翻页数',
+      xpathDefault: '//select[@id="page"]/option[last()]/text()'
     }
   }
   
   const text = texts[type]
   
   return (
-    <>
-      <Divider orientation="left">最大页数配置</Divider>
-      <Form.Item 
+    <Stack gap="md">
+      <TextInput
         label={text.xpathLabel}
-        help={xpathPlaceholder || text.xpathHelp}
-      >
-        <Input
-          value={config.maxPageXpath}
-          onChange={(e) => handleChange('maxPageXpath', e.target.value)}
-          placeholder={xpathPlaceholder || text.xpathDefault}
-        />
-      </Form.Item>
+        description={xpathPlaceholder || text.xpathHelp}
+        value={config.maxPageXpath || ''}
+        onChange={(e) => handleChange('maxPageXpath', e.target.value)}
+        placeholder={xpathPlaceholder || text.xpathDefault}
+      />
       
-      <Form.Item 
+      <NumberInput
         label={text.maxPageLabel}
-        help={text.maxPageHelp}
-      >
-        <InputNumber
-          value={config.maxPageManual}
-          onChange={(val) => handleChange('maxPageManual', val)}
-          min={1}
-          max={type === 'list' ? 1000 : 200}
-          style={{ width: '100%' }}
-        />
-      </Form.Item>
-      
-      {type === 'list' && (
-        <>
-          <Divider orientation="left">分页URL配置</Divider>
-          <Form.Item 
-            label={text.urlLabel}
-            help={urlPatternHelp || "可用变量: {base_url}, {book_id}, {page}。例如：{base_url}/book/{book_id}/{page}/ 或 {base_url}/book/{book_id}/{page}.html"}
-          >
-            <Input
-              value={config.urlPattern}
-              onChange={(e) => handleChange('urlPattern', e.target.value)}
-              placeholder={urlPatternPlaceholder || text.urlDefault}
-            />
-          </Form.Item>
-        </>
-      )}
-      
-      {type === 'content' && config.urlPattern !== undefined && (
-        <>
-          <Divider orientation="left">下一页配置</Divider>
-          <Form.Item 
-            label={text.urlLabel}
-            help={urlPatternHelp || "可用变量: {base_url}, {book_id}（小说ID）, {chapter_id}（章节ID）, {page}（页码）。示例: {base_url}/read/{book_id}_{chapter_id}_{page}.html 或 {base_url}/chapter/{book_id}/{chapter_id}/{page}。留空则使用XPath提取的链接"}
-          >
-            <Input
-              value={config.urlPattern}
-              onChange={(e) => handleChange('urlPattern', e.target.value)}
-              placeholder={urlPatternPlaceholder || text.urlDefault}
-            />
-          </Form.Item>
-        </>
-      )}
-    </>
+        description={text.maxPageHelp}
+        value={config.maxPageManual}
+        onChange={(val) => handleChange('maxPageManual', val)}
+        min={1}
+        max={type === 'list' ? 1000 : 200}
+      />
+    </Stack>
   )
 }
 

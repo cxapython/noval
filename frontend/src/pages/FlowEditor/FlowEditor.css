@@ -1,10 +1,24 @@
 /* React Flow 画布 - 现代化设计 */
 .react-flow {
+  transition: background 0.3s ease;
+}
+
+/* 浅色模式画布 */
+[data-mantine-color-scheme="light"] .react-flow {
   background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
   background-image: 
     radial-gradient(circle at 25% 25%, rgba(99, 102, 241, 0.03) 0%, transparent 50%),
     radial-gradient(circle at 75% 75%, rgba(59, 130, 246, 0.03) 0%, transparent 50%),
     linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
+}
+
+/* 深色模式画布 */
+[data-mantine-color-scheme="dark"] .react-flow {
+  background: linear-gradient(135deg, #1a1b1e 0%, #25262b 100%);
+  background-image: 
+    radial-gradient(circle at 25% 25%, rgba(77, 171, 247, 0.05) 0%, transparent 50%),
+    radial-gradient(circle at 75% 75%, rgba(34, 139, 230, 0.05) 0%, transparent 50%),
+    linear-gradient(135deg, #1a1b1e 0%, #25262b 100%);
 }
 
 .react-flow__node {
@@ -14,31 +28,38 @@
 
 .react-flow__node:hover {
   transform: translateY(-1px);
-  filter: brightness(1.02);
+  filter: brightness(1.05);
 }
 
 .react-flow__node.selected {
-  box-shadow: 0 8px 24px rgba(24, 144, 255, 0.2), 
-              0 0 0 3px rgba(24, 144, 255, 0.15);
+  box-shadow: 0 8px 24px rgba(77, 171, 247, 0.3), 
+              0 0 0 3px rgba(77, 171, 247, 0.2);
   transform: scale(1.01);
 }
 
 /* 连接线样式 */
 .react-flow__edge-path {
   stroke-width: 2.5;
-  stroke: #94a3b8;
   transition: stroke 0.2s ease;
 }
 
+[data-mantine-color-scheme="light"] .react-flow__edge-path {
+  stroke: #94a3b8;
+}
+
+[data-mantine-color-scheme="dark"] .react-flow__edge-path {
+  stroke: #64748b;
+}
+
 .react-flow__edge:hover .react-flow__edge-path {
-  stroke: #3b82f6;
+  stroke: #4dabf7;
   stroke-width: 3;
 }
 
 .react-flow__edge.selected .react-flow__edge-path {
-  stroke: #1890ff;
+  stroke: #228be6;
   stroke-width: 3.5;
-  filter: drop-shadow(0 2px 4px rgba(24, 144, 255, 0.3));
+  filter: drop-shadow(0 2px 4px rgba(77, 171, 247, 0.4));
 }
 
 .react-flow__edge.animated .react-flow__edge-path {
@@ -57,19 +78,26 @@
   width: 12px;
   height: 12px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border: 3px solid #fff;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   transition: all 0.2s ease;
+}
+
+[data-mantine-color-scheme="light"] .react-flow__handle {
+  border: 3px solid #fff;
+}
+
+[data-mantine-color-scheme="dark"] .react-flow__handle {
+  border: 3px solid #2c2e33;
 }
 
 .react-flow__handle:hover {
   width: 14px;
   height: 14px;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
 }
 
 .react-flow__handle-right {
-  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  background: linear-gradient(135deg, #4dabf7 0%, #228be6 100%);
 }
 
 .react-flow__handle-left {
@@ -78,23 +106,48 @@
 
 /* 控制按钮 */
 .react-flow__controls {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   border-radius: 12px;
   overflow: hidden;
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+[data-mantine-color-scheme="light"] .react-flow__controls {
   border: 1px solid rgba(255, 255, 255, 0.8);
   background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
+}
+
+[data-mantine-color-scheme="dark"] .react-flow__controls {
+  border: 1px solid rgba(55, 58, 64, 0.8);
+  background: rgba(37, 38, 43, 0.95);
 }
 
 .react-flow__controls-button {
-  border-bottom: 1px solid #e8e8e8;
   transition: all 0.2s ease;
   background: transparent;
 }
 
-.react-flow__controls-button:hover {
+[data-mantine-color-scheme="light"] .react-flow__controls-button {
+  border-bottom: 1px solid #e8e8e8;
+}
+
+[data-mantine-color-scheme="dark"] .react-flow__controls-button {
+  border-bottom: 1px solid #373a40;
+  color: #c1c2c5;
+}
+
+[data-mantine-color-scheme="light"] .react-flow__controls-button:hover {
   background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
   color: #1890ff;
+}
+
+[data-mantine-color-scheme="dark"] .react-flow__controls-button:hover {
+  background: linear-gradient(135deg, #1a1f2e 0%, #1e293b 100%);
+  color: #4dabf7;
+}
+
+.react-flow__controls-button:hover {
   transform: scale(1.05);
 }
 
@@ -110,10 +163,19 @@
 .react-flow__minimap {
   border-radius: 12px;
   overflow: hidden;
-  border: 2px solid rgba(255, 255, 255, 0.8);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+[data-mantine-color-scheme="light"] .react-flow__minimap {
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.95);
+}
+
+[data-mantine-color-scheme="dark"] .react-flow__minimap {
+  border: 2px solid rgba(55, 58, 64, 0.8);
+  background: rgba(37, 38, 43, 0.95);
 }
 
 /* 背景网格 */
@@ -123,8 +185,8 @@
 
 /* 选择框 */
 .react-flow__selection {
-  background: rgba(24, 144, 255, 0.08);
-  border: 2px solid #1890ff;
+  background: rgba(77, 171, 247, 0.12);
+  border: 2px solid #4dabf7;
   border-radius: 4px;
 }
 
@@ -149,11 +211,6 @@
   border-radius: 8px;
 }
 
-/* 全屏模式下的卡片样式优化 */
-.flow-editor-fullscreen .ant-card {
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-}
-
 /* 全屏按钮悬停效果 */
 .flow-editor-fullscreen button[title*="退出全屏"] {
   animation: pulse 2s ease infinite;
@@ -164,6 +221,6 @@
     box-shadow: 0 2px 8px rgba(0,0,0,0.15);
   }
   50% {
-    box-shadow: 0 4px 16px rgba(24, 144, 255, 0.3);
+    box-shadow: 0 4px 16px rgba(77, 171, 247, 0.4);
   }
 }

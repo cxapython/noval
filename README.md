@@ -1,10 +1,12 @@
-# 📚 小说爬虫管理系统 v3.0.0
+# 📚 小说爬虫管理系统 v4.0.0
 
-> 集成爬虫配置管理和小说在线阅读的一体化平台
+> 集成爬虫配置管理和小说在线阅读的一体化平台 | 现代化 UI 升级中
 
-[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.8.2-blue.svg)](https://www.python.org/)
 [![Flask](https://img.shields.io/badge/Flask-3.0+-green.svg)](https://flask.palletsprojects.com/)
 [![React](https://img.shields.io/badge/React-18+-61dafb.svg)](https://reactjs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-18.10.0-success.svg)](https://nodejs.org/)
+[![Mantine](https://img.shields.io/badge/Mantine-7.0-339af0.svg)](https://mantine.dev/)
 [![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-red.svg)](https://www.sqlalchemy.org/)
 [![ReactFlow](https://img.shields.io/badge/ReactFlow-11+-purple.svg)](https://reactflow.dev/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -32,22 +34,44 @@
 
 ### 环境要求
 
-- **Python 3.8+** (测试版本: Python 3.8.2)
-- **Node.js 16+** (推荐版本: Node.js 18)
-- **MySQL 5.7+**
-- **Redis** (可选，用于任务状态缓存)
+| 软件 | 版本 | 说明 |
+|-----|------|-----|
+| **Python** | 3.8.2 | 后端运行环境 |
+| **Node.js** | 18.10.0 | 前端构建环境 |
+| **npm** | 8.19.2 | 包管理工具 |
+| **MySQL** | 5.7+ | 数据库（可选） |
+| **Redis** | 最新 | 任务缓存（可选） |
 
-### 一键启动
+### 一键启动（推荐）⭐
 
 ```bash
 # 1. 克隆项目
 git clone git@github.com:cxapython/noval.git
 cd noval
 
-# 2. 安装Python依赖
+# 2. 安装依赖
 pip install -r requirements.txt
+cd frontend && npm install && cd ..
 
-# 3. 安装前端依赖
+# 3. 一键启动所有服务
+./start.sh
+
+# 访问地址（根据终端输出）
+# 前端: http://localhost:3010
+# 后端: http://localhost:5001
+# Demo: http://localhost:3010/demo
+
+# 4. 停止服务
+./stop.sh
+```
+
+### 手动启动（调试用）
+
+```bash
+# 终端1 - 启动后端
+python3 backend/api.py
+
+# 终端2 - 启动前端
 cd frontend && npm install && cd ..
 
 # 4. 配置数据库
@@ -383,8 +407,9 @@ mysql -u root -p novel_db < backup.sql
 ### 前端
 
 - **React 18** - UI框架
-- **Ant Design 5** - UI组件库
-- **React Flow 11** - 流程图库（v3.0.0 NEW!）
+- **Mantine 7** - 现代化 UI 组件库（v4.0.0 NEW!）
+- **Tabler Icons** - 图标库
+- **React Flow 11** - 流程图库
 - **Vite** - 构建工具
 - **React Router** - 路由管理
 - **Axios** - HTTP客户端
@@ -393,6 +418,38 @@ mysql -u root -p novel_db < backup.sql
 ---
 
 ## 🔄 版本历史
+
+### v4.0.0 (2025-10-07) ⭐ 最新版本
+
+#### 🎨 重大更新：Mantine UI 框架完整迁移
+
+**核心成果**:
+- ✅ 完全移除 Ant Design，迁移至 Mantine 7
+- ✅ 10个核心组件全部迁移（5000+行代码）
+- ✅ 主题系统：支持浅色/深色/跟随系统三种模式
+- ✅ 深色模式 CSS 全面适配
+- ✅ 零 linter 错误，零运行时错误
+
+**新增功能**:
+- 🌓 **主题切换系统** - 实时切换，无需刷新
+- 📚 **书架双视图** - 网格视图和列表视图
+- 🖼️ **默认封面** - 渐变背景+图标
+- 🎯 **Modal 优化** - 更流畅的交互体验
+
+**已迁移组件**:
+- ConfigWizard.jsx - 配置向导
+- CrawlerManager.jsx - 爬虫管理
+- TaskManagerPage.jsx - 任务管理（含 WebSocket）
+- NovelReader.jsx - 小说阅读器（1700+行）
+- FlowEditorTab.jsx - 流程编辑器（1400+行）
+- SimpleFlowEditorTab.jsx - 简化流程编辑器
+- 4个节点组件（XPath/Regex/Processor/Palette）
+
+**技术改进**:
+- 使用 Tabler Icons 替代 Ant Design Icons
+- 统一使用 `notifications.show()` 和 `modals.openConfirmModal()`
+- 全局主题配置系统
+- 优化的深色模式 CSS
 
 ### v3.0.0 (2025-10-06)
 
@@ -481,8 +538,9 @@ MIT License - 详见 [LICENSE](LICENSE)
 感谢所有开源项目的贡献者！
 
 特别感谢：
+- [Mantine](https://mantine.dev/) - 现代化 React UI 组件库
 - [React Flow](https://reactflow.dev/) - 强大的流程图库
-- [Ant Design](https://ant.design/) - 优秀的UI组件库
+- [Tabler Icons](https://tabler-icons.io/) - 精美的图标库
 - [Flask](https://flask.palletsprojects.com/) - 轻量级Web框架
 
 ---

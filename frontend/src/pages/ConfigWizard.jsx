@@ -1,22 +1,28 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Card, Steps, Button, Input, App, Spin, Alert, Space,
-  Form, Select, Image, Tag, List, Divider, Tooltip, Checkbox,
-  Collapse, Descriptions, Typography, Modal, InputNumber, Radio, Switch
-} from 'antd'
+  Card, Button, TextInput, Textarea, Loader, Alert, Group, Stack,
+  Image, Badge, Divider, Tooltip, Checkbox, Radio, Select,
+  Accordion, Text, Modal, NumberInput, Switch, Title, Center
+} from '@mantine/core'
 import {
-  ArrowLeftOutlined, ArrowRightOutlined, SaveOutlined,
-  ThunderboltOutlined, EyeOutlined, CopyOutlined,
-  CheckCircleOutlined, PlusOutlined, DeleteOutlined,
-  ExperimentOutlined, EditOutlined, CodeOutlined
-} from '@ant-design/icons'
+  IconArrowLeft, IconArrowRight, IconDeviceFloppy,
+  IconBolt, IconEye, IconCopy,
+  IconCircleCheck, IconPlus, IconTrash,
+  IconFlask, IconEdit, IconCode
+} from '@tabler/icons-react'
 import axios from 'axios'
+import { notifications } from '@mantine/notifications'
 import { PostProcessRuleModal, PostProcessRuleInline } from '../components/PostProcessRuleEditor'
 import PaginationConfigForm from '../components/PaginationConfigForm'
+import SiteInfoForm from './ConfigWizard/SiteInfoForm'
+import URLTemplateForm from './ConfigWizard/URLTemplateForm'
+import RecognizedFieldsList from './ConfigWizard/RecognizedFieldsList'
+import ConfigPreview from './ConfigWizard/ConfigPreview'
+import StepIndicator from './ConfigWizard/StepIndicator'
 
-const { TextArea } = Input
-const { Text } = Typography
+
+
 const API_BASE = 'http://localhost:5001/api/crawler'
 
 // 字段类型定义（仅包含数据库支持的字段）
@@ -32,13 +38,12 @@ const FIELD_TYPES = {
     url: { label: '章节链接', defaultProcess: [] }
   },
   chapter_content: {
-    content: { label: '正文内容', defaultProcess: [{ method: 'join', params: { separator: '\n' } }] },
-    next_page: { label: '下一页链接', defaultProcess: [] }
+    content: { label: '正文内容', defaultProcess: [{ method: 'join', params: { separator: '\n' } }], required: true }
   }
 }
 
 // 处理XPath属性提取的公共函数
-const processXPathExpression = (expression, attributeType, customAttribute, selectedFieldType, message) => {
+const processXPathExpression = (expression, attributeType, customAttribute, selectedFieldType) => {
   let processedExpression = expression;
   let extraConfig = {};
   
@@ -51,16 +56,16 @@ const processXPathExpression = (expression, attributeType, customAttribute, sele
     
     // 如果XPath已经包含属性或函数，保持原样
     if (hasAttribute || hasFunction) {
-      message.info(`使用原始XPath表达式: ${expression}`);
+      notifications.show({ title: '提示', message: `使用原始XPath表达式: ${expression}`, color: 'blue' });
     } 
     // 如果没有属性或函数，且是URL类型，可以考虑添加@href
     else if ((selectedFieldType === 'url' || selectedFieldType === 'next_page') && 
         !expression.includes('@href') && !expression.includes('/@href')) {
-      message.info(`XPath未指定属性，URL类型字段可能需要属性提取。请考虑使用自定义属性选项。`);
+      notifications.show({ title: '提示', message: 'XPath未指定属性，URL类型字段可能需要属性提取。请考虑使用自定义属性选项。', color: 'blue' });
     }
     // 对于封面图片，不自动添加属性，因为图片URL可能在不同属性中
     else if (selectedFieldType === 'cover_url') {
-      message.info(`图片URL可能在不同属性中(src, data-src, data-original等)。请考虑使用自定义属性选项。`);
+      notifications.show({ title: '提示', message: '图片URL可能在不同属性中(src, data-src, data-original等)。请考虑使用自定义属性选项。', color: 'blue' });
     }
     // 其他字段类型默认不添加属性，直接获取节点内容
   } else if (attributeType === 'text') {
@@ -69,11 +74,11 @@ const processXPathExpression = (expression, attributeType, customAttribute, sele
     if (!expression.includes('text()')) {
       processedExpression = `${expression}/text()`;
     }
-    message.info(`已添加text()函数提取文本: ${processedExpression}`);
+    notifications.show({ title: '提示', message: `已添加text()函数提取文本: ${processedExpression}`, color: 'blue' });
   } else if (attributeType === 'string') {
     // 字符串模式 - 使用string(.)函数
     // 这里我们不直接修改XPath表达式，而是在配置中标记使用string函数
-    message.info(`将使用string(.)函数提取所有文本`);
+    notifications.show({ title: '提示', message: '将使用string(.)函数提取所有文本', color: 'blue' });
     extraConfig.use_string_function = true;
   } else if (attributeType === 'custom') {
     // 自定义属性模式
@@ -82,9 +87,9 @@ const processXPathExpression = (expression, attributeType, customAttribute, sele
       if (!expression.includes(`@${customAttribute}`) && !expression.includes(`/@${customAttribute}`)) {
         processedExpression = `${expression}/@${customAttribute}`;
       }
-      message.info(`已添加自定义属性@${customAttribute}提取: ${processedExpression}`);
+      notifications.show({ title: '提示', message: `已添加自定义属性@${customAttribute}提取: ${processedExpression}`, color: 'blue' });
     } else {
-      message.warning('请输入自定义属性名称');
+      notifications.show({ title: '提示', message: '请输入自定义属性名称', color: 'yellow' });
       return { valid: false };
     }
   }
@@ -97,7 +102,7 @@ const processXPathExpression = (expression, attributeType, customAttribute, sele
 };
 
 function ConfigWizard() {
-  const { message } = App.useApp() // 使用 App hook 替代静态 message
+   // 使用 App hook 替代静态 message
   const navigate = useNavigate()
   
   // 步骤控制：0=小说信息, 1=章节列表, 2=章节内容, 3=配置预览
@@ -136,14 +141,12 @@ function ConfigWizard() {
   const [paginationConfig, setPaginationConfig] = useState({
     enabled: false,
     maxPageXpath: '//ul[@class="pagination"]/li/a[1]/text()',
-    maxPageManual: 100,
-    urlPattern: '{base_url}/book/{book_id}/{page}/'
+    maxPageManual: 100
   })
   const [contentPaginationEnabled, setContentPaginationEnabled] = useState(true)
   const [contentPaginationConfig, setContentPaginationConfig] = useState({
     maxPageXpath: '//select[@id="page"]/option[last()]/text()',
-    maxPageManual: 50,
-    urlPattern: ''
+    maxPageManual: 50
   })
   
   // URL模板配置
@@ -193,12 +196,12 @@ function ConfigWizard() {
     if (currentStep === 1 && targetUrl === novelInfoUrl && !rerenderOption && pageData) {
       // 直接使用已有的渲染数据
       setChapterListUrl(targetUrl)
-      message.success('使用已有的渲染数据！')
+      notifications.show({ title: '成功', message: '使用已有的渲染数据！', color: 'green' })
       return
     }
     
     if (!targetUrl) {
-      message.warning('请输入目标URL')
+      notifications.show({ title: '提示', message: '请输入目标URL', color: 'yellow' })
       return
     }
 
@@ -225,12 +228,12 @@ function ConfigWizard() {
           }
         }
         
-        message.success('页面渲染成功！')
+        notifications.show({ title: '成功', message: '页面渲染成功！', color: 'green' })
       } else {
-        message.error('渲染失败: ' + response.data.error)
+        notifications.show({ title: '错误', message: '渲染失败: ' + response.data.error, color: 'red' })
       }
     } catch (error) {
-      message.error('请求失败: ' + error.message)
+      notifications.show({ title: '错误', message: '请求失败: ' + error.message, color: 'red' })
     } finally {
       setRenderLoading(false)
     }
@@ -244,7 +247,7 @@ function ConfigWizard() {
     }
     
     if (!cssSelector && !elementText) {
-      message.warning('请输入CSS选择器或元素文本')
+      notifications.show({ title: '提示', message: '请输入CSS选择器或元素文本', color: 'yellow' })
       return
     }
 
@@ -258,12 +261,12 @@ function ConfigWizard() {
 
       if (response.data.success) {
         setXpathSuggestions(response.data.suggestions)
-        message.success(`生成了 ${response.data.suggestions.length} 个XPath建议`)
+        notifications.show({ title: '成功', message: `生成了 ${response.data.suggestions.length} 个XPath建议`, color: 'green' })
       } else {
-        message.error('生成失败: ' + response.data.error)
+        notifications.show({ title: '错误', message: '生成失败: ' + response.data.error, color: 'red' })
       }
     } catch (error) {
-      message.error('请求失败: ' + error.message)
+      notifications.show({ title: '错误', message: '请求失败: ' + error.message, color: 'red' })
     } finally {
       setXpathLoading(false)
     }
@@ -272,7 +275,7 @@ function ConfigWizard() {
   // 保存已识别的字段
   const handleSaveField = () => {
     if (!selectedXpath && !editingField) {
-      message.warning('请先选择一个XPath')
+      notifications.show({ title: '提示', message: '请先选择一个XPath', color: 'yellow' })
       return
     }
 
@@ -281,7 +284,7 @@ function ConfigWizard() {
     const fieldInfo = FIELD_TYPES[pageType][selectedFieldType]
     
     // 使用公共函数处理XPath表达式
-    const result = processXPathExpression(selectedXpath, attributeType, customAttribute, selectedFieldType, message);
+    const result = processXPathExpression(selectedXpath, attributeType, customAttribute, selectedFieldType);
     
     // 如果处理无效，直接返回
     if (!result.valid) {
@@ -303,7 +306,7 @@ function ConfigWizard() {
       [selectedFieldType]: fieldConfig
     })
 
-    message.success(`已保存字段: ${fieldInfo.label}`)
+    notifications.show({ title: '成功', message: `已保存字段: ${fieldInfo.label}`, color: 'green' })
     
     // 清空当前选择，准备识别下一个字段
     setCssSelector('')
@@ -323,7 +326,7 @@ function ConfigWizard() {
     const newFields = { ...currentFields }
     delete newFields[fieldName]
     setCurrentFields(newFields)
-    message.success('已删除字段')
+    notifications.show({ title: '成功', message: '已删除字段', color: 'green' })
   }
 
   // 编辑字段的xpath
@@ -350,7 +353,7 @@ function ConfigWizard() {
         process: newProcess
       }
     })
-    message.success('已更新清洗规则')
+    notifications.show({ title: '成功', message: '已更新清洗规则', color: 'green' })
     setEditingProcess(null)
   }
 
@@ -360,7 +363,7 @@ function ConfigWizard() {
     const currentFields = getCurrentFields()
     
     if (Object.keys(currentFields).length === 0) {
-      message.warning('请至少配置一个字段')
+      notifications.show({ title: '提示', message: '请至少配置一个字段', color: 'yellow' })
       return
     }
 
@@ -397,7 +400,7 @@ function ConfigWizard() {
   const handleGenerateConfig = () => {
     console.log('执行handleGenerateConfig函数');
     if (!siteName || !baseUrl) {
-      message.warning('请填写网站名称和基础URL')
+      notifications.show({ title: '提示', message: '请填写网站名称和基础URL', color: 'yellow' })
       return
     }
     
@@ -426,7 +429,7 @@ function ConfigWizard() {
     })
     
     if (missingRequiredFields.length > 0) {
-      message.error(`配置缺少必需字段: ${missingRequiredFields.join(', ')}`)
+      notifications.show({ title: '错误', message: `配置缺少必需字段: ${missingRequiredFields.join(', ')}`, color: 'red' })
       return
     }
     
@@ -439,14 +442,17 @@ function ConfigWizard() {
     if (paginationConfig.enabled) {
       processedChapterListFields.pagination = {
         enabled: true,
-        max_page_xpath: {
+        max_page_manual: paginationConfig.maxPageManual
+      }
+      
+      // 添加 XPath 提取最大页数配置（可选）
+      if (paginationConfig.maxPageXpath) {
+        processedChapterListFields.pagination.max_page_xpath = {
           type: 'xpath',
           expression: paginationConfig.maxPageXpath,
           index: 0,
           default: '1'
-        },
-        max_page_manual: paginationConfig.maxPageManual,
-        url_pattern: paginationConfig.urlPattern
+        }
       }
     } else {
       processedChapterListFields.pagination = {
@@ -454,57 +460,33 @@ function ConfigWizard() {
       }
     }
     
-    // 处理章节内容配置 - 添加翻页和清理支持
-    // 注意：字段顺序很重要，按处理流程排序
+    // 处理章节内容配置
     const processedChapterContentFields = {}
     
-    // 1. content - 首先配置内容提取
+    // 1. content - 配置内容提取
     if (chapterContentFields.content) {
       processedChapterContentFields.content = chapterContentFields.content
     }
     
-    // 2. next_page - 翻页配置（包含最大页数配置）
-    if (chapterContentFields.next_page) {
-      processedChapterContentFields.next_page = {
-        ...chapterContentFields.next_page,
-        enabled: contentPaginationEnabled
-      }
-      if (contentPaginationEnabled) {
-        // 添加最大页数配置
-        processedChapterContentFields.next_page.max_pages_manual = contentPaginationConfig.maxPageManual
-        
-        // 添加xpath提取最大页配置
-        if (contentPaginationConfig.maxPageXpath) {
-          processedChapterContentFields.next_page.max_page_xpath = {
-            type: 'xpath',
-            expression: contentPaginationConfig.maxPageXpath,
-            index: 0,
-            default: '1'
-          }
-        }
-        
-        // 添加URL模式（如果有）
-        if (contentPaginationConfig.urlPattern) {
-          processedChapterContentFields.next_page.url_pattern = contentPaginationConfig.urlPattern
-        }
-      }
-    } else if (contentPaginationEnabled) {
-      // 如果启用翻页但未配置next_page，添加默认配置
-      processedChapterContentFields.next_page = {
+    // 2. 章节内容分页配置
+    if (contentPaginationEnabled) {
+      processedChapterContentFields.pagination = {
         enabled: true,
-        type: 'xpath',
-        expression: '//a[contains(text(),"下一页")]/@href',
-        index: 0,
-        max_pages_manual: contentPaginationConfig.maxPageManual,
-        max_page_xpath: {
+        max_page_manual: contentPaginationConfig.maxPageManual
+      }
+      
+      // 添加 XPath 提取最大页数配置（可选）
+      if (contentPaginationConfig.maxPageXpath) {
+        processedChapterContentFields.pagination.max_page_xpath = {
           type: 'xpath',
-          expression: contentPaginationConfig.maxPageXpath || '//select[@id="page"]/option[last()]/text()',
+          expression: contentPaginationConfig.maxPageXpath,
           index: 0,
           default: '1'
         }
       }
-      if (contentPaginationConfig.urlPattern) {
-        processedChapterContentFields.next_page.url_pattern = contentPaginationConfig.urlPattern
+    } else {
+      processedChapterContentFields.pagination = {
+        enabled: false
       }
     }
     
@@ -557,7 +539,13 @@ function ConfigWizard() {
     console.log('执行handleSaveConfig函数');
     if (!generatedConfig) {
       console.error('generatedConfig为空，无法保存');
-      message.warning('请先生成配置')
+      notifications.show({ title: '提示', message: '请先生成配置', color: 'yellow' })
+      return
+    }
+
+    // 验证必填字段
+    if (!siteName || !siteName.trim()) {
+      notifications.show({ title: '错误', message: '网站名称不能为空', color: 'red' })
       return
     }
 
@@ -567,35 +555,52 @@ function ConfigWizard() {
       setSaveStatus(null)
       setSaveMessage('')
       
-      console.log('保存配置请求参数:', {
-        site_name: siteName,
+      const requestData = {
+        site_name: siteName.trim(),
         config: generatedConfig
-      })
+      }
       
-      console.log('发送请求到API:', `${API_BASE}/config`);
-      const response = await axios.post(`${API_BASE}/config`, {
-        site_name: siteName,
-        config: generatedConfig
-      })
+      console.log('=== 保存配置请求详情 ===');
+      console.log('网站名称:', requestData.site_name);
+      console.log('配置内容:', JSON.stringify(requestData.config, null, 2));
+      console.log('API地址:', `${API_BASE}/config`);
+      console.log('=======================');
+      
+      const response = await axios.post(`${API_BASE}/config`, requestData)
 
       console.log('保存配置响应:', response.data)
 
       if (response.data.success) {
-        message.success('配置已保存到配置管理！')
+        notifications.show({ title: '成功', message: '配置已保存到配置管理！', color: 'green' })
         setSaveStatus('success')
         setSaveMessage(`配置文件 ${response.data.filename} 已成功保存！`)
         // 添加时间戳参数，确保返回时CrawlerManager组件能检测到location变化
         setTimeout(() => navigate('/crawler?t=' + new Date().getTime()), 3000)
       } else {
-        message.error('保存失败: ' + response.data.error)
+        notifications.show({ title: '错误', message: '保存失败: ' + response.data.error, color: 'red' })
         setSaveStatus('error')
         setSaveMessage('保存失败: ' + response.data.error)
       }
     } catch (error) {
-      console.error('保存配置错误:', error)
-      message.error('保存失败: ' + error.message)
+      console.error('=== 保存配置错误详情 ===');
+      console.error('错误对象:', error);
+      console.error('错误响应:', error.response?.data);
+      console.error('HTTP状态码:', error.response?.status);
+      console.error('=======================');
+      
+      let errorMessage = error.message;
+      if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      }
+      
+      notifications.show({ 
+        title: '保存失败', 
+        message: errorMessage, 
+        color: 'red',
+        autoClose: 5000
+      })
       setSaveStatus('error')
-      setSaveMessage('保存失败: ' + error.message)
+      setSaveMessage('保存失败: ' + errorMessage)
     } finally {
       setSaving(false)
     }
@@ -625,9 +630,9 @@ function ConfigWizard() {
     <div className="fade-in" style={{ padding: '0 24px 24px' }}>
       <Card>
         <div style={{ marginBottom: 24 }}>
-          <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+          <Group style={{ width: '100%', justifyContent: 'space-between' }}>
             <Button
-              icon={<ArrowLeftOutlined />}
+              icon={<IconArrowLeft />}
               onClick={() => navigate('/crawler')}
             >
               返回列表
@@ -636,10 +641,10 @@ function ConfigWizard() {
               🧙 配置智能向导
             </h2>
             <div style={{ width: 80 }} />
-          </Space>
+          </Group>
         </div>
 
-        <Steps current={currentStep} items={steps} style={{ marginBottom: 32 }} />
+        <StepIndicator currentStep={currentStep} />
 
         {/* 步骤0-2：配置各层级字段 */}
         {(currentStep === 0 || currentStep === 1 || currentStep === 2) && (
@@ -669,167 +674,117 @@ function ConfigWizard() {
 
             {/* 网站基本信息（仅在第一步显示） */}
             {currentStep === 0 && (
-              <Card title="网站信息" size="small" style={{ marginBottom: 24, background: '#f0f5ff' }}>
-                <Form layout="vertical">
-                  <Form.Item label="网站名称" required help="用于生成配置文件名，如 ikbook8">
-                    <Input
-                      value={siteName}
-                      onChange={(e) => setSiteName(e.target.value)}
-                      placeholder="例如：ikbook8"
-                      size="large"
-                    />
-                  </Form.Item>
-                  <Form.Item label="网站基础URL" required help="网站的域名，如 https://m.ikbook8.com">
-                    <Input
-                      value={baseUrl}
-                      onChange={(e) => setBaseUrl(e.target.value)}
-                      placeholder="例如：https://m.ikbook8.com"
-                      size="large"
-                    />
-                  </Form.Item>
-                </Form>
-              </Card>
+              <SiteInfoForm
+                siteName={siteName}
+                setSiteName={setSiteName}
+                baseUrl={baseUrl}
+                setBaseUrl={setBaseUrl}
+              />
             )}
 
             {/* URL模板配置（仅在第一步显示） */}
             {currentStep === 0 && (
-              <Card title="URL模板配置" size="small" style={{ marginBottom: 24, background: '#fffbe6', border: '1px solid #ffe58f' }}>
-                <Alert
-                  message="URL模板说明"
-                  description="配置网站的URL格式。使用命名参数 {book_id}, {chapter_id}, {page} 作为占位符，系统会自动替换这些参数。"
-                  type="info"
-                  showIcon
-                  closable
-                  style={{ marginBottom: 16 }}
-                />
-                <Form layout="vertical">
-                  <Form.Item 
-                    label="书籍详情页URL模板（第1页）" 
-                    help="示例：/book/{book_id} 或 /book/{book_id}.html。这是起始页，用于获取小说信息和第一页章节列表"
-                  >
-                    <Input
-                      value={urlTemplates.bookDetail}
-                      onChange={(e) => setUrlTemplates({...urlTemplates, bookDetail: e.target.value})}
-                      placeholder="/book/{book_id}"
-                    />
-                  </Form.Item>
-                  <Form.Item 
-                    label="章节列表翻页URL模板（第2页起）" 
-                    help="示例：/book/{book_id}/{page}/ 或 /book/{book_id}_{page}。从第2页开始使用，{page}≥2"
-                  >
-                    <Input
-                      value={urlTemplates.chapterListPage}
-                      onChange={(e) => setUrlTemplates({...urlTemplates, chapterListPage: e.target.value})}
-                      placeholder="/book/{book_id}/{page}/"
-                    />
-                  </Form.Item>
-                  <Form.Item 
-                    label="章节内容翻页URL模板（第2页起）" 
-                    help="示例：/book/{book_id}/{chapter_id}_{page}.html 或 /chapter/{book_id}/{chapter_id}/{page}。章节内容第2页开始使用"
-                  >
-                    <Input
-                      value={urlTemplates.chapterContentPage}
-                      onChange={(e) => setUrlTemplates({...urlTemplates, chapterContentPage: e.target.value})}
-                      placeholder="/book/{book_id}/{chapter_id}_{page}.html"
-                    />
-                  </Form.Item>
-                </Form>
-              </Card>
+              <URLTemplateForm
+                urlTemplates={urlTemplates}
+                setUrlTemplates={setUrlTemplates}
+              />
             )}
 
               {/* 页面渲染区 */}
             <Card title="渲染目标页面" size="small" style={{ marginBottom: 24 }}>
-              <Form layout="vertical">
+              <Stack>
                 {/* 选择配置模式 - 是否需要渲染页面 */}
-                <Form.Item label="配置模式选择">
+                <div>
+                  <Text size="sm" fw={500} mb="xs">配置模式选择</Text>
                   <Radio.Group 
-                    value={!manualCssOption} 
-                    onChange={(e) => {
-                      setManualCssOption(!e.target.value)
+                    value={!manualCssOption ? 'render' : 'manual'} 
+                    onChange={(value) => {
+                      setManualCssOption(value === 'manual')
                       // 切换模式时清空已生成的XPath建议
                       setXpathSuggestions([])
                       setSelectedXpath(null)
                     }}
                   >
-                    <Radio.Button value={true}>渲染页面配置</Radio.Button>
-                    <Radio.Button value={false}>手动输入XPath</Radio.Button>
+                    <Group>
+                      <Radio value="render" label="渲染页面配置" />
+                      <Radio value="manual" label="手动输入XPath" />
+                    </Group>
                   </Radio.Group>
-                  <div style={{ marginTop: 8, color: '#666' }}>
+                  <Text size="sm" c="dimmed" mt="xs">
                     {!manualCssOption ? '通过渲染页面，智能生成XPath建议' : '直接手动输入XPath，无需渲染页面'}
-                  </div>
-                </Form.Item>
+                  </Text>
+                </div>
                 
                 {/* 仅在非手动模式下显示渲染相关选项 */}
                 {!manualCssOption && (
                   <>
                     {/* 重新渲染选项 - 仅在章节列表页面显示 */}
                     {currentStep === 1 && novelInfoUrl && (
-                      <Form.Item label="是否重新渲染">
+                      <div>
+                        <Text size="sm" fw={500} mb="xs">是否重新渲染</Text>
                         <Radio.Group 
-                          value={rerenderOption} 
-                          onChange={(e) => {
-                            setRerenderOption(e.target.value)
+                          value={rerenderOption ? 'rerender' : 'reuse'} 
+                          onChange={(value) => {
+                            setRerenderOption(value === 'rerender')
                             // 如果选择不重新渲染，自动设置URL为小说信息页URL
-                            if (!e.target.value) {
+                            if (value === 'reuse') {
                               setTargetUrl(novelInfoUrl)
                             }
                           }}
                         >
-                          <Radio.Button value={true}>重新渲染新页面</Radio.Button>
-                          <Radio.Button value={false}>使用小说信息页面</Radio.Button>
+                          <Group>
+                            <Radio value="rerender" label="重新渲染新页面" />
+                            <Radio value="reuse" label="使用小说信息页面" />
+                          </Group>
                         </Radio.Group>
-                        <div style={{ marginTop: 8, color: '#666' }}>
+                        <Text size="sm" c="dimmed" mt="xs">
                           {rerenderOption ? '将渲染新页面获取章节列表' : '将重用小说信息页面数据，无需重新渲染'}
-                        </div>
-                      </Form.Item>
+                        </Text>
+                      </div>
                     )}
                     
                     {/* 目标URL输入框，当选择不重新渲染时隐藏 */}
                     {(currentStep !== 1 || rerenderOption || !novelInfoUrl) && (
-                      <Form.Item 
-                        label="目标URL" 
-                        required
-                        help={
+                      <TextInput
+                        label="目标URL"
+                        description={
                           currentStep === 0 ? '小说详情页URL' :
                           currentStep === 1 ? '章节列表页URL（通常和详情页相同）' :
                           '任一章节内容页URL'
                         }
-                      >
-                        <Input
-                          value={targetUrl}
-                          onChange={(e) => setTargetUrl(e.target.value)}
-                          placeholder={
-                            currentStep === 0 ? '例如：https://m.ikbook8.com/book/41934.html' :
-                            currentStep === 1 ? '例如：https://m.ikbook8.com/book/41934.html' :
-                            '例如：https://m.ikbook8.com/novel/41934/1.html'
-                          }
-                          size="large"
-                        />
-                      </Form.Item>
+                        placeholder={
+                          currentStep === 0 ? '例如：https://m.ikbook8.com/book/41934.html' :
+                          currentStep === 1 ? '例如：https://m.ikbook8.com/book/41934.html' :
+                          '例如：https://m.ikbook8.com/novel/41934/1.html'
+                        }
+                        value={targetUrl}
+                        onChange={(e) => setTargetUrl(e.target.value)}
+                        required
+                        size="md"
+                      />
                     )}
 
                     <Button
                       type="primary"
-                      size="large"
-                      icon={<ThunderboltOutlined />}
+                      size="lg"
+                      leftSection={<IconBolt size={16} />}
                       onClick={handleRenderPage}
                       loading={renderLoading}
-                      block
+                      fullWidth
                     >
                       {renderLoading ? '渲染中...' : '开始渲染'}
                     </Button>
                   </>
                 )}
-              </Form>
+              </Stack>
 
               {!manualCssOption && pageData && (
                 <div style={{ marginTop: 24 }}>
-                  <Divider>渲染结果</Divider>
+                  <Divider label="渲染结果" />
                   <Alert
-                    message={`页面标题: ${pageData.title}`}
-                    type="success"
-                    showIcon
-                    style={{ marginBottom: 16 }}
+                    title={`页面标题: ${pageData.title}`}
+                    color="green"
+                    style={{ marginBottom: 16, marginTop: 16 }}
                   />
                   <div style={{
                     border: '1px solid #d9d9d9',
@@ -848,88 +803,32 @@ function ConfigWizard() {
               
               {manualCssOption && (
                 <Alert
-                  message="手动XPath模式已启用"
-                  description="您已选择手动输入XPath模式，无需渲染页面。请在下方字段识别区域直接输入XPath表达式。"
-                  type="info"
-                  showIcon
+                  title="手动XPath模式已启用"
+                  color="blue"
                   style={{ marginTop: 16 }}
-                />
+                >
+                  您已选择手动输入XPath模式，无需渲染页面。请在下方字段识别区域直接输入XPath表达式。
+                </Alert>
               )}
             </Card>
 
             {/* 已识别字段显示 */}
-            {Object.keys(getCurrentFields()).length > 0 && (
-              <Card 
-                title={
-                  <Space>
-                    <CheckCircleOutlined style={{ color: '#52c41a' }} />
-                    <span>已配置字段 ({Object.keys(getCurrentFields()).length})</span>
-                  </Space>
-                } 
-                size="small" 
-                style={{ marginBottom: 24, background: '#f6ffed', border: '1px solid #b7eb8f' }}
-              >
-                <List
-                  dataSource={Object.entries(getCurrentFields())}
-                  renderItem={([fieldName, config]) => (
-                    <List.Item
-                      actions={[
-                        <Button
-                          size="small"
-                          icon={<EditOutlined />}
-                          onClick={() => handleEditField(fieldName)}
-                        >
-                          修改xpath
-                        </Button>,
-                        <Button
-                          size="small"
-                          icon={<EditOutlined />}
-                          onClick={() => setEditingProcess(fieldName)}
-                        >
-                          编辑清洗规则
-                        </Button>,
-                        <Button
-                          size="small"
-                          danger
-                          icon={<DeleteOutlined />}
-                          onClick={() => handleRemoveField(fieldName)}
-                        >
-                          删除
-                        </Button>
-                      ]}
-                    >
-                      <List.Item.Meta
-                        title={
-                          <Space>
-                            <Tag color="green">{FIELD_TYPES[getCurrentPageType()][fieldName]?.label || fieldName}</Tag>
-                            <Text code style={{ fontSize: 12 }}>{config.expression}</Text>
-                          </Space>
-                        }
-                        description={
-                          <div style={{ fontSize: 12 }}>
-                            <Text type="secondary">索引: {config.index}</Text>
-                            {config.process && config.process.length > 0 && (
-                              <Text type="secondary" style={{ marginLeft: 8 }}>
-                                | 清洗规则: {config.process.map(p => p.method).join(' → ')}
-                              </Text>
-                            )}
-                          </div>
-                        }
-                      />
-                    </List.Item>
-                  )}
-                />
-              </Card>
-            )}
+            <RecognizedFieldsList
+              fields={getCurrentFields()}
+              fieldTypes={FIELD_TYPES}
+              pageType={getCurrentPageType()}
+              onEditField={handleEditField}
+              onEditProcess={setEditingProcess}
+              onRemoveField={handleRemoveField}
+            />
 
             {/* 字段识别表单 */}
             <Card title="字段识别" size="small" style={{ marginBottom: 24 }}>
               {editingField && (
                 <Alert
-                  message={`正在修改字段：${FIELD_TYPES[getCurrentPageType()][editingField]?.label}`}
-                  type="warning"
-                  showIcon
-                  closable
+                  title={`正在修改字段：${FIELD_TYPES[getCurrentPageType()][editingField]?.label}`}
+                  color="yellow"
+                  withCloseButton
                   onClose={() => {
                     setEditingField(null)
                     setCssSelector('')
@@ -942,81 +841,62 @@ function ConfigWizard() {
                 />
               )}
               
-              <Space direction="vertical" style={{ width: '100%' }} size="large">
-                <Form layout="vertical">
-                  <Form.Item label="选择要配置的字段" required>
-                    <Select
-                      value={selectedFieldType}
-                      onChange={(value) => {
-                        setSelectedFieldType(value);
-                        // 为特殊字段类型提供提示
-                        if (value === 'url' || value === 'next_page') {
-                          message.info('链接类型字段可能需要提取@href属性，请根据需要选择合适的提取方式');
-                        } else if (value === 'cover_url') {
-                          message.info('图片URL可能在不同属性中(src, data-src, data-original等)，请根据实际情况选择');
-                        }
-                      }}
-                      size="large"
-                      style={{ width: '100%' }}
-                    >
-                      {Object.entries(FIELD_TYPES[getCurrentPageType()]).map(([key, info]) => (
-                        <Select.Option key={key} value={key} disabled={!!getCurrentFields()[key] && editingField !== key}>
-                          <Space>
-                            {getCurrentFields()[key] && <CheckCircleOutlined style={{ color: '#52c41a' }} />}
-                            <span>{info.label}</span>
-                            {info.note && <Text type="secondary" style={{ fontSize: 12 }}>({info.note})</Text>}
-                            {(key === 'url' || key === 'next_page') && 
-                              <Text type="secondary" style={{ fontSize: 12 }}>(可能需要@href属性)</Text>
-                            }
-                            {key === 'cover_url' && 
-                              <Text type="secondary" style={{ fontSize: 12 }}>(可能需要指定图片属性)</Text>
-                            }
-                          </Space>
-                        </Select.Option>
-                      ))}
-                    </Select>
-                  </Form.Item>
+              <Stack>
+                <Select
+                  label="选择要配置的字段"
+                  placeholder="请选择字段"
+                  value={selectedFieldType}
+                  onChange={(value) => {
+                    setSelectedFieldType(value);
+                    // 为特殊字段类型提供提示
+                    if (value === 'url' || value === 'next_page') {
+                      notifications.show({ title: '提示', message: '链接类型字段可能需要提取@href属性，请根据需要选择合适的提取方式', color: 'blue' });
+                    } else if (value === 'cover_url') {
+                      notifications.show({ title: '提示', message: '图片URL可能在不同属性中(src, data-src, data-original等)，请根据实际情况选择', color: 'blue' });
+                    }
+                  }}
+                  data={Object.entries(FIELD_TYPES[getCurrentPageType()]).map(([key, info]) => ({
+                    value: key,
+                    label: `${info.label}${info.note ? ` (${info.note})` : ''}${key === 'url' || key === 'next_page' ? ' (可能需要@href属性)' : ''}${key === 'cover_url' ? ' (可能需要指定图片属性)' : ''}`,
+                    disabled: !!getCurrentFields()[key] && editingField !== key
+                  }))}
+                  required
+                  size="md"
+                />
 
                 {!manualCssOption && (
-                  <Form.Item label="XPath生成方式">
-                    <Radio.Group 
-                      value={false} 
-                      onChange={() => {}}
-                    >
-                      <Radio.Button value={false}>智能生成XPath</Radio.Button>
-                    </Radio.Group>
-                  </Form.Item>
+                  <div>
+                    <Text size="sm" fw={500} mb="xs">XPath生成方式</Text>
+                    <Badge color="blue">智能生成XPath</Badge>
+                  </div>
                 )}
                 
                 {/* 根据选择的模式显示不同的表单 */}
                 {!manualCssOption ? (
                   // 智能生成模式
                   <>
-                    <Form.Item label="CSS选择器（推荐）">
-                      <Input
-                        value={cssSelector}
-                        onChange={(e) => setCssSelector(e.target.value)}
-                        placeholder="例如：div.book-info > h1"
-                        size="large"
-                      />
-                    </Form.Item>
+                    <TextInput
+                      label="CSS选择器（推荐）"
+                      placeholder="例如：div.book-info > h1"
+                      value={cssSelector}
+                      onChange={(e) => setCssSelector(e.target.value)}
+                      size="md"
+                    />
 
-                    <Form.Item label="或者输入元素文本">
-                      <Input
-                        value={elementText}
-                        onChange={(e) => setElementText(e.target.value)}
-                        placeholder="例如：洪荒：开局斩杀混沌魔神"
-                        size="large"
-                      />
-                    </Form.Item>
+                    <TextInput
+                      label="或者输入元素文本"
+                      placeholder="例如：洪荒：开局斩杀混沌魔神"
+                      value={elementText}
+                      onChange={(e) => setElementText(e.target.value)}
+                      size="md"
+                    />
 
                     <Button
-                      type="primary"
-                      size="large"
-                      icon={<ThunderboltOutlined />}
+                      leftSection={<IconBolt size={16} />}
                       onClick={handleGenerateXpath}
                       loading={xpathLoading}
-                      block
+                      fullWidth
+                      size="lg"
                     >
                       {xpathLoading ? '生成中...' : '生成XPath建议'}
                     </Button>
@@ -1024,23 +904,20 @@ function ConfigWizard() {
                 ) : (
                   // 手动配置模式
                   <>
-                    <Form.Item label="直接输入XPath表达式">
-                      <Input
-                        value={manualXpath}
-                        onChange={(e) => {
-                          setManualXpath(e.target.value)
-                        }}
-                        placeholder="例如：//div[@class='book-info']/h1"
-                        size="large"
-                      />
-                    </Form.Item>
-                    <Alert
-                      message="XPath手动输入提示"
-                      description="直接输入XPath表达式，然后配置属性提取方式，最后点击下方的按钮保存字段。"
-                      type="info"
-                      showIcon
-                      style={{ marginBottom: 16 }}
+                    <TextInput
+                      label="直接输入XPath表达式"
+                      placeholder="例如：//div[@class='book-info']/h1"
+                      value={manualXpath}
+                      onChange={(e) => setManualXpath(e.target.value)}
+                      size="md"
                     />
+                    <Alert
+                      title="XPath手动输入提示"
+                      color="blue"
+                      style={{ marginBottom: 16 }}
+                    >
+                      直接输入XPath表达式，然后配置属性提取方式，最后点击下方的按钮保存字段。
+                    </Alert>
                     
                     {/* 使用属性提取选择器组件 */}
                     <AttributeExtractorSelector
@@ -1052,7 +929,7 @@ function ConfigWizard() {
                     <Button
                       type="primary"
                       size="large"
-                      icon={<SaveOutlined />}
+                      icon={<IconDeviceFloppy />}
                       onClick={() => {
                         // 设置选中的XPath
                         setSelectedXpath(manualXpath)
@@ -1063,7 +940,7 @@ function ConfigWizard() {
                           const fieldInfo = FIELD_TYPES[pageType][selectedFieldType]
                           
                           // 使用公共函数处理XPath表达式
-                          const result = processXPathExpression(manualXpath, attributeType, customAttribute, selectedFieldType, message);
+                          const result = processXPathExpression(manualXpath, attributeType, customAttribute, selectedFieldType);
                           
                           // 如果处理无效，直接返回
                           if (!result.valid) {
@@ -1085,7 +962,7 @@ function ConfigWizard() {
                             [selectedFieldType]: fieldConfig
                           })
                       
-                          message.success(`已保存字段: ${fieldInfo.label}`)
+                          notifications.show({ title: '成功', message: `已保存字段: ${fieldInfo.label}`, color: 'green' })
                           
                           // 清空当前选择，准备识别下一个字段
                           setManualXpath('')
@@ -1094,7 +971,7 @@ function ConfigWizard() {
                           setAttributeType('auto')
                           setCustomAttribute('')
                         } else {
-                          message.warning('请输入XPath表达式')
+                          notifications.show({ title: '提示', message: '请输入XPath表达式', color: 'yellow' })
                         }
                       }}
                       block
@@ -1103,94 +980,100 @@ function ConfigWizard() {
                     </Button>
                   </>
                 )}
-              </Form>
 
               {xpathSuggestions.length > 0 && (
                 <>
-                  <Divider>XPath建议（共{xpathSuggestions.length}个）</Divider>
+                  <Divider label={`XPath建议（共${xpathSuggestions.length}个）`} />
                   <Alert
-                    message="提示"
-                    description="绿色标签表示推荐使用，蓝色标签表示一般通用，橙色标签表示可能不精确。如果建议都不合适，可以下方手动输入。"
-                    type="info"
-                    showIcon
-                    closable
-                    style={{ marginBottom: 16 }}
-                  />
-                  <List
-                    dataSource={xpathSuggestions}
-                    renderItem={(item, index) => (
-                      <List.Item
-                        actions={[
-                          <Button
-                            type={selectedXpath === item.xpath ? 'primary' : 'default'}
-                            size="small"
-                            icon={selectedXpath === item.xpath ? <CheckCircleOutlined /> : <EyeOutlined />}
-                            onClick={() => {
-                              setSelectedXpath(item.xpath)
-                              setManualXpath('') // 清空手动输入
-                            }}
-                          >
-                            {selectedXpath === item.xpath ? '已选择' : '选择'}
-                          </Button>,
-                          <Button
-                            size="small"
-                            icon={<CopyOutlined />}
-                            onClick={() => {
-                              navigator.clipboard.writeText(item.xpath)
-                              message.success('已复制到剪贴板')
-                            }}
-                          >
-                            复制
-                          </Button>
-                        ]}
-                      >
-                        <List.Item.Meta
-                          title={
-                            <Space>
-                              <Tag color={item.priority <= 2 ? 'green' : item.priority <= 4 ? 'blue' : 'orange'}>
+                    title="提示"
+                    color="blue"
+                    withCloseButton
+                    style={{ marginBottom: 16, marginTop: 16 }}
+                  >
+                    绿色标签表示推荐使用，蓝色标签表示一般通用，橙色标签表示可能不精确。如果建议都不合适，可以下方手动输入。
+                  </Alert>
+                  <Stack gap="sm">
+                    {xpathSuggestions.map((item, index) => (
+                      <Card key={index} withBorder p="sm">
+                        <Group justify="space-between" wrap="nowrap">
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <Group mb="xs">
+                              <Badge color={item.priority <= 2 ? 'green' : item.priority <= 4 ? 'blue' : 'orange'}>
                                 {item.type}
-                              </Tag>
-                              <span style={{ fontFamily: 'monospace', fontSize: 13 }}>{item.xpath}</span>
-                            </Space>
-                          }
-                          description={
-                            <div style={{ fontSize: 12 }}>
-                              {item.description && <Text type="secondary">{item.description}</Text>}
-                            </div>
-                          }
-                        />
-                      </List.Item>
-                    )}
-                  />
+                              </Badge>
+                              <Text 
+                                size="sm" 
+                                style={{ 
+                                  fontFamily: 'monospace',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap'
+                                }}
+                              >
+                                {item.xpath}
+                              </Text>
+                            </Group>
+                            {item.description && (
+                              <Text size="xs" c="dimmed">{item.description}</Text>
+                            )}
+                          </div>
+                          <Group gap="xs" style={{ flexShrink: 0 }}>
+                            <Button
+                              variant={selectedXpath === item.xpath ? 'filled' : 'default'}
+                              size="xs"
+                              leftSection={selectedXpath === item.xpath ? <IconCircleCheck size={14} /> : <IconEye size={14} />}
+                              onClick={() => {
+                                setSelectedXpath(item.xpath)
+                                setManualXpath('') // 清空手动输入
+                              }}
+                            >
+                              {selectedXpath === item.xpath ? '已选择' : '选择'}
+                            </Button>
+                            <Button
+                              size="xs"
+                              variant="light"
+                              leftSection={<IconCopy size={14} />}
+                              onClick={() => {
+                                navigator.clipboard.writeText(item.xpath)
+                                notifications.show({ title: '成功', message: '已复制到剪贴板', color: 'green' })
+                              }}
+                            >
+                              复制
+                            </Button>
+                          </Group>
+                        </Group>
+                      </Card>
+                    ))}
+                  </Stack>
                   
-                  <Divider>或手动输入XPath</Divider>
-                  <Form layout="vertical">
-                    <Form.Item label="自定义XPath表达式" help="如果自动生成的建议都不合适，可以手动输入XPath">
-                      <Input
-                        value={manualXpath}
-                        onChange={(e) => {
-                          setManualXpath(e.target.value)
-                          if (e.target.value) {
-                            setSelectedXpath(e.target.value)
-                          }
-                        }}
-                        placeholder="例如：//div[@class='book-info']/h1"
-                        size="large"
-                        prefix={<EditOutlined />}
-                      />
-                    </Form.Item>
-                  </Form>
+                  <Divider label="或手动输入XPath" mt="md" />
+                  <TextInput
+                    label="自定义XPath表达式"
+                    description="如果自动生成的建议都不合适，可以手动输入XPath"
+                    placeholder="例如：//div[@class='book-info']/h1"
+                    value={manualXpath}
+                    onChange={(e) => {
+                      setManualXpath(e.target.value)
+                      if (e.target.value) {
+                        setSelectedXpath(e.target.value)
+                      }
+                    }}
+                    leftSection={<IconEdit size={16} />}
+                    size="md"
+                    mt="md"
+                  />
                 </>
               )}
 
               {selectedXpath && !manualCssOption && (
                 <div>
                   <Alert
-                    message={`已选择XPath用于字段：${FIELD_TYPES[getCurrentPageType()][selectedFieldType]?.label}`}
-                    description={<code style={{ fontSize: 14 }}>{selectedXpath}</code>}
-                    type="success"
-                    showIcon
-                  />
+                    title={`已选择XPath用于字段：${FIELD_TYPES[getCurrentPageType()][selectedFieldType]?.label}`}
+                    color="green"
+                    mt="md"
+                  >
+                    <code style={{ fontSize: 14 }}>{selectedXpath}</code>
+                  </Alert>
                   
                   {/* 使用属性提取选择器组件 */}
                   <AttributeExtractorSelector
@@ -1201,17 +1084,17 @@ function ConfigWizard() {
                   />
                   
                   <Button
-                    type="primary"
-                    size="large"
-                    icon={<SaveOutlined />}
+                    leftSection={<IconDeviceFloppy size={16} />}
                     onClick={handleSaveField}
-                    style={{ marginTop: 12, width: '100%' }}
+                    fullWidth
+                    size="lg"
+                    mt="md"
                   >
                     保存此字段
                   </Button>
                 </div>
               )}
-            </Space>
+            </Stack>
           </Card>
 
 
@@ -1219,80 +1102,74 @@ function ConfigWizard() {
           {(currentStep === 1 || currentStep === 2) && (
             <Card 
               title={
-                <Space>
-                  <ExperimentOutlined style={{ color: '#1890ff' }} />
+                <Group>
+                  <IconFlask style={{ color: '#1890ff' }} />
                   <span>高级配置（可选）</span>
-                </Space>
+                </Group>
               }
               size="small" 
               style={{ marginBottom: 24, background: '#f0f5ff', border: '1px solid #adc6ff' }}
             >
               {/* 章节列表分页配置 */}
               {currentStep === 1 && (
-                <div>
+                <Stack>
                   <Alert
-                    message="章节列表分页配置"
-                    description="如果章节列表需要翻页才能获取所有章节，请启用此功能并配置相关参数。"
-                    type="info"
-                    showIcon
-                    style={{ marginBottom: 16 }}
-                  />
-                  <Form layout="vertical">
-                    <Form.Item label="启用章节列表分页">
-                      <Switch
-                        checked={paginationConfig.enabled}
-                        onChange={(checked) => setPaginationConfig({...paginationConfig, enabled: checked})}
-                        checkedChildren="开启"
-                        unCheckedChildren="关闭"
-                      />
-                      <div style={{ marginTop: 8, color: '#666', fontSize: 12 }}>
-                        {paginationConfig.enabled ? '将自动爬取所有分页的章节列表' : '仅爬取当前页面的章节列表'}
-                      </div>
-                    </Form.Item>
-                    
-                    {paginationConfig.enabled && (
-                      <PaginationConfigForm
-                        config={paginationConfig}
-                        onChange={setPaginationConfig}
-                        type="list"
-                      />
-                    )}
-                  </Form>
-                </div>
+                    title="章节列表分页配置"
+                    color="blue"
+                  >
+                    如果章节列表需要翻页才能获取所有章节，请启用此功能并配置相关参数。
+                  </Alert>
+                  <div>
+                    <Text size="sm" fw={500} mb="xs">启用章节列表分页</Text>
+                    <Switch
+                      checked={paginationConfig.enabled}
+                      onChange={(event) => setPaginationConfig({...paginationConfig, enabled: event.currentTarget.checked})}
+                      label={paginationConfig.enabled ? '开启' : '关闭'}
+                    />
+                    <Text size="xs" c="dimmed" mt="xs">
+                      {paginationConfig.enabled ? '将自动爬取所有分页的章节列表' : '仅爬取当前页面的章节列表'}
+                    </Text>
+                  </div>
+                  
+                  {paginationConfig.enabled && (
+                    <PaginationConfigForm
+                      config={paginationConfig}
+                      onChange={setPaginationConfig}
+                      type="list"
+                    />
+                  )}
+                </Stack>
               )}
               
               {/* 章节内容配置 */}
               {currentStep === 2 && (
-                <div>
+                <Stack>
                   <Alert
-                    message="章节内容高级配置"
-                    description="配置章节内容的分页支持和内容清理规则，确保获取完整且干净的章节内容。"
-                    type="info"
-                    showIcon
-                    style={{ marginBottom: 16 }}
-                  />
-                  <Form layout="vertical">
-                    <Form.Item label="启用章节内容分页">
-                      <Switch
-                        checked={contentPaginationEnabled}
-                        onChange={setContentPaginationEnabled}
-                        checkedChildren="开启"
-                        unCheckedChildren="关闭"
-                      />
-                      <div style={{ marginTop: 8, color: '#666', fontSize: 12 }}>
-                        {contentPaginationEnabled ? '将自动获取多页章节内容' : '仅获取单页章节内容'}
-                      </div>
-                    </Form.Item>
-                    
-                    {contentPaginationEnabled && (
-                      <PaginationConfigForm
-                        config={contentPaginationConfig}
-                        onChange={setContentPaginationConfig}
-                        type="content"
-                      />
-                    )}
-                  </Form>
-                </div>
+                    title="章节内容高级配置"
+                    color="blue"
+                  >
+                    配置章节内容的分页支持和内容清理规则，确保获取完整且干净的章节内容。
+                  </Alert>
+                  <div>
+                    <Text size="sm" fw={500} mb="xs">启用章节内容分页</Text>
+                    <Switch
+                      checked={contentPaginationEnabled}
+                      onChange={(event) => setContentPaginationEnabled(event.currentTarget.checked)}
+                      label={contentPaginationEnabled ? '开启' : '关闭'}
+                    />
+                    <Text size="xs" c="dimmed" mt="xs">
+                      {contentPaginationEnabled ? '将自动获取多页章节内容' : '仅获取单页章节内容'}
+                    </Text>
+                  </div>
+                  
+                  {contentPaginationEnabled && (
+                    <PaginationConfigForm
+                      config={contentPaginationConfig}
+                      onChange={setContentPaginationConfig}
+                      type="content"
+                    />
+                  )}
+                </Stack>
               )}
             </Card>
           )}
@@ -1310,7 +1187,7 @@ function ConfigWizard() {
             >
               上一步
             </Button>
-            <Space>
+            <Group>
               <Button
                 type="default"
                 onClick={() => {
@@ -1327,7 +1204,7 @@ function ConfigWizard() {
               </Button>
               <Button
                 type="primary"
-                icon={<ArrowRightOutlined />}
+                icon={<IconArrowRight />}
                 onClick={() => {
                   console.log('点击按钮，当前步骤:', currentStep);
                   if (currentStep === 2) {
@@ -1342,7 +1219,7 @@ function ConfigWizard() {
               >
                 {currentStep === 2 ? '生成配置' : '下一步'}
               </Button>
-            </Space>
+            </Group>
           </div>
 
           {/* 测试功能已移除 */}
@@ -1351,6 +1228,25 @@ function ConfigWizard() {
 
         {/* 步骤3：配置预览 */}
         {currentStep === 3 && generatedConfig && (
+          <ConfigPreview
+            config={generatedConfig}
+            siteName={siteName}
+            baseUrl={baseUrl}
+            novelInfoFields={novelInfoFields}
+            chapterListFields={chapterListFields}
+            chapterContentFields={chapterContentFields}
+            fieldTypes={FIELD_TYPES}
+            saveStatus={saveStatus}
+            saveMessage={saveMessage}
+            saving={saving}
+            onSave={handleSaveConfig}
+            onBack={() => setCurrentStep(2)}
+            onNavigateToList={() => navigate('/crawler')}
+          />
+        )}
+
+        {/* 原始的步骤3代码，已废弃 */}
+        {false && currentStep === 3 && generatedConfig && (
           <Card title="📝 步骤4：配置预览与保存" size="small">
             {saveStatus === 'success' ? (
               <Alert
@@ -1378,73 +1274,73 @@ function ConfigWizard() {
               />
             )}
 
-            <Space direction="vertical" style={{ width: '100%' }} size="large">
+            <Stack style={{ width: '100%' }} size="large">
               {/* 配置摘要 */}
               <Card title="配置摘要" size="small" type="inner">
-                <Descriptions bordered column={1} size="small">
-                  <Descriptions.Item label="网站名称">
+                <AntDescriptions bordered column={1} size="small">
+                  <AntDescriptions.Item label="网站名称">
                     {siteName}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="网站URL">
+                  </AntDescriptions.Item>
+                  <AntDescriptions.Item label="网站URL">
                     {baseUrl}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="小说信息字段">
-                    <Space wrap>
+                  </AntDescriptions.Item>
+                  <AntDescriptions.Item label="小说信息字段">
+                    <Group wrap>
                       {Object.keys(novelInfoFields).map(field => (
-                        <Tag key={field} color="green">
+                        <Badge key={field} color="green">
                           {FIELD_TYPES.novel_info[field]?.label || field}
-                        </Tag>
+                        </Badge>
                       ))}
-                    </Space>
+                    </Group>
                     <Text type="secondary" style={{ marginLeft: 8 }}>
                       ({Object.keys(novelInfoFields).length} 个)
                     </Text>
-                  </Descriptions.Item>
-                  <Descriptions.Item label="章节列表字段">
-                    <Space wrap>
+                  </AntDescriptions.Item>
+                  <AntDescriptions.Item label="章节列表字段">
+                    <Group wrap>
                       {Object.keys(chapterListFields).map(field => (
-                        <Tag key={field} color="blue">
+                        <Badge key={field} color="blue">
                           {FIELD_TYPES.chapter_list[field]?.label || field}
-                        </Tag>
+                        </Badge>
                       ))}
-                    </Space>
+                    </Group>
                     <Text type="secondary" style={{ marginLeft: 8 }}>
                       ({Object.keys(chapterListFields).length} 个)
                     </Text>
-                  </Descriptions.Item>
-                  <Descriptions.Item label="章节内容字段">
-                    <Space wrap>
+                  </AntDescriptions.Item>
+                  <AntDescriptions.Item label="章节内容字段">
+                    <Group wrap>
                       {Object.keys(chapterContentFields).map(field => (
-                        <Tag key={field} color="orange">
+                        <Badge key={field} color="orange">
                           {FIELD_TYPES.chapter_content[field]?.label || field}
-                        </Tag>
+                        </Badge>
                       ))}
-                    </Space>
+                    </Group>
                     <Text type="secondary" style={{ marginLeft: 8 }}>
                       ({Object.keys(chapterContentFields).length} 个)
                     </Text>
-                  </Descriptions.Item>
-                </Descriptions>
+                  </AntDescriptions.Item>
+                </AntDescriptions>
               </Card>
 
 
               {/* JSON配置 */}
               <Card 
                 title={
-                  <Space>
-                    <CodeOutlined />
+                  <Group>
+                    <IconCode />
                     <span>JSON配置</span>
-                  </Space>
+                  </Group>
                 }
                 size="small" 
                 type="inner"
                 extra={
                   <Button
                     size="small"
-                    icon={<CopyOutlined />}
+                    icon={<IconCopy />}
                     onClick={() => {
                       navigator.clipboard.writeText(JSON.stringify(generatedConfig, null, 2))
-                      message.success('配置已复制到剪贴板')
+                      notifications.show({ title: '成功', message: '配置已复制到剪贴板', color: 'green' })
                     }}
                   >
                     复制JSON
@@ -1465,13 +1361,13 @@ function ConfigWizard() {
                   </pre>
                 </div>
               </Card>
-            </Space>
+            </Stack>
 
             <div style={{ marginTop: 24, display: 'flex', justifyContent: 'space-between' }}>
               {saveStatus === 'success' ? (
                 <Button 
                   type="primary"
-                  icon={<ArrowLeftOutlined />}
+                  icon={<IconArrowLeft />}
                   onClick={() => navigate('/crawler')}
                 >
                   返回配置列表
@@ -1481,12 +1377,12 @@ function ConfigWizard() {
                   上一步
                 </Button>
               )}
-              <Space>
+              <Group>
                 <Button
-                  icon={<CopyOutlined />}
+                  icon={<IconCopy />}
                   onClick={() => {
                     navigator.clipboard.writeText(JSON.stringify(generatedConfig, null, 2))
-                    message.success('配置已复制到剪贴板')
+                    notifications.show({ title: '成功', message: '配置已复制到剪贴板', color: 'green' })
                   }}
                 >
                   复制JSON
@@ -1495,7 +1391,7 @@ function ConfigWizard() {
                   <Button
                     type="primary"
                     size="large"
-                    icon={<SaveOutlined />}
+                    icon={<IconDeviceFloppy />}
                     onClick={() => {
                       console.log('点击保存配置按钮');
                       handleSaveConfig();
@@ -1505,7 +1401,7 @@ function ConfigWizard() {
                     {saving ? '保存中...' : '保存配置'}
                   </Button>
                 )}
-              </Space>
+              </Group>
             </div>
           </Card>
         )}
@@ -1527,61 +1423,76 @@ function ConfigWizard() {
 // 属性提取选择器组件
 function AttributeExtractorSelector({ attributeType, setAttributeType, customAttribute, setCustomAttribute }) {
   return (
-    <Card title="属性提取设置" size="small" style={{ marginTop: 16, marginBottom: 16 }}>
-      <Form layout="vertical">
-        <Form.Item label="提取方式">
+    <Card withBorder style={{ marginTop: 16, marginBottom: 16 }}>
+      <Card.Section withBorder inheritPadding py="xs">
+        <strong>属性提取设置</strong>
+      </Card.Section>
+      
+      <Stack mt="md">
+        <div>
+          <Text size="sm" fw={500} mb="xs">提取方式</Text>
           <Radio.Group 
             value={attributeType} 
-            onChange={(e) => setAttributeType(e.target.value)}
-            style={{ width: '100%' }}
+            onChange={setAttributeType}
           >
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <Radio value="auto">
-                <Space>
-                  <span>自动选择</span>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    (根据字段类型自动选择适合的属性)
-                  </Text>
-                </Space>
-              </Radio>
-              <Radio value="text">
-                <Space>
-                  <span>提取文本</span>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    (使用text()函数，仅提取当前节点的文本)
-                  </Text>
-                </Space>
-              </Radio>
-              <Radio value="string">
-                <Space>
-                  <span>提取所有文本</span>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    (使用string(.)函数，提取当前节点及其子节点的所有文本)
-                  </Text>
-                </Space>
-              </Radio>
-              <Radio value="custom">
-                <Space>
-                  <span>自定义属性</span>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    (提取指定的属性值，如title, data-value等)
-                  </Text>
-                </Space>
-              </Radio>
-            </Space>
+            <Stack>
+              <Radio 
+                value="auto" 
+                label={
+                  <div>
+                    <div>自动选择</div>
+                    <Text size="xs" c="dimmed">
+                      (根据字段类型自动选择适合的属性)
+                    </Text>
+                  </div>
+                }
+              />
+              <Radio 
+                value="text" 
+                label={
+                  <div>
+                    <div>提取文本</div>
+                    <Text size="xs" c="dimmed">
+                      (使用text()函数，仅提取当前节点的文本)
+                    </Text>
+                  </div>
+                }
+              />
+              <Radio 
+                value="string" 
+                label={
+                  <div>
+                    <div>提取所有文本</div>
+                    <Text size="xs" c="dimmed">
+                      (使用string(.)函数，提取当前节点及其子节点的所有文本)
+                    </Text>
+                  </div>
+                }
+              />
+              <Radio 
+                value="custom" 
+                label={
+                  <div>
+                    <div>自定义属性</div>
+                    <Text size="xs" c="dimmed">
+                      (提取指定的属性值，如title, data-value等)
+                    </Text>
+                  </div>
+                }
+              />
+            </Stack>
           </Radio.Group>
-        </Form.Item>
+        </div>
         
         {attributeType === 'custom' && (
-          <Form.Item label="属性名称">
-            <Input 
-              value={customAttribute} 
-              onChange={(e) => setCustomAttribute(e.target.value)}
-              placeholder="例如：title, data-value, alt等"
-            />
-          </Form.Item>
+          <TextInput
+            label="属性名称"
+            placeholder="例如：title, data-value, alt等"
+            value={customAttribute} 
+            onChange={(e) => setCustomAttribute(e.target.value)}
+          />
         )}
-      </Form>
+      </Stack>
     </Card>
   );
 }

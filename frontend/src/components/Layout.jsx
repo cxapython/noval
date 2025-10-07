@@ -1,69 +1,161 @@
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Layout as AntLayout, Menu, Typography } from 'antd'
-import { SettingOutlined, BookOutlined, GithubOutlined, UnorderedListOutlined } from '@ant-design/icons'
-
-const { Header, Content, Footer } = AntLayout
-const { Title } = Typography
+import { AppShell, Group, Title, ActionIcon, Tabs, Text, Menu, Tooltip, useMantineColorScheme, useComputedColorScheme } from '@mantine/core'
+import { IconSettings, IconBook, IconBrandGithub, IconList, IconSun, IconMoon, IconSunMoon } from '@tabler/icons-react'
 
 function Layout({ children }) {
   const location = useLocation()
   const navigate = useNavigate()
+  const { setColorScheme, colorScheme } = useMantineColorScheme()
+  const computedColorScheme = useComputedColorScheme('light')
 
-  const menuItems = [
-    {
-      key: '/tasks',
-      icon: <UnorderedListOutlined />,
-      label: '任务管理'
-    },
-    {
-      key: '/crawler',
-      icon: <SettingOutlined />,
-      label: '爬虫配置'
-    },
-    {
-      key: '/reader',
-      icon: <BookOutlined />,
-      label: '小说阅读'
+  // 确定当前激活的标签
+  const getActiveTab = () => {
+    if (location.pathname.startsWith('/reader')) return '/reader'
+    if (location.pathname.startsWith('/crawler')) return '/crawler'
+    if (location.pathname.startsWith('/tasks')) return '/tasks'
+    if (location.pathname.startsWith('/demo')) return '/demo'
+    return location.pathname
+  }
+
+  const handleTabChange = (value) => {
+    if (value) {
+      navigate(value)
     }
-  ]
+  }
 
-  const handleMenuClick = ({ key }) => {
-    navigate(key)
+  const handleColorSchemeChange = (value) => {
+    setColorScheme(value)
+    localStorage.setItem('mantine-color-scheme', value)
   }
 
   return (
-    <AntLayout>
-      <Header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
-          <Title level={4} style={{ margin: 0, color: '#1890ff' }}>
-            📚 小说爬虫管理系统 v2.0.0
-          </Title>
-          <Menu
-            mode="horizontal"
-            selectedKeys={[location.pathname.startsWith('/reader') ? '/reader' : location.pathname.startsWith('/crawler') ? '/crawler' : location.pathname]}
-            items={menuItems}
-            onClick={handleMenuClick}
-            style={{ flex: 1, minWidth: 400, border: 'none' }}
-          />
-        </div>
-        <a 
-          href="https://github.com" 
-          target="_blank" 
-          rel="noopener noreferrer"
-          style={{ color: '#666', fontSize: '20px' }}
-        >
-          <GithubOutlined />
-        </a>
-      </Header>
+    <AppShell
+      header={{ height: 64 }}
+      footer={{ height: 48 }}
+      padding="lg"
+    >
+      <AppShell.Header>
+        <Group h="100%" px="xl" justify="space-between">
+          <Group gap="xl">
+            <Group gap="xs">
+              <Text size="24px" style={{ lineHeight: 1 }}>📚</Text>
+              <div>
+                <Title 
+                  order={4} 
+                  style={{ 
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    fontWeight: 700,
+                    letterSpacing: '-0.5px'
+                  }}
+                >
+                  小说爬虫管理系统
+                </Title>
+                <Text size="10px" c="dimmed" mt={-2}>v4.0.0</Text>
+              </div>
+            </Group>
+            
+            <Tabs 
+              value={getActiveTab()} 
+              onChange={handleTabChange}
+              variant="pills"
+              ml="md"
+            >
+              <Tabs.List>
+                <Tabs.Tab 
+                  value="/tasks" 
+                  leftSection={<IconList size={16} />}
+                >
+                  任务管理
+                </Tabs.Tab>
+                <Tabs.Tab 
+                  value="/crawler" 
+                  leftSection={<IconSettings size={16} />}
+                >
+                  爬虫配置
+                </Tabs.Tab>
+                <Tabs.Tab 
+                  value="/reader" 
+                  leftSection={<IconBook size={16} />}
+                >
+                  小说阅读
+                </Tabs.Tab>
+              </Tabs.List>
+            </Tabs>
+          </Group>
 
-      <Content style={{ padding: '24px', minHeight: 'calc(100vh - 134px)' }}>
+          <Group gap="xs">
+            {/* 主题切换按钮 */}
+            <Menu shadow="md" width={180}>
+              <Menu.Target>
+                <Tooltip label="切换主题">
+                  <ActionIcon
+                    variant="light"
+                    size="lg"
+                    radius="md"
+                  >
+                    {computedColorScheme === 'dark' ? (
+                      <IconMoon size={18} />
+                    ) : (
+                      <IconSun size={18} />
+                    )}
+                  </ActionIcon>
+                </Tooltip>
+              </Menu.Target>
+
+              <Menu.Dropdown>
+                <Menu.Label>选择主题</Menu.Label>
+                <Menu.Item
+                  leftSection={<IconSun size={16} />}
+                  onClick={() => handleColorSchemeChange('light')}
+                  rightSection={colorScheme === 'light' && '✓'}
+                >
+                  浅色模式
+                </Menu.Item>
+                <Menu.Item
+                  leftSection={<IconMoon size={16} />}
+                  onClick={() => handleColorSchemeChange('dark')}
+                  rightSection={colorScheme === 'dark' && '✓'}
+                >
+                  深色模式
+                </Menu.Item>
+                <Menu.Item
+                  leftSection={<IconSunMoon size={16} />}
+                  onClick={() => handleColorSchemeChange('auto')}
+                  rightSection={colorScheme === 'auto' && '✓'}
+                >
+                  跟随系统
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
+
+            <ActionIcon
+              component="a"
+              href="https://github.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              variant="light"
+              color="gray"
+              size="lg"
+              radius="md"
+            >
+              <IconBrandGithub size={18} />
+            </ActionIcon>
+          </Group>
+        </Group>
+      </AppShell.Header>
+
+      <AppShell.Main>
         {children}
-      </Content>
+      </AppShell.Main>
 
-      <Footer style={{ textAlign: 'center', background: '#fff' }}>
-        小说爬虫管理系统 ©2025 | 基于配置驱动的通用爬虫框架
-      </Footer>
-    </AntLayout>
+      <AppShell.Footer px="xl" py="sm">
+        <Text ta="center" size="xs" c="dimmed" fw={500}>
+          小说爬虫管理系统 ©2025 | 基于配置驱动的通用爬虫框架 🚀
+        </Text>
+      </AppShell.Footer>
+    </AppShell>
   )
 }
 

@@ -1,21 +1,19 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { 
-  Card, Button, Tabs, Input, App, Spin, Tag, Space
-} from 'antd'
+  Card, Button, Tabs, Textarea, Loader, Badge, Group, Stack, Center
+} from '@mantine/core'
 import { 
-  SaveOutlined, CodeOutlined, 
-  CopyOutlined, ArrowLeftOutlined, ApartmentOutlined 
-} from '@ant-design/icons'
+  IconDeviceFloppy, IconCode, 
+  IconCopy, IconArrowLeft, IconSitemap 
+} from '@tabler/icons-react'
+import { notifications } from '@mantine/notifications'
 import axios from 'axios'
 import SimpleFlowEditorTab from './FlowEditor/SimpleFlowEditorTab'
-
-const { TextArea } = Input
 
 const API_BASE = '/api/crawler'
 
 function ConfigEditorPage() {
-  const { message } = App.useApp()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const filename = searchParams.get('file')
@@ -44,7 +42,11 @@ function ConfigEditorPage() {
         setJsonText(JSON.stringify(response.data.config, null, 2))
       }
     } catch (error) {
-      message.error('加载配置失败: ' + error.message)
+      notifications.show({
+        title: '错误',
+        message: '加载配置失败: ' + error.message,
+        color: 'red'
+      })
       navigate('/crawler')
     } finally {
       setLoading(false)
@@ -60,7 +62,11 @@ function ConfigEditorPage() {
         setJsonText(JSON.stringify(response.data.template, null, 2))
       }
     } catch (error) {
-      message.error('加载模板失败: ' + error.message)
+      notifications.show({
+        title: '错误',
+        message: '加载模板失败: ' + error.message,
+        color: 'red'
+      })
       navigate('/crawler')
     } finally {
       setLoading(false)
@@ -156,7 +162,11 @@ function ConfigEditorPage() {
 
   const handleSave = async () => {
     if (jsonError) {
-      message.error('JSON格式错误，无法保存！')
+      notifications.show({
+        title: '错误',
+        message: 'JSON格式错误，无法保存！',
+        color: 'red'
+      })
       return
     }
 
@@ -169,7 +179,11 @@ function ConfigEditorPage() {
       } else {
         const siteName = configData.site_info?.name
         if (!siteName) {
-          message.warning('请填写网站名称（site_info.name）')
+          notifications.show({
+            title: '提示',
+            message: '请填写网站名称（site_info.name）',
+            color: 'yellow'
+          })
           return
         }
         await axios.post(`${API_BASE}/config`, {
@@ -178,10 +192,18 @@ function ConfigEditorPage() {
         })
       }
       
-      message.success('保存成功！')
+      notifications.show({
+        title: '成功',
+        message: '保存成功！',
+        color: 'green'
+      })
       setTimeout(() => navigate('/crawler'), 500)
     } catch (error) {
-      message.error('保存失败: ' + error.message)
+      notifications.show({
+        title: '错误',
+        message: '保存失败: ' + error.message,
+        color: 'red'
+      })
     } finally {
       setSaving(false)
     }
@@ -189,59 +211,34 @@ function ConfigEditorPage() {
 
   const handleCopyJson = () => {
     navigator.clipboard.writeText(jsonText)
-    message.success('已复制到剪贴板！')
+    notifications.show({
+      title: '成功',
+      message: '已复制到剪贴板！',
+      color: 'green'
+    })
   }
 
   if (loading) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        minHeight: '60vh' 
-      }}>
-        <Spin size="large" tip="加载配置中..." />
-      </div>
+      <Center style={{ minHeight: '60vh' }}>
+        <Stack align="center" gap="md">
+          <Loader size="lg" />
+          <span>加载配置中...</span>
+        </Stack>
+      </Center>
     )
   }
 
-  const tabItems = [
-    {
-      key: 'flow',
-      label: (
-        <span style={{ fontSize: 16 }}>
-          <ApartmentOutlined /> 流程配置
-        </span>
-      ),
-      children: <SimpleFlowEditorTab configData={configData} onConfigChange={handleFieldChange} />
-    },
-    {
-      key: 'json',
-      label: (
-        <span style={{ fontSize: 16 }}>
-          <CodeOutlined /> JSON视图
-        </span>
-      ),
-      children: (
-        <JsonView
-          jsonText={jsonText}
-          onChange={handleJsonChange}
-          error={jsonError}
-          onCopy={handleCopyJson}
-        />
-      )
-    }
-  ]
-
   return (
     <div className="fade-in" style={{ padding: '0 24px 24px' }}>
-      <Card>
-        <div style={{ marginBottom: 24 }}>
-          <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-            <Space size="large">
+      <Card shadow="sm" padding="lg" radius="md" withBorder>
+        <Stack gap="lg">
+          <Group justify="space-between">
+            <Group>
               <Button 
-                icon={<ArrowLeftOutlined />}
+                leftSection={<IconArrowLeft size={16} />}
                 onClick={() => navigate('/crawler')}
+                variant="default"
               >
                 返回列表
               </Button>
@@ -250,30 +247,52 @@ function ConfigEditorPage() {
                   {filename ? `编辑配置: ${filename}` : '新建配置'}
                 </h2>
                 {!filename && (
-                  <Tag color="green" style={{ marginTop: 8 }}>新建模式</Tag>
+                  <Badge color="green" size="lg" mt="xs">新建模式</Badge>
                 )}
               </div>
-            </Space>
+            </Group>
             
             <Button 
-              type="primary" 
-              size="large"
-              icon={<SaveOutlined />} 
+              size="lg"
+              leftSection={<IconDeviceFloppy size={18} />} 
               onClick={handleSave}
               loading={saving}
               disabled={!!jsonError}
             >
               保存配置
             </Button>
-          </Space>
-        </div>
+          </Group>
 
-        <Tabs
-          activeKey={viewMode}
-          onChange={setViewMode}
-          items={tabItems}
-          size="large"
-        />
+          <Tabs value={viewMode} onChange={setViewMode}>
+            <Tabs.List>
+              <Tabs.Tab 
+                value="flow" 
+                leftSection={<IconSitemap size={16} />}
+              >
+                流程配置
+              </Tabs.Tab>
+              <Tabs.Tab 
+                value="json" 
+                leftSection={<IconCode size={16} />}
+              >
+                JSON视图
+              </Tabs.Tab>
+            </Tabs.List>
+
+            <Tabs.Panel value="flow" pt="md">
+              <SimpleFlowEditorTab configData={configData} onConfigChange={handleFieldChange} />
+            </Tabs.Panel>
+
+            <Tabs.Panel value="json" pt="md">
+              <JsonView
+                jsonText={jsonText}
+                onChange={handleJsonChange}
+                error={jsonError}
+                onCopy={handleCopyJson}
+              />
+            </Tabs.Panel>
+          </Tabs>
+        </Stack>
       </Card>
     </div>
   )
@@ -282,32 +301,36 @@ function ConfigEditorPage() {
 // JSON视图组件
 function JsonView({ jsonText, onChange, error, onCopy }) {
   return (
-    <div style={{ padding: '16px 0' }}>
-      <Space style={{ marginBottom: 16 }}>
+    <Stack gap="md">
+      <Group>
         <Button 
-          icon={<CopyOutlined />} 
+          leftSection={<IconCopy size={16} />} 
           onClick={onCopy}
+          variant="light"
         >
           复制到剪贴板
         </Button>
         {error && (
-          <Tag color="error" style={{ fontSize: 14, padding: '4px 12px' }}>
+          <Badge color="red" size="lg" variant="filled">
             ⚠️ {error}
-          </Tag>
+          </Badge>
         )}
-      </Space>
-      <TextArea
+      </Group>
+      <Textarea
         value={jsonText}
         onChange={(e) => onChange(e.target.value)}
-        style={{ 
-          fontFamily: 'Monaco, Courier New, monospace',
-          fontSize: 14,
-          lineHeight: 1.6,
-          minHeight: 'calc(100vh - 380px)'
+        minRows={20}
+        autosize
+        styles={{
+          input: { 
+            fontFamily: 'Monaco, Courier New, monospace',
+            fontSize: 14,
+            lineHeight: 1.6,
+          }
         }}
-        status={error ? 'error' : ''}
+        error={error ? true : false}
       />
-    </div>
+    </Stack>
   )
 }
 

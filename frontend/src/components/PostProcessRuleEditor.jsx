@@ -1,14 +1,12 @@
 import { useState, useEffect } from 'react'
 import {
-  Modal, Card, Form, Select, Input, InputNumber, 
-  Button, Space, Alert, Tag, Typography
-} from 'antd'
+  Modal, Card, Select, TextInput, NumberInput, 
+  Button, Stack, Alert, Badge, Text, Group, Space
+} from '@mantine/core'
 import {
-  PlusOutlined, DeleteOutlined, EditOutlined,
-  InfoCircleOutlined
-} from '@ant-design/icons'
-
-const { Text } = Typography
+  IconPlus, IconTrash, IconEdit,
+  IconInfoCircle
+} from '@tabler/icons-react'
 
 /**
  * 清洗方法配置
@@ -138,109 +136,118 @@ function SingleRuleEditor({ rule, index, onChange, onRemove }) {
   
   return (
     <Card
-      size="small"
-      title={
-        <Space>
-          <Text strong>规则 {index + 1}</Text>
-          {methodConfig && (
-            <Tag color="blue">{methodConfig.label}</Tag>
-          )}
-        </Space>
-      }
-      extra={
-        <Button
-          size="small"
-          danger
-          icon={<DeleteOutlined />}
-          onClick={() => onRemove(index)}
-        >
-          删除
-        </Button>
-      }
-      style={{ marginBottom: 16 }}
+      shadow="sm"
+      padding="md"
+      radius="md"
+      withBorder
+      mb="md"
     >
-      <Form layout="vertical" size="small">
-        {/* 方法选择 */}
-        <Form.Item 
-          label="清洗方法"
-          help={methodConfig?.description}
-        >
-          <Select
-            value={rule.method}
-            onChange={handleMethodChange}
-            style={{ width: '100%' }}
-            placeholder="选择清洗方法"
+      <Card.Section withBorder inheritPadding py="xs">
+        <Group justify="space-between">
+          <Group>
+            <Text fw={600}>规则 {index + 1}</Text>
+            {methodConfig && (
+              <Badge color="blue" variant="filled">{methodConfig.label}</Badge>
+            )}
+          </Group>
+          <Button
+            size="xs"
+            color="red"
+            variant="light"
+            leftSection={<IconTrash size={14} />}
+            onClick={() => onRemove(index)}
           >
-            {POST_PROCESS_METHODS.map(method => (
-              <Select.Option key={method.value} value={method.value}>
-                {method.label}
-              </Select.Option>
-            ))}
-          </Select>
-        </Form.Item>
+            删除
+          </Button>
+        </Group>
+      </Card.Section>
+
+      <Stack gap="md" mt="md">
+        {/* 方法选择 */}
+        <Select
+          label="清洗方法"
+          description={methodConfig?.description}
+          value={rule.method}
+          onChange={handleMethodChange}
+          data={POST_PROCESS_METHODS.map(method => ({
+            value: method.value,
+            label: method.label
+          }))}
+          placeholder="选择清洗方法"
+        />
         
         {/* 方法示例 */}
         {methodConfig?.example && (
           <Alert
-            message="使用示例"
-            description={<Text code style={{ fontSize: 12 }}>{methodConfig.example}</Text>}
-            type="info"
-            showIcon
-            icon={<InfoCircleOutlined />}
-            style={{ marginBottom: 16, fontSize: 12 }}
-          />
+            icon={<IconInfoCircle />}
+            title="使用示例"
+            color="blue"
+          >
+            <Text size="xs" c="dimmed" style={{ fontFamily: 'monospace' }}>
+              {methodConfig.example}
+            </Text>
+          </Alert>
         )}
         
         {/* 参数输入 */}
         {methodConfig?.params && methodConfig.params.length > 0 ? (
           <>
-            <div style={{ 
-              marginBottom: 12, 
-              padding: 8, 
-              background: '#f0f5ff', 
-              borderRadius: 4,
-              fontWeight: 500
-            }}>
+            <Text
+              fw={500}
+              size="sm"
+              p="xs"
+              style={{ 
+                background: 'var(--mantine-color-blue-0)',
+                borderRadius: 'var(--mantine-radius-sm)'
+              }}
+            >
               方法参数 ({methodConfig.params.length} 个)
-            </div>
+            </Text>
             {methodConfig.params.map(param => (
-              <Form.Item
-                key={param.name}
-                label={
-                  <Space>
-                    <span>{param.label}</span>
-                    {param.optional && <Tag color="default">可选</Tag>}
-                    {param.required && <Tag color="red">必填</Tag>}
-                  </Space>
-                }
-                required={param.required}
-                help={param.placeholder}
-              >
+              <div key={param.name}>
                 {param.type === 'number' ? (
-                  <InputNumber
+                  <NumberInput
+                    label={
+                      <Group gap="xs">
+                        <span>{param.label}</span>
+                        {param.optional && <Badge size="xs" color="gray">可选</Badge>}
+                        {param.required && <Badge size="xs" color="red">必填</Badge>}
+                      </Group>
+                    }
+                    description={param.placeholder}
                     value={rule.params?.[param.name] ?? 0}
                     onChange={(value) => handleParamChange(param.name, value)}
-                    style={{ width: '100%' }}
                     placeholder={param.placeholder}
+                    required={param.required}
                   />
                 ) : (
-                  <Input
+                  <TextInput
+                    label={
+                      <Group gap="xs">
+                        <span>{param.label}</span>
+                        {param.optional && <Badge size="xs" color="gray">可选</Badge>}
+                        {param.required && <Badge size="xs" color="red">必填</Badge>}
+                      </Group>
+                    }
+                    description={param.placeholder}
                     value={rule.params?.[param.name] ?? ''}
                     onChange={(e) => handleParamChange(param.name, e.target.value)}
                     placeholder={param.placeholder}
+                    required={param.required}
                   />
                 )}
-              </Form.Item>
+              </div>
             ))}
           </>
         ) : (
           <Alert
-            message="此方法无需参数"
-            type="success"
-            showIcon
-          />
+            color="green"
+            icon={<IconInfoCircle />}
+          >
+            此方法无需参数
+          </Alert>
         )}
-      </Form>
+      </Stack>
     </Card>
   )
 }
@@ -288,67 +295,74 @@ function PostProcessRuleModal({
   
   return (
     <Modal
-      open={visible}
+      opened={visible}
+      onClose={onCancel}
       title={
-        <Space>
-          <EditOutlined />
-          <span>编辑清洗规则：{fieldLabel}</span>
-        </Space>
+        <Group gap="xs">
+          <IconEdit size={20} />
+          <Text fw={600}>编辑清洗规则：{fieldLabel}</Text>
+        </Group>
       }
-      width={800}
-      onCancel={onCancel}
-      onOk={handleSave}
-      okText="保存"
-      cancelText="取消"
+      size="xl"
+      centered
     >
-      <Alert
-        message="清洗规则说明"
-        description={
-          <div>
-            <p>• 这些规则将<strong>按顺序</strong>对提取的内容进行处理</p>
-            <p>• 例如：先 strip 去空格，再 replace 替换特定字符</p>
-            <p>• 每个规则的输出会作为下一个规则的输入</p>
-          </div>
-        }
-        type="info"
-        showIcon
-        closable
-        style={{ marginBottom: 16 }}
-      />
-      
-      <Space direction="vertical" style={{ width: '100%' }} size="middle">
-        {rules.map((rule, index) => (
-          <SingleRuleEditor
-            key={index}
-            rule={rule}
-            index={index}
-            onChange={handleChange}
-            onRemove={handleRemove}
-          />
-        ))}
-        
-        {rules.length === 0 && (
-          <div style={{ 
-            padding: 32, 
-            textAlign: 'center', 
-            background: '#fafafa',
-            borderRadius: 8,
-            color: '#999'
-          }}>
-            暂无清洗规则，点击下方"添加规则"按钮开始配置
-          </div>
-        )}
-        
-        <Button
-          type="dashed"
-          icon={<PlusOutlined />}
-          onClick={handleAdd}
-          block
-          size="large"
+      <Stack gap="md">
+        <Alert
+          icon={<IconInfoCircle />}
+          title="清洗规则说明"
+          color="blue"
+          variant="light"
         >
-          添加清洗规则
-        </Button>
-      </Space>
+          <Stack gap="xs">
+            <Text size="sm">• 这些规则将<strong>按顺序</strong>对提取的内容进行处理</Text>
+            <Text size="sm">• 例如：先 strip 去空格，再 replace 替换特定字符</Text>
+            <Text size="sm">• 每个规则的输出会作为下一个规则的输入</Text>
+          </Stack>
+        </Alert>
+        
+        <Stack gap="md">
+          {rules.map((rule, index) => (
+            <SingleRuleEditor
+              key={index}
+              rule={rule}
+              index={index}
+              onChange={handleChange}
+              onRemove={handleRemove}
+            />
+          ))}
+          
+          {rules.length === 0 && (
+            <div style={{ 
+              padding: '32px', 
+              textAlign: 'center', 
+              background: 'var(--mantine-color-gray-0)',
+              borderRadius: 'var(--mantine-radius-md)',
+              color: 'var(--mantine-color-gray-6)'
+            }}>
+              暂无清洗规则，点击下方"添加规则"按钮开始配置
+            </div>
+          )}
+          
+          <Button
+            variant="light"
+            leftSection={<IconPlus size={16} />}
+            onClick={handleAdd}
+            fullWidth
+            size="md"
+          >
+            添加清洗规则
+          </Button>
+        </Stack>
+
+        <Group justify="flex-end" mt="md">
+          <Button variant="default" onClick={onCancel}>
+            取消
+          </Button>
+          <Button onClick={handleSave}>
+            保存
+          </Button>
+        </Group>
+      </Stack>
     </Modal>
   )
 }
@@ -380,18 +394,20 @@ function PostProcessRuleInline({
   }
   
   return (
-    <div>
-      <div style={{ 
-        marginBottom: 16,
-        padding: 12,
-        background: '#f0f5ff',
-        borderRadius: 8,
-        fontWeight: 600
-      }}>
+    <Stack gap="md">
+      <Text
+        fw={600}
+        size="sm"
+        p="sm"
+        style={{ 
+          background: 'var(--mantine-color-blue-0)',
+          borderRadius: 'var(--mantine-radius-md)'
+        }}
+      >
         {title} ({value.length} 个规则)
-      </div>
+      </Text>
       
-      <Space direction="vertical" style={{ width: '100%' }} size="middle">
+      <Stack gap="md">
         {value.map((rule, index) => (
           <SingleRuleEditor
             key={index}
@@ -404,26 +420,26 @@ function PostProcessRuleInline({
         
         {value.length === 0 && (
           <div style={{ 
-            padding: 24, 
+            padding: '24px', 
             textAlign: 'center', 
-            background: '#fafafa',
-            borderRadius: 8,
-            color: '#999'
+            background: 'var(--mantine-color-gray-0)',
+            borderRadius: 'var(--mantine-radius-md)',
+            color: 'var(--mantine-color-gray-6)'
           }}>
             暂无清洗规则，点击下方按钮添加
           </div>
         )}
         
         <Button
-          type="dashed"
-          icon={<PlusOutlined />}
+          variant="light"
+          leftSection={<IconPlus size={16} />}
           onClick={handleAdd}
-          block
+          fullWidth
         >
           添加清洗规则
         </Button>
-      </Space>
-    </div>
+      </Stack>
+    </Stack>
   )
 }
 

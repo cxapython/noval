@@ -9,28 +9,32 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { 
-  Button, Space, message, Modal, Card, Steps, Select, 
-  List, Tag, Divider, Typography, Alert, Switch, Form, Input, InputNumber
-} from 'antd';
-
-const { TextArea } = Input;
+  Button, Group, Stack, Modal, Card, Stepper, Select, 
+  Badge, Divider, Text, Alert, Switch, NumberInput, TextInput, Textarea,
+  List, Space
+} from '@mantine/core';
+import { notifications } from '@mantine/notifications';
+import { modals } from '@mantine/modals';
 import {
-  PlayCircleOutlined,
-  ClearOutlined,
-  SaveOutlined,
-  CheckCircleOutlined,
-  ArrowRightOutlined,
-  ArrowLeftOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  MenuFoldOutlined,
-  MenuUnfoldOutlined,
-  ColumnWidthOutlined,
-  UpOutlined,
-  DownOutlined,
-  FullscreenOutlined,
-  FullscreenExitOutlined
-} from '@ant-design/icons';
+  IconPlayerPlay,
+  IconClearAll,
+  IconDeviceFloppy,
+  IconCircleCheck,
+  IconArrowRight,
+  IconArrowLeft,
+  IconEdit,
+  IconTrash,
+  IconLayoutSidebarLeftCollapse,
+  IconLayoutSidebarRightCollapse,
+  IconColumnInsertRight,
+  IconChevronUp,
+  IconChevronDown,
+  IconMaximize,
+  IconMinimize,
+  IconLayoutSidebarLeftExpand,
+  IconLayoutSidebarRightExpand,
+  IconColumns
+} from '@tabler/icons-react';
 
 import NodePalette from './NodePalette';
 import XPathExtractorNode from './nodes/XPathExtractorNode';
@@ -39,10 +43,6 @@ import ProcessorNode from './nodes/ProcessorNode';
 import PaginationConfigForm from '../../components/PaginationConfigForm';
 import { generateFieldConfigFromFlow, validateFlow, generateFlowFromFieldConfig } from './configGenerator';
 import './FlowEditor.css';
-
-const { Text } = Typography;
-const { Option } = Select;
-const { Step } = Steps;
 
 // 注册自定义节点类型
 const nodeTypes = {
@@ -202,12 +202,17 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
       document.removeEventListener('keydown', handleEscape);
     };
   }, [isFullscreen]);
+  
 
   // 切换全屏
   const toggleFullscreen = () => {
     setIsFullscreen(!isFullscreen);
     if (!isFullscreen) {
-      message.success('已进入全屏模式，按ESC键退出');
+      notifications.show({
+        title: '成功',
+        message: '已进入全屏模式，按ESC键退出',
+        color: 'green'
+      });
     }
   };
   
@@ -301,17 +306,18 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
       // 验证流程
       const errors = validateFlow(nodes, edges);
       if (errors.length > 0) {
-        Modal.error({
+        modals.open({
           title: '流程验证失败',
-          content: (
-            <div>
+          children: (
+            <Stack gap="xs">
               {errors.map((err, idx) => (
-                <div key={idx} style={{ color: '#ff4d4f', marginBottom: 4 }}>
+                <Text key={idx} c="red" size="sm">
                   • {err}
-                </div>
+                </Text>
               ))}
-            </div>
-          )
+            </Stack>
+          ),
+          centered: true
         });
         return;
       }
@@ -326,14 +332,22 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
         [selectedField]: fieldConfig
       });
 
-      message.success(`已保存字段: ${selectedField}`);
+      notifications.show({
+        title: '成功',
+        message: `已保存字段: ${selectedField}`,
+        color: 'green'
+      });
       
       // 清空画布，准备配置下一个字段
       setNodes([]);
       setEdges([]);
       
     } catch (error) {
-      message.error(`保存失败: ${error.message}`);
+      notifications.show({
+        title: '错误',
+        message: `保存失败: ${error.message}`,
+        color: 'red'
+      });
       console.error(error);
     }
   }, [nodes, edges, selectedField, currentStep, getCurrentFields, setCurrentFields, setNodes, setEdges]);
@@ -344,7 +358,11 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
     const fieldConfig = currentFields[fieldKey];
     
     if (!fieldConfig) {
-      message.error('找不到字段配置');
+      notifications.show({
+        title: '错误',
+        message: '找不到字段配置',
+        color: 'red'
+      });
       return;
     }
 
@@ -369,9 +387,17 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
         setSelectedField(fieldKey);
         
         const fieldInfo = currentStepConfig.fields.find(f => f.key === fieldKey);
-        message.success(`已加载 "${fieldInfo?.label || fieldKey}" 的流程，可以进行编辑`);
+        notifications.show({
+          title: '成功',
+          message: `已加载 "${fieldInfo?.label || fieldKey}" 的流程，可以进行编辑`,
+          color: 'green'
+        });
       } catch (error) {
-        message.error(`加载配置失败: ${error.message}`);
+        notifications.show({
+          title: '错误',
+          message: `加载配置失败: ${error.message}`,
+          color: 'red'
+        });
         console.error('加载配置错误:', error);
       }
     };
@@ -379,17 +405,17 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
     // 如果画布有未保存的节点，弹出确认对话框
     if (nodes.length > 0) {
       const fieldInfo = currentStepConfig.fields.find(f => f.key === fieldKey);
-      Modal.confirm({
+      modals.openConfirmModal({
         title: '确认加载配置',
-        content: (
-          <div>
-            <p>当前画布有节点，加载 <strong>{fieldInfo?.label || fieldKey}</strong> 的配置将清空当前画布。</p>
-            <p>确定要继续吗？</p>
-          </div>
+        children: (
+          <Stack gap="sm">
+            <Text size="sm">当前画布有节点，加载 <strong>{fieldInfo?.label || fieldKey}</strong> 的配置将清空当前画布。</Text>
+            <Text size="sm">确定要继续吗？</Text>
+          </Stack>
         ),
-        okText: '确定加载',
-        cancelText: '取消',
-        onOk: loadFieldConfig
+        labels: { confirm: '确定加载', cancel: '取消' },
+        onConfirm: loadFieldConfig,
+        centered: true
       });
     } else {
       loadFieldConfig();
@@ -398,29 +424,43 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
 
   // 删除已保存的字段
   const handleDeleteField = (fieldKey) => {
-    Modal.confirm({
+    modals.openConfirmModal({
       title: '确认删除',
-      content: `确定要删除字段 "${fieldKey}" 的配置吗？`,
-      onOk: () => {
+      children: <Text size="sm">确定要删除字段 "{fieldKey}" 的配置吗？</Text>,
+      labels: { confirm: '删除', cancel: '取消' },
+      confirmProps: { color: 'red' },
+      onConfirm: () => {
         const currentFields = getCurrentFields();
         const newFields = { ...currentFields };
         delete newFields[fieldKey];
         setCurrentFields(newFields);
-        message.success('已删除字段配置');
-      }
+        notifications.show({
+          title: '成功',
+          message: '已删除字段配置',
+          color: 'green'
+        });
+      },
+      centered: true
     });
   };
 
   // 清空画布
   const handleClear = useCallback(() => {
-    Modal.confirm({
+    modals.openConfirmModal({
       title: '确认清空',
-      content: '确定要清空当前流程吗？此操作不可恢复。',
-      onOk: () => {
+      children: <Text size="sm">确定要清空当前流程吗？此操作不可恢复。</Text>,
+      labels: { confirm: '确认', cancel: '取消' },
+      confirmProps: { color: 'red' },
+      onConfirm: () => {
         setNodes([]);
         setEdges([]);
-        message.success('画布已清空');
-      }
+        notifications.show({
+          title: '成功',
+          message: '画布已清空',
+          color: 'green'
+        });
+      },
+      centered: true
     });
   }, [setNodes, setEdges]);
 
@@ -431,7 +471,11 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
     const missingFields = requiredFields.filter(f => !currentFields[f.key]);
 
     if (missingFields.length > 0) {
-      message.warning(`请配置必填字段: ${missingFields.map(f => f.label).join('、')}`);
+      notifications.show({
+        title: '警告',
+        message: `请配置必填字段: ${missingFields.map(f => f.label).join('、')}`,
+        color: 'orange'
+      });
       return;
     }
 
@@ -460,7 +504,11 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
   const handleGenerateFinalConfig = () => {
     // 验证网站基本信息
     if (!siteInfo.name || !siteInfo.base_url) {
-      message.error('请填写网站名称和基础URL');
+      notifications.show({
+        title: '错误',
+        message: '请填写网站名称和基础URL',
+        color: 'red'
+      });
       return;
     }
     
@@ -567,24 +615,31 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
     // 调用父组件的更新方法
     onConfigChange('root', newConfigData);
 
-    message.success('配置已生成！请切换到JSON视图查看并保存');
+    notifications.show({
+      title: '成功',
+      message: '配置已生成！请切换到JSON视图查看并保存',
+      color: 'green'
+    });
     
-    Modal.success({
+    modals.open({
       title: '配置生成成功',
-      content: (
-        <div>
-          <p>已配置字段统计：</p>
-          <p>• 小说信息: {Object.keys(novelInfoFields).length} 个字段</p>
-          <p>• 章节列表: {Object.keys(chapterListFields).length} 个字段 
-            {chapterListPagination.enabled && <Tag color="green" style={{marginLeft: 8}}>已启用翻页</Tag>}
-          </p>
-          <p>• 章节内容: {Object.keys(chapterContentFields).length} 个字段
-            {contentPagination.enabled && <Tag color="green" style={{marginLeft: 8}}>已启用翻页</Tag>}
-          </p>
+      children: (
+        <Stack gap="sm">
+          <Text size="sm">已配置字段统计：</Text>
+          <Text size="sm">• 小说信息: {Object.keys(novelInfoFields).length} 个字段</Text>
+          <Text size="sm">
+            • 章节列表: {Object.keys(chapterListFields).length} 个字段 
+            {chapterListPagination.enabled && <Badge color="green" ml={8}>已启用翻页</Badge>}
+          </Text>
+          <Text size="sm">
+            • 章节内容: {Object.keys(chapterContentFields).length} 个字段
+            {contentPagination.enabled && <Badge color="green" ml={8}> 已启用翻页</Badge>}
+          </Text>
           <Divider />
-          <p>请切换到 <strong>JSON视图</strong> 查看完整配置并保存。</p>
-        </div>
-      )
+          <Text size="sm">请切换到 <strong>JSON视图</strong> 查看完整配置并保存。</Text>
+        </Stack>
+      ),
+      centered: true
     });
   };
 
@@ -595,7 +650,11 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
   const handleSiteInfoConfirm = () => {
     // 验证必填字段
     if (!siteInfo.name || !siteInfo.base_url) {
-      message.error('请填写网站名称和基础URL');
+      notifications.show({
+        title: '错误',
+        message: '请填写网站名称和基础URL',
+        color: 'red'
+      });
       return;
     }
     
@@ -625,8 +684,8 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
     >
       {/* 全屏切换按钮 */}
       <Button
-        type={isFullscreen ? 'default' : 'primary'}
-        icon={isFullscreen ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
+        variant={isFullscreen ? 'default' : 'filled'}
+        leftSection={isFullscreen ? <IconMinimize size={16} /> : <IconMaximize size={16} />}
         onClick={toggleFullscreen}
         style={{
           position: 'absolute',
@@ -641,12 +700,12 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
       </Button>
 
       {/* 步骤指示器 */}
-      <Card size="small">
-        <Steps current={currentStep} size="small">
+      <Card padding="sm" radius="md" withBorder>
+        <Stepper active={currentStep} size="sm">
           {STEPS_CONFIG.map(step => (
-            <Step 
+            <Stepper.Step 
               key={step.step} 
-              title={<span style={{ fontSize: 13 }}>{step.title}</span>}
+              label={<span style={{ fontSize: 13 }}>{step.title}</span>}
               description={<span style={{ fontSize: 11 }}>{`${Object.keys(
                 step.step === 0 ? novelInfoFields :
                 step.step === 1 ? chapterListFields :
@@ -654,7 +713,7 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
               ).length}/${step.fields.filter(f => f.required).length} 必填`}</span>}
             />
           ))}
-        </Steps>
+        </Stepper>
       </Card>
 
       <div style={{ display: 'flex', flex: 1, gap: 0, position: 'relative', minHeight: 0 }}>
@@ -663,26 +722,25 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
           <>
             <div style={{ width: leftPanelWidth, transition: isResizing ? 'none' : 'width 0.3s' }}>
               <Card 
-                size="small"
-                title={
+                padding="sm"
+                style={{ height: '100%', overflow: 'hidden' }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                   <Space>
-                    <ColumnWidthOutlined />
-                    <span>组件面板</span>
+                    <IconColumns size={16} />
+                    <Text size="sm" fw={500}>组件面板</Text>
                   </Space>
-                }
-                extra={
                   <Button
-                    type="text"
-                    size="small"
-                    icon={<MenuFoldOutlined />}
+                    variant="subtle"
+                    size="xs"
+                    leftSection={<IconLayoutSidebarLeftCollapse size={14} />}
                     onClick={() => setLeftPanelVisible(false)}
                     title="隐藏面板"
                   />
-                }
-                style={{ height: '100%', overflow: 'hidden' }}
-                bodyStyle={{ padding: 0, height: 'calc(100% - 48px)', overflow: 'auto' }}
-              >
-                <NodePalette />
+                </div>
+                <div style={{ height: 'calc(100% - 48px)', overflow: 'auto' }}>
+                  <NodePalette />
+                </div>
               </Card>
             </div>
             {/* 左侧调节手柄 */}
@@ -720,8 +778,8 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
         {/* 左侧折叠按钮（隐藏时显示） */}
         {!leftPanelVisible && (
           <Button
-            type="primary"
-            icon={<MenuUnfoldOutlined />}
+            variant="filled"
+            leftSection={<IconLayoutSidebarLeftExpand size={16} />}
             onClick={() => setLeftPanelVisible(true)}
             style={{
               position: 'absolute',
@@ -750,127 +808,124 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
           {/* 顶部配置栏 - 更紧凑 */}
           {topConfigVisible ? (
             <Card 
-              size="small" 
-              bodyStyle={{ padding: '8px 12px' }}
-              extra={
+              padding="xs"
+            >
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
                 <Button
-                  type="text"
-                  size="small"
-                  icon={<UpOutlined />}
+                  variant="subtle"
+                  size="xs"
+                  leftSection={<IconChevronUp size={14} />}
                   onClick={() => setTopConfigVisible(false)}
                   title="隐藏配置栏"
-                />
-              }
-            >
+                >
+                  隐藏
+                </Button>
+              </div>
               <Alert
-                message={`当前: ${currentStepConfig.title} - ${currentStepConfig.description}`}
-                type="info"
-                showIcon
-                style={{ marginBottom: 8, padding: '6px 12px' }}
-                closable
+                color="blue"
+                icon={<IconCircleCheck size={16} />}
+                title={`当前: ${currentStepConfig.title} - ${currentStepConfig.description}`}
+                style={{ marginBottom: 8 }}
+                withCloseButton
               />
             
             {/* 章节列表的特殊说明 - 更紧凑 */}
             {currentStep === 1 && (
               <Alert
-                message={
-                  <span style={{ fontSize: 11 }}>
-                    📖 第1层-items选容器(//ul/li)，第2层-title/url提取(./a/text())
-                  </span>
-                }
-                type="warning"
-                showIcon
-                closable
+                color="yellow"
                 style={{ marginBottom: 6, padding: '4px 8px' }}
-              />
+                withCloseButton
+              >
+                <Text size="xs">
+                  📖 第1层-items选容器(//ul/li)，第2层-title/url提取(./a/text())
+                </Text>
+              </Alert>
             )}
             
-            <Space size="small" style={{ width: '100%', marginBottom: 6 }}>
+            <Group gap="xs" style={{ width: '100%', marginBottom: 6 }} align="flex-start">
               <div style={{ flex: 1 }}>
-                <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 2 }}>
+                <Text c="dimmed" size="xs" mb={4}>
                   配置字段
                 </Text>
                 <Select
                   value={selectedField}
                   onChange={(value) => {
+                    if (!value) return;
                     // 如果选择的是已配置的字段，提示用户加载进行编辑
                     if (currentFields[value] && value !== selectedField) {
-                      Modal.confirm({
+                      modals.openConfirmModal({
                         title: '切换到已配置字段',
-                        content: `字段 "${currentStepConfig.fields.find(f => f.key === value)?.label}" 已有配置，是否加载到画布进行编辑？`,
-                        okText: '加载配置',
-                        cancelText: '创建新配置',
-                        onOk: () => {
+                        children: <Text size="sm">字段 "{currentStepConfig.fields.find(f => f.key === value)?.label}" 已有配置，是否加载到画布进行编辑？</Text>,
+                        labels: { confirm: '加载配置', cancel: '创建新配置' },
+                        onConfirm: () => {
                           handleEditField(value);
                         },
                         onCancel: () => {
                           setSelectedField(value);
                           // 清空画布，准备创建新配置
                           if (nodes.length > 0) {
-                            Modal.confirm({
+                            modals.openConfirmModal({
                               title: '确认清空画布',
-                              content: '当前画布有节点，切换字段将清空画布。确定继续吗？',
-                              onOk: () => {
+                              children: <Text size="sm">当前画布有节点，切换字段将清空画布。确定继续吗？</Text>,
+                              labels: { confirm: '确认', cancel: '取消' },
+                              onConfirm: () => {
                                 setNodes([]);
                                 setEdges([]);
-                              }
+                              },
+                              centered: true
                             });
                           }
-                        }
+                        },
+                        centered: true
                       });
                     } else {
                       setSelectedField(value);
                     }
                   }}
+                  data={currentStepConfig.fields.map(field => ({
+                    value: field.key,
+                    label: `${currentFields[field.key] ? '✓ ' : ''}${field.label}${field.required ? ' *' : ''}${currentFields[field.key] ? ' (已配置)' : ''}`
+                  }))}
                   style={{ width: '100%' }}
-                >
-                  {currentStepConfig.fields.map(field => (
-                    <Option 
-                      key={field.key} 
-                      value={field.key}
-                    >
-                      <Space size="small">
-                        {currentFields[field.key] && <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 12 }} />}
-                        <span style={{ fontSize: 13 }}>{field.label}</span>
-                        {field.required && <Tag color="red" style={{ fontSize: 11, padding: '0 4px' }}>必填</Tag>}
-                        {currentFields[field.key] && <Tag color="blue" style={{ fontSize: 11, padding: '0 4px' }}>已配置</Tag>}
-                      </Space>
-                    </Option>
-                  ))}
-                </Select>
+                  size="xs"
+                  allowDeselect={false}
+                  searchable={false}
+                  comboboxProps={{ withinPortal: true, zIndex: 10000 }}
+                />
                 {currentFieldInfo?.note && (
-                  <Text type="secondary" style={{ fontSize: 11, marginTop: 2, display: 'block' }}>
+                  <Text c="dimmed" size="xs" mt={4}>
                     💡 {currentFieldInfo.note}
                   </Text>
                 )}
               </div>
 
-              <Space size="small">
+              <Group gap="xs">
                 <Button
-                  type="primary"
-                  size="small"
-                  icon={<SaveOutlined />}
+                  variant="filled"
+                  size="xs"
+                  leftSection={<IconDeviceFloppy size={14} />}
                   onClick={handleSaveField}
                   disabled={nodes.length === 0}
                 >
                   保存
                 </Button>
                 <Button
-                  size="small"
-                  icon={<ClearOutlined />}
+                  size="xs"
+                  variant="default"
+                  leftSection={<IconClearAll size={14} />}
                   onClick={handleClear}
                   disabled={nodes.length === 0}
                 >
                   清空
                 </Button>
-              </Space>
-            </Space>
+              </Group>
+            </Group>
             </Card>
           ) : (
             /* 顶部配置栏收起时显示的展开按钮 */
             <Button
-              type="primary"
-              icon={<DownOutlined />}
+              variant="filled"
+              leftSection={<IconChevronDown size={14} />}
               onClick={() => setTopConfigVisible(true)}
               style={{
                 position: 'absolute',
@@ -940,29 +995,29 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
           </div>
 
           {/* 底部导航按钮 */}
-          <Card size="small" bodyStyle={{ padding: '10px 16px' }} style={{ flexShrink: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Card padding="sm" style={{ flexShrink: 0 }}>
+            <Group justify="space-between">
               <Button
-                icon={<ArrowLeftOutlined />}
+                leftSection={<IconArrowLeft size={14} />}
                 onClick={handlePrevStep}
                 disabled={currentStep === 0}
+                variant="default"
               >
                 上一步
               </Button>
 
-              <Text type="secondary" style={{ fontSize: 13 }}>
+              <Text c="dimmed" size="sm">
                 步骤 {currentStep + 1} / 3
               </Text>
 
               <Button
-                type="primary"
-                icon={currentStep === 2 ? <PlayCircleOutlined /> : <ArrowRightOutlined />}
-                iconPosition="end"
+                variant="filled"
+                rightSection={currentStep === 2 ? <IconPlayerPlay size={14} /> : <IconArrowRight size={14} />}
                 onClick={handleNextStep}
               >
                 {currentStep === 2 ? '生成配置' : '下一步'}
               </Button>
-            </div>
+            </Group>
           </Card>
         </div>
 
@@ -1002,145 +1057,150 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
         {rightPanelVisible && (
           <div style={{ width: rightPanelWidth, transition: isResizing ? 'none' : 'width 0.3s' }}>
             <Card 
-              title={
-                <Space>
-                  <CheckCircleOutlined />
-                  <span>已配置字段</span>
-                </Space>
-              }
-              size="small"
+              padding="sm"
               style={{ height: '100%' }}
-              bodyStyle={{ padding: 12, height: 'calc(100% - 50px)', overflow: 'auto' }}
-              extra={
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <Space>
+                  <IconCircleCheck size={16} />
+                  <Text size="sm" fw={500}>已配置字段</Text>
+                </Space>
                 <Button
-                  type="text"
-                  size="small"
-                  icon={<MenuFoldOutlined />}
+                  variant="subtle"
+                  size="xs"
+                  leftSection={<IconLayoutSidebarRightCollapse size={14} />}
                   onClick={() => setRightPanelVisible(false)}
                   title="隐藏面板"
                 />
-              }
-            >
+              </div>
+              <div style={{ height: 'calc(100% - 50px)', overflow: 'auto' }}>
             {Object.keys(currentFields).length === 0 ? (
               <div style={{ textAlign: 'center', padding: 40, color: '#999' }}>
                 <div style={{ fontSize: 48, marginBottom: 8 }}>📝</div>
                 <div>暂无已配置字段</div>
               </div>
             ) : (
-              <List
-                dataSource={Object.entries(currentFields)}
-                renderItem={([fieldKey, config]) => {
+              <Stack gap="xs">
+                {Object.entries(currentFields).map(([fieldKey, config]) => {
                   const fieldInfo = currentStepConfig.fields.find(f => f.key === fieldKey);
                   return (
-                    <List.Item
+                    <div
+                      key={fieldKey}
                       style={{ 
                         padding: '12px',
                         background: '#f5f5f5',
-                        borderRadius: 6,
-                        marginBottom: 8
+                        borderRadius: 6
                       }}
-                      actions={[
-                        <Button
-                          size="small"
-                          icon={<EditOutlined />}
-                          onClick={() => handleEditField(fieldKey)}
-                          title="加载到画布进行编辑"
-                        >
-                          编辑
-                        </Button>,
-                        <Button
-                          size="small"
-                          danger
-                          icon={<DeleteOutlined />}
-                          onClick={() => handleDeleteField(fieldKey)}
-                          title="删除此字段配置"
-                        />
-                      ]}
                     >
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 500, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
-                          {fieldInfo?.label}
-                          {fieldKey === selectedField && (
-                            <Tag color="green" style={{ fontSize: 11 }}>
-                              当前编辑
-                            </Tag>
-                          )}
+                      <Group justify="space-between" align="flex-start" mb={8}>
+                        <div style={{ flex: 1 }}>
+                          <Group gap={8} mb={4}>
+                            <Text size="sm" fw={500}>{fieldInfo?.label}</Text>
+                            {fieldKey === selectedField && (
+                              <Badge color="green" size="sm">
+                                当前编辑
+                              </Badge>
+                            )}
+                          </Group>
+                          <Text c="dimmed" size="xs" mb={6}>
+                            <code style={{ fontSize: 11, background: '#e0e0e0', padding: '2px 4px', borderRadius: 2 }}>
+                              {config.type}
+                            </code> {config.expression?.substring(0, 35)}...
+                          </Text>
+                          <Group gap={4}>
+                            {config.index !== undefined && config.index !== 999 && (
+                              <Badge color="violet" size="sm">
+                                索引: {config.index}
+                              </Badge>
+                            )}
+                            <Badge color="blue" size="sm">
+                              {config.process?.length || 0} 个处理器
+                            </Badge>
+                          </Group>
                         </div>
-                        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
-                          <Text code style={{ fontSize: 11 }}>{config.type}</Text> {config.expression?.substring(0, 35)}...
-                        </Text>
-                        <Space size={4}>
-                          {config.index !== undefined && config.index !== 999 && (
-                            <Tag color="purple" style={{ fontSize: 11 }}>
-                              索引: {config.index}
-                            </Tag>
-                          )}
-                          <Tag color="blue" style={{ fontSize: 11 }}>
-                            {config.process?.length || 0} 个处理器
-                          </Tag>
-                        </Space>
-                      </div>
-                    </List.Item>
+                        <Group gap={4}>
+                          <Button
+                            size="xs"
+                            variant="light"
+                            leftSection={<IconEdit size={12} />}
+                            onClick={() => handleEditField(fieldKey)}
+                            title="加载到画布进行编辑"
+                          >
+                            编辑
+                          </Button>
+                          <Button
+                            size="xs"
+                            color="red"
+                            variant="light"
+                            onClick={() => handleDeleteField(fieldKey)}
+                            title="删除此字段配置"
+                          >
+                            <IconTrash size={12} />
+                          </Button>
+                        </Group>
+                      </Group>
+                    </div>
                   );
-                }}
-              />
+                })}
+              </Stack>
             )}
             
             {/* URL模板配置区域 - 根据步骤显示不同内容 */}
             <Divider style={{ margin: '16px 0' }} />
             <div style={{ marginBottom: 16 }}>
-              <div style={{ fontWeight: 500, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span>🔗 URL模板配置</span>
-              </div>
-              <Form layout="vertical" size="small">
+              <Text size="sm" fw={500} mb={12}>🔗 URL模板配置</Text>
+              <Stack gap="sm">
                 {/* 第1步：小说信息页 - 书籍详情页URL */}
                 {currentStep === 0 && (
-                  <Form.Item label="书籍详情页（第1页）" style={{ marginBottom: 12 }}>
-                    <Input
+                  <div>
+                    <Text size="xs" fw={500} mb={4}>书籍详情页（第1页）</Text>
+                    <TextInput
                       value={urlTemplates.bookDetail}
                       onChange={(e) => setUrlTemplates({...urlTemplates, bookDetail: e.target.value})}
                       placeholder="/book/{book_id}"
-                      style={{ fontSize: 12 }}
+                      size="xs"
                     />
-                    <div style={{ marginTop: 4, color: '#999', fontSize: 11 }}>
+                    <Text c="dimmed" size="xs" mt={4}>
                       可用变量：{'{book_id}'}（书籍ID）<br/>
                       说明：小说详情页URL，用于获取小说基本信息
-                    </div>
-                  </Form.Item>
+                    </Text>
+                  </div>
                 )}
                 
                 {/* 第2步：章节列表页 - 列表翻页URL */}
                 {currentStep === 1 && (
-                  <Form.Item label="章节列表翻页URL（第2页起）" style={{ marginBottom: 12 }}>
-                    <Input
+                  <div>
+                    <Text size="xs" fw={500} mb={4}>章节列表翻页URL（第2页起）</Text>
+                    <TextInput
                       value={urlTemplates.chapterListPage}
                       onChange={(e) => setUrlTemplates({...urlTemplates, chapterListPage: e.target.value})}
                       placeholder="/book/{book_id}/{page}/"
-                      style={{ fontSize: 12 }}
+                      size="xs"
                     />
-                    <div style={{ marginTop: 4, color: '#999', fontSize: 11 }}>
+                    <Text c="dimmed" size="xs" mt={4}>
                       可用变量：{'{book_id}'}（书籍ID）、{'{page}'}（页码≥2）<br/>
                       说明：第1页使用书籍详情页URL，第2页起使用此模板
-                    </div>
-                  </Form.Item>
+                    </Text>
+                  </div>
                 )}
                 
                 {/* 第3步：章节内容页 - 内容翻页URL */}
                 {currentStep === 2 && (
-                  <Form.Item label="章节内容翻页URL（第2页起）" style={{ marginBottom: 12 }}>
-                    <Input
+                  <div>
+                    <Text size="xs" fw={500} mb={4}>章节内容翻页URL（第2页起）</Text>
+                    <TextInput
                       value={urlTemplates.chapterContentPage}
                       onChange={(e) => setUrlTemplates({...urlTemplates, chapterContentPage: e.target.value})}
                       placeholder="/book/{book_id}/{chapter_id}_{page}.html"
-                      style={{ fontSize: 12 }}
+                      size="xs"
                     />
-                    <div style={{ marginTop: 4, color: '#999', fontSize: 11 }}>
+                    <Text c="dimmed" size="xs" mt={4}>
                       可用变量：{'{book_id}'}（书籍ID）、{'{chapter_id}'}（章节ID）、{'{page}'}（页码≥2）<br/>
                       说明：章节第1页从列表获取，第2页起使用此模板
-                    </div>
-                  </Form.Item>
+                    </Text>
+                  </div>
                 )}
-              </Form>
+              </Stack>
             </div>
             
             {/* 翻页配置区域 */}
@@ -1150,28 +1210,25 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
                 
                 {currentStep === 1 && (
                   <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontWeight: 500, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span>📄 列表翻页配置</span>
-                    </div>
-                    <Form layout="vertical" size="small">
-                      <Form.Item label="启用翻页" style={{ marginBottom: 12 }}>
+                    <Text size="sm" fw={500} mb={12}>📄 列表翻页配置</Text>
+                    <Stack gap="sm">
+                      <div>
+                        <Text size="xs" fw={500} mb={4}>启用翻页</Text>
                         <Switch
                           checked={chapterListPagination.enabled}
-                          onChange={(checked) => 
-                            setChapterListPagination({...chapterListPagination, enabled: checked})
+                          onChange={(event) => 
+                            setChapterListPagination({...chapterListPagination, enabled: event.currentTarget.checked})
                           }
-                          checkedChildren="开启"
-                          unCheckedChildren="关闭"
+                          label={chapterListPagination.enabled ? '自动爬取所有分页章节' : '仅获取当前页章节'}
+                          size="sm"
                         />
-                        <div style={{ marginTop: 4, color: '#666', fontSize: 12 }}>
-                          {chapterListPagination.enabled ? '自动爬取所有分页章节' : '仅获取当前页章节'}
-                        </div>
-                      </Form.Item>
+                      </div>
                       
                       {chapterListPagination.enabled && (
                         <>
-                          <Form.Item label="最大页数XPath（可选）" style={{ marginBottom: 12 }}>
-                            <Input.TextArea
+                          <div>
+                            <Text size="xs" fw={500} mb={4}>最大页数XPath（可选）</Text>
+                            <Textarea
                               value={chapterListPagination.maxPageXpath}
                               onChange={(e) => 
                                 setChapterListPagination({
@@ -1181,15 +1238,16 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
                               }
                               placeholder="//ul[@class='pagination']/li/a[1]/text()"
                               rows={2}
-                              style={{ fontSize: 12 }}
+                              size="xs"
                             />
-                            <div style={{ marginTop: 4, color: '#999', fontSize: 11 }}>
+                            <Text c="dimmed" size="xs" mt={4}>
                               从分页导航提取最大页数
-                            </div>
-                          </Form.Item>
+                            </Text>
+                          </div>
                           
-                          <Form.Item label="XPath索引" style={{ marginBottom: 12 }}>
-                            <InputNumber
+                          <div>
+                            <Text size="xs" fw={500} mb={4}>XPath索引</Text>
+                            <NumberInput
                               value={chapterListPagination.maxPageXpathIndex}
                               onChange={(val) => 
                                 setChapterListPagination({
@@ -1197,17 +1255,18 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
                                   maxPageXpathIndex: val
                                 })
                               }
-                              style={{ width: '100%' }}
                               placeholder="0"
+                              size="xs"
                             />
-                            <div style={{ marginTop: 4, color: '#999', fontSize: 11, lineHeight: '1.5' }}>
+                            <Text c="dimmed" size="xs" mt={4} style={{ lineHeight: '1.5' }}>
                               常用值：0（第1个）、-1（最后1个）、999（全部）<br/>
                               支持任意整数索引，如：5（第6个）、-2（倒数第2个）
-                            </div>
-                          </Form.Item>
+                            </Text>
+                          </div>
                           
-                          <Form.Item label="手动最大页数" style={{ marginBottom: 12 }}>
-                            <InputNumber
+                          <div>
+                            <Text size="xs" fw={500} mb={4}>手动最大页数</Text>
+                            <NumberInput
                               value={chapterListPagination.maxPageManual}
                               onChange={(val) => 
                                 setChapterListPagination({
@@ -1217,42 +1276,39 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
                               }
                               min={1}
                               max={1000}
-                              style={{ width: '100%' }}
+                              size="xs"
                             />
-                            <div style={{ marginTop: 4, color: '#999', fontSize: 11 }}>
+                            <Text c="dimmed" size="xs" mt={4}>
                               防止无限循环，最终页数=max(XPath提取值, 手动值)
-                            </div>
-                          </Form.Item>
+                            </Text>
+                          </div>
                         </>
                       )}
-                    </Form>
+                    </Stack>
                   </div>
                 )}
                 
                 {currentStep === 2 && (
                   <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontWeight: 500, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span>📖 内容翻页配置</span>
-                    </div>
-                    <Form layout="vertical" size="small">
-                      <Form.Item label="启用翻页" style={{ marginBottom: 12 }}>
+                    <Text size="sm" fw={500} mb={12}>📖 内容翻页配置</Text>
+                    <Stack gap="sm">
+                      <div>
+                        <Text size="xs" fw={500} mb={4}>启用翻页</Text>
                         <Switch
                           checked={contentPagination.enabled}
-                          onChange={(checked) => 
-                            setContentPagination({...contentPagination, enabled: checked})
+                          onChange={(event) => 
+                            setContentPagination({...contentPagination, enabled: event.currentTarget.checked})
                           }
-                          checkedChildren="开启"
-                          unCheckedChildren="关闭"
+                          label={contentPagination.enabled ? '自动获取多页内容' : '仅获取单页内容'}
+                          size="sm"
                         />
-                        <div style={{ marginTop: 4, color: '#666', fontSize: 12 }}>
-                          {contentPagination.enabled ? '自动获取多页内容' : '仅获取单页内容'}
-                        </div>
-                      </Form.Item>
+                      </div>
                       
                       {contentPagination.enabled && (
                         <>
-                          <Form.Item label="最大页数XPath（可选）" style={{ marginBottom: 12 }}>
-                            <Input.TextArea
+                          <div>
+                            <Text size="xs" fw={500} mb={4}>最大页数XPath（可选）</Text>
+                            <Textarea
                               value={contentPagination.maxPageXpath}
                               onChange={(e) => 
                                 setContentPagination({
@@ -1262,15 +1318,16 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
                               }
                               placeholder="//select[@id='page']/option[last()]/text()"
                               rows={2}
-                              style={{ fontSize: 12 }}
+                              size="xs"
                             />
-                            <div style={{ marginTop: 4, color: '#999', fontSize: 11 }}>
+                            <Text c="dimmed" size="xs" mt={4}>
                               从下拉框或分页信息提取最大页数
-                            </div>
-                          </Form.Item>
+                            </Text>
+                          </div>
                           
-                          <Form.Item label="XPath索引" style={{ marginBottom: 12 }}>
-                            <InputNumber
+                          <div>
+                            <Text size="xs" fw={500} mb={4}>XPath索引</Text>
+                            <NumberInput
                               value={contentPagination.maxPageXpathIndex}
                               onChange={(val) => 
                                 setContentPagination({
@@ -1278,17 +1335,18 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
                                   maxPageXpathIndex: val
                                 })
                               }
-                              style={{ width: '100%' }}
                               placeholder="0"
+                              size="xs"
                             />
-                            <div style={{ marginTop: 4, color: '#999', fontSize: 11, lineHeight: '1.5' }}>
+                            <Text c="dimmed" size="xs" mt={4} style={{ lineHeight: '1.5' }}>
                               常用值：0（第1个）、-1（最后1个）、999（全部）<br/>
                               支持任意整数索引，如：5（第6个）、-2（倒数第2个）
-                            </div>
-                          </Form.Item>
+                            </Text>
+                          </div>
                           
-                          <Form.Item label="手动最大页数" style={{ marginBottom: 12 }}>
-                            <InputNumber
+                          <div>
+                            <Text size="xs" fw={500} mb={4}>手动最大页数</Text>
+                            <NumberInput
                               value={contentPagination.maxPageManual}
                               onChange={(val) => 
                                 setContentPagination({
@@ -1298,28 +1356,29 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
                               }
                               min={1}
                               max={200}
-                              style={{ width: '100%' }}
+                              size="xs"
                             />
-                            <div style={{ marginTop: 4, color: '#999', fontSize: 11 }}>
+                            <Text c="dimmed" size="xs" mt={4}>
                               防止无限循环，最终页数=max(XPath提取值, 手动值)
-                            </div>
-                          </Form.Item>
+                            </Text>
+                          </div>
                         </>
                       )}
-                    </Form>
+                    </Stack>
                   </div>
                 )}
               </>
             )}
-          </Card>
+          </div>
+        </Card>
         </div>
         )}
 
         {/* 右侧折叠按钮（隐藏时显示） */}
         {!rightPanelVisible && (
           <Button
-            type="primary"
-            icon={<MenuUnfoldOutlined />}
+            variant="filled"
+            leftSection={<IconLayoutSidebarRightExpand size={16} />}
             onClick={() => setRightPanelVisible(true)}
             style={{
               position: 'absolute',
@@ -1337,60 +1396,74 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
 
       {/* 网站基本信息对话框 */}
       <Modal
+        opened={siteInfoModalVisible}
+        onClose={() => setSiteInfoModalVisible(false)}
         title="📝 配置网站基本信息"
-        open={siteInfoModalVisible}
-        onOk={handleSiteInfoConfirm}
-        onCancel={() => setSiteInfoModalVisible(false)}
-        width={600}
-        okText="确认并生成配置"
-        cancelText="取消"
+        size="lg"
+        zIndex={20000}
+        centered
+        overlayProps={{ opacity: 0.55, blur: 3 }}
       >
-        <Alert
-          message="请填写网站基本信息"
-          description="这些信息将用于生成配置文件，其中网站名称将作为配置文件名"
-          type="info"
-          showIcon
-          style={{ marginBottom: 20 }}
-        />
-        <Form layout="vertical">
-          <Form.Item 
-            label="网站名称" 
-            required 
-            help="用于生成配置文件名，建议使用英文，如 ikbook8"
+        <Stack gap="md">
+          <Alert
+            color="blue"
+            title="请填写网站基本信息"
           >
-            <Input
+            这些信息将用于生成配置文件，其中网站名称将作为配置文件名
+          </Alert>
+          
+          <div>
+            <Text size="sm" fw={500} mb={4}>
+              网站名称 <Text component="span" c="red">*</Text>
+            </Text>
+            <TextInput
               value={siteInfo.name}
               onChange={(e) => setSiteInfo({...siteInfo, name: e.target.value})}
               placeholder="例如：ikbook8"
-              size="large"
+              size="md"
             />
-          </Form.Item>
+            <Text c="dimmed" size="xs" mt={4}>
+              用于生成配置文件名，建议使用英文，如 ikbook8
+            </Text>
+          </div>
           
-          <Form.Item 
-            label="网站基础URL" 
-            required 
-            help="网站的域名，包含协议，如 https://m.ikbook8.com"
-          >
-            <Input
+          <div>
+            <Text size="sm" fw={500} mb={4}>
+              网站基础URL <Text component="span" c="red">*</Text>
+            </Text>
+            <TextInput
               value={siteInfo.base_url}
               onChange={(e) => setSiteInfo({...siteInfo, base_url: e.target.value})}
               placeholder="例如：https://m.ikbook8.com"
-              size="large"
+              size="md"
             />
-          </Form.Item>
+            <Text c="dimmed" size="xs" mt={4}>
+              网站的域名，包含协议，如 https://m.ikbook8.com
+            </Text>
+          </div>
           
-          <Form.Item 
-            label="网站描述" 
-            help="可选，对网站的简单描述"
-          >
-            <TextArea
+          <div>
+            <Text size="sm" fw={500} mb={4}>网站描述</Text>
+            <Textarea
               value={siteInfo.description}
               onChange={(e) => setSiteInfo({...siteInfo, description: e.target.value})}
               placeholder="例如：ikbook8小说网站"
               rows={3}
             />
-          </Form.Item>
-        </Form>
+            <Text c="dimmed" size="xs" mt={4}>
+              可选，对网站的简单描述
+            </Text>
+          </div>
+          
+          <Group justify="flex-end" mt="md">
+            <Button variant="default" onClick={() => setSiteInfoModalVisible(false)}>
+              取消
+            </Button>
+            <Button onClick={handleSiteInfoConfirm}>
+              确认并生成配置
+            </Button>
+          </Group>
+        </Stack>
       </Modal>
     </div>
   );
