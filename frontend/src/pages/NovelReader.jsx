@@ -1095,8 +1095,9 @@ function NovelReader() {
                   }}>
                     {chapterContent.content.split('\n').map((para, i) => (
                       para.trim() && (
-                        <Paragraph 
+                        <Text 
                           key={i} 
+                          component="p"
                           style={{ 
                             textIndent: '2em', 
                             marginBottom: 24, 
@@ -1107,7 +1108,7 @@ function NovelReader() {
                           }}
                         >
                           {para}
-                        </Paragraph>
+                        </Text>
                       )
                     ))}
                   </div>
@@ -1166,8 +1167,9 @@ function NovelReader() {
                     }}>
                       {chapter.content.split('\n').map((para, i) => (
                         para.trim() && (
-                          <Paragraph 
+                          <Text 
                             key={i} 
+                            component="p"
                             style={{ 
                               textIndent: '2em', 
                               marginBottom: 24, 
@@ -1178,7 +1180,7 @@ function NovelReader() {
                             }}
                           >
                             {para}
-                          </Paragraph>
+                          </Text>
                         )
                       ))}
                     </div>
