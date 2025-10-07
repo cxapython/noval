@@ -7,11 +7,11 @@ import {
 } from 'antd'
 import { 
   PlusOutlined, DeleteOutlined, 
-  CodeOutlined, FileTextOutlined, EditOutlined,
-  ExperimentOutlined, PlayCircleOutlined
+  FileTextOutlined, EditOutlined,
+  ExperimentOutlined, PlayCircleOutlined,
+  AppstoreOutlined
 } from '@ant-design/icons'
 import axios from 'axios'
-import CodeEditor from '../components/CodeEditor'
 
 const { Text } = Typography
 const API_BASE = '/api/crawler'
@@ -22,9 +22,6 @@ function CrawlerManager() {
   const location = useLocation()
   const [configs, setConfigs] = useState([])
   const [loading, setLoading] = useState(false)
-  const [editorVisible, setEditorVisible] = useState(false)
-  const [currentCode, setCurrentCode] = useState('')
-  const [currentFilename, setCurrentFilename] = useState('')
   
   // 运行爬虫对话框状态
   const [runModalVisible, setRunModalVisible] = useState(false)
@@ -68,46 +65,6 @@ function CrawlerManager() {
     }
   }
 
-  const handleGenerate = async (filename) => {
-    try {
-      setLoading(true)
-      const response = await axios.post(`${API_BASE}/generate-crawler/${filename}`)
-      console.log('🚀 API Response:', {
-        success: response.data.success,
-        contentLength: response.data.content?.length,
-        filename: response.data.filename
-      })
-      
-      if (response.data.success) {
-        // 打开代码编辑器
-        setCurrentCode(response.data.content)
-        setCurrentFilename(response.data.filename)
-        setEditorVisible(true)
-        message.success('代码已生成，请在编辑器中查看和编辑')
-      }
-    } catch (error) {
-      console.error('❌ Generate failed:', error)
-      message.error('生成失败: ' + error.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleSaveCrawler = async (code, filename) => {
-    try {
-      const response = await axios.post(`${API_BASE}/save-crawler`, {
-        filename: filename,
-        content: code
-      })
-      if (response.data.success) {
-        message.success(response.data.message)
-      }
-    } catch (error) {
-      message.error('保存失败: ' + error.message)
-      throw error
-    }
-  }
-
   const handleRun = (config) => {
     setCurrentConfigFilename(config.filename)
     runForm.resetFields()
@@ -148,18 +105,10 @@ function CrawlerManager() {
 
   return (
     <div className="fade-in">
-      <CodeEditor
-        visible={editorVisible}
-        onClose={() => setEditorVisible(false)}
-        code={currentCode}
-        filename={currentFilename}
-        onSave={handleSaveCrawler}
-      />
-      
       <Card 
         title={
           <Space>
-            <CodeOutlined />
+            <AppstoreOutlined />
             <span>爬虫配置管理</span>
           </Space>
         }
@@ -222,17 +171,6 @@ function CrawlerManager() {
                     >
                       编辑
                     </Button>,
-                    <Popconfirm
-                      title="确定生成爬虫文件？"
-                      onConfirm={() => handleGenerate(config.filename)}
-                    >
-                      <Button 
-                        type="text" 
-                        icon={<CodeOutlined />}
-                      >
-                        生成
-                      </Button>
-                    </Popconfirm>,
                     <Popconfirm
                       title="确定删除此配置？"
                       onConfirm={() => handleDelete(config.filename)}
