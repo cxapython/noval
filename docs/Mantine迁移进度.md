@@ -23,6 +23,13 @@
 - ✅ 实时 WebSocket 日志查看功能保持完整
 - ✅ 任务管理所有功能（创建、启动、停止、删除、查看详情）完整迁移
 
+#### FlowEditor 节点组件（2025-10-07）
+- ✅ NodePalette.jsx：Collapse → Accordion，组件面板完整迁移
+- ✅ XPathExtractorNode.jsx：复杂的 XPath 提取器节点，包含自定义索引配置
+- ✅ RegexExtractorNode.jsx：正则表达式提取器节点
+- ✅ ProcessorNode.jsx：多种数据处理方法的清洗节点
+- ✅ 保持所有节点拖拽、参数配置、选中状态等功能完整
+
 ### 🔄 进行中
 
 无
@@ -37,12 +44,12 @@
 - [x] CrawlerManager.jsx（已完全使用 Mantine）
 - [x] TaskManagerPage.jsx
 - [ ] FlowEditor 相关组件（6个文件，复杂的流程编辑器）
-  - [ ] FlowEditorTab.jsx
-  - [ ] SimpleFlowEditorTab.jsx
-  - [ ] NodePalette.jsx
-  - [ ] XPathExtractorNode.jsx
-  - [ ] RegexExtractorNode.jsx
-  - [ ] ProcessorNode.jsx
+  - [ ] FlowEditorTab.jsx（核心流程编辑器）
+  - [ ] SimpleFlowEditorTab.jsx（简化流程编辑器）
+  - [x] NodePalette.jsx
+  - [x] XPathExtractorNode.jsx
+  - [x] RegexExtractorNode.jsx
+  - [x] ProcessorNode.jsx
 - [ ] NovelReader.jsx（1637行，复杂的阅读器页面）
 
 ## 🎯 迁移原则
@@ -55,9 +62,9 @@
 
 ## 📊 迁移统计
 
-- ✅ 已完成：3个主要页面组件
-- ⏳ 待迁移：7个复杂组件（FlowEditor 6个 + NovelReader 1个）
-- 📈 完成度：约 30%（按组件数）/ 约 60%（按使用频率）
+- ✅ 已完成：7个组件（3个主要页面 + 4个节点组件）
+- ⏳ 待迁移：3个复杂组件（FlowEditor 主编辑器 2个 + NovelReader 1个）
+- 📈 完成度：约 70%（按组件数）/ 约 80%（按使用频率）
 
 ## 💡 后续建议
 
