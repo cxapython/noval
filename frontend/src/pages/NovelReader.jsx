@@ -1224,32 +1224,38 @@ function NovelReader() {
             padding: '8px'
           }}
         >
-          <Space>
-            <Tooltip title="添加书签">
-              <Button 
-                size="small" 
-                icon={<IconBookmarks size={18} />}
+          <Group gap="xs">
+            <Tooltip label="添加书签">
+              <ActionIcon 
+                size="md" 
+                variant="default"
                 onClick={() => addBookmark('bookmark')}
-              />
+              >
+                <IconBookmarks size={18} />
+              </ActionIcon>
             </Tooltip>
-            <Tooltip title="高亮标记">
-              <Button 
-                size="small" 
-                icon={<IconHighlight size={18} />}
+            <Tooltip label="高亮标记">
+              <ActionIcon 
+                size="md" 
+                variant="default"
                 onClick={() => addBookmark('highlight')}
-              />
+              >
+                <IconHighlight size={18} />
+              </ActionIcon>
             </Tooltip>
-            <Tooltip title="添加笔记">
-              <Button 
-                size="small" 
-                icon={<IconEdit size={18} />}
+            <Tooltip label="添加笔记">
+              <ActionIcon 
+                size="md" 
+                variant="default"
                 onClick={() => {
                   const note = prompt('添加笔记：', '')
                   if (note) addBookmark('note', note)
                 }}
-              />
+              >
+                <IconEdit size={18} />
+              </ActionIcon>
             </Tooltip>
-          </Space>
+          </Group>
         </div>
       )}
 
@@ -1307,39 +1313,44 @@ function NovelReader() {
         position="right"
         size="lg"
       >
-        <Space direction="vertical" style={{ width: '100%' }} size="large">
-          <Search
-            placeholder="输入关键词搜索"
-            value={searchKeyword}
-            onChange={e => setSearchKeyword(e.target.value)}
-            onSearch={handleSearch}
-            enterButton="搜索"
-            size="large"
-          />
+        <Stack gap="lg">
+          <Group>
+            <TextInput
+              placeholder="输入关键词搜索"
+              value={searchKeyword}
+              onChange={e => setSearchKeyword(e.target.value)}
+              onKeyPress={e => e.key === 'Enter' && handleSearch()}
+              style={{ flex: 1 }}
+              size="md"
+            />
+            <Button onClick={handleSearch} size="md">
+              搜索
+            </Button>
+          </Group>
           
           {searchResults.length > 0 && (
-            <div>
+            <Stack gap="xs">
               <Text c="dimmed">找到 {searchResults.length} 个结果</Text>
-              <List
-                dataSource={searchResults}
-                renderItem={(result) => (
-                  <List.Item
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => {
-                      jumpToChapter(result.chapter_num)
-                      setSearchVisible(false)
-                    }}
-                  >
-                    <List.Item.Meta
-                      title={`第 ${result.chapter_num} 章: ${result.title}`}
-                      description={result.preview}
-                    />
-                  </List.Item>
-                )}
-              />
-            </div>
+              {searchResults.map((result, idx) => (
+                <Paper
+                  key={idx}
+                  p="sm"
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => {
+                    jumpToChapter(result.chapter_num)
+                    setSearchVisible(false)
+                  }}
+                  withBorder
+                >
+                  <Stack gap={4}>
+                    <Text fw={500}>第 {result.chapter_num} 章: {result.title}</Text>
+                    <Text size="sm" c="dimmed">{result.preview}</Text>
+                  </Stack>
+                </Paper>
+              ))}
+            </Stack>
           )}
-        </Space>
+        </Stack>
       </Drawer>
 
       {/* 书签面板 */}
@@ -1415,22 +1426,22 @@ function NovelReader() {
         position="right"
         size="md"
       >
-        <Space direction="vertical" style={{ width: '100%' }} size="large">
+        <Stack gap="lg">
           {/* 主题 */}
           <div>
-            <Text strong>阅读主题</Text>
+            <Text fw={600}>阅读主题</Text>
             <Radio.Group
               value={settings.theme}
-              onChange={e => setSettings({ ...settings, theme: e.target.value })}
-              style={{ marginTop: 12, width: '100%' }}
+              onChange={value => setSettings({ ...settings, theme: value })}
+              mt="xs"
             >
-              <Space direction="vertical" style={{ width: '100%' }}>
-                <Radio value="light">☀️ 默认（白色）</Radio>
-                <Radio value="dark">🌙 夜间（深色）</Radio>
-                <Radio value="sepia">📜 羊皮纸</Radio>
-                <Radio value="green">👁️ 护眼（绿色）</Radio>
-                <Radio value="paper">🖊️ 纸张（米黄）</Radio>
-              </Space>
+              <Stack gap="xs">
+                <Radio value="light" label="☀️ 默认（白色）" />
+                <Radio value="dark" label="🌙 夜间（深色）" />
+                <Radio value="sepia" label="📜 羊皮纸" />
+                <Radio value="green" label="👁️ 护眼（绿色）" />
+                <Radio value="paper" label="🖊️ 纸张（米黄）" />
+              </Stack>
             </Radio.Group>
           </div>
 
@@ -1438,40 +1449,42 @@ function NovelReader() {
 
           {/* 字号 */}
           <div>
-            <Text strong>字体大小: {settings.fontSize}px</Text>
+            <Text fw={600}>字体大小: {settings.fontSize}px</Text>
             <Slider
               min={14}
               max={32}
               value={settings.fontSize}
               onChange={value => setSettings({ ...settings, fontSize: value })}
-              style={{ marginTop: 12 }}
+              mt="xs"
             />
           </div>
 
           {/* 行距 */}
           <div>
-            <Text strong>行间距: {settings.lineHeight}</Text>
+            <Text fw={600}>行间距: {settings.lineHeight}</Text>
             <Slider
               min={1.5}
               max={3.0}
               step={0.1}
               value={settings.lineHeight}
               onChange={value => setSettings({ ...settings, lineHeight: value })}
-              style={{ marginTop: 12 }}
+              mt="xs"
             />
           </div>
 
           {/* 字体 */}
           <div>
-            <Text strong>字体</Text>
+            <Text fw={600}>字体</Text>
             <Select
               value={settings.fontFamily}
               onChange={value => setSettings({ ...settings, fontFamily: value })}
-              style={{ width: '100%', marginTop: 12 }}
-            >
-              <Select.Option value="serif">衬线字体（宋体）</Select.Option>
-              <Select.Option value="sans">无衬线（黑体）</Select.Option>
-              <Select.Option value="system">系统默认</Select.Option>
+              mt="xs"
+              data={[
+                { value: 'serif', label: '衬线字体（宋体）' },
+                { value: 'sans', label: '无衬线（黑体）' },
+                { value: 'system', label: '系统默认' }
+              ]}
+            />
             </Select>
           </div>
 
@@ -1479,11 +1492,11 @@ function NovelReader() {
 
           {/* 阅读模式 */}
           <div>
-            <Text strong>阅读模式</Text>
+            <Text fw={600}>阅读模式</Text>
             <Radio.Group
               value={settings.readingMode}
-              onChange={e => {
-                const newMode = e.target.value
+              onChange={value => {
+                const newMode = value
                 setSettings({ ...settings, readingMode: newMode })
                 if (newMode === 'scroll') {
                   // 切换到滚动模式：清空并重新加载
@@ -1495,12 +1508,12 @@ function NovelReader() {
                   setTimeout(() => loadChapter(currentChapter), 100)
                 }
               }}
-              style={{ marginTop: 12, width: '100%' }}
+              mt="xs"
             >
-              <Space direction="vertical" style={{ width: '100%' }}>
-                <Radio value="scroll">📜 滚动模式（自动加载下一章）</Radio>
-                <Radio value="page">📄 翻页模式（手动翻页）</Radio>
-              </Space>
+              <Stack gap="xs">
+                <Radio value="scroll" label="📜 滚动模式（自动加载下一章）" />
+                <Radio value="page" label="📄 翻页模式（手动翻页）" />
+              </Stack>
             </Radio.Group>
           </div>
 
@@ -1508,7 +1521,7 @@ function NovelReader() {
 
           {/* 文字替换工具 */}
           <div>
-            <Text strong>文字替换工具</Text>
+            <Text fw={600}>文字替换工具</Text>
             <Button 
               block 
               icon={<IconSwitchHorizontal size={18} />}
@@ -1516,89 +1529,16 @@ function NovelReader() {
                 setSettingsVisible(false)
                 setReplaceVisible(true)
               }}
-              style={{ marginTop: 12 }}
+              mt="xs"
             >
               打开替换工具
             </Button>
-            <Text c="dimmed" style={{ fontSize: 12, marginTop: 8, display: 'block' }}>
+            <Text c="dimmed" size="xs" mt="xs">
               支持字符匹配和正则表达式，可替换当前章节或全部章节
             </Text>
           </div>
-        </Space>
+        </Stack>
       </Drawer>
-
-      {/* 编辑小说信息弹窗 */}
-      <Modal
-        title="编辑小说信息"
-        open={editNovelVisible}
-        onOk={handleSaveNovelEdit}
-        onCancel={() => {
-          setEditNovelVisible(false)
-          setEditingNovel(null)
-        }}
-        confirmLoading={editNovelLoading}
-        okText="保存"
-        cancelText="取消"
-        width={600}
-      >
-        <Space direction="vertical" style={{ width: '100%' }} size="large">
-          <div>
-            <Text strong>小说标题 *</Text>
-            <Input
-              placeholder="请输入小说标题"
-              value={editNovelForm.title}
-              onChange={(e) => setEditNovelForm({ ...editNovelForm, title: e.target.value })}
-              style={{ marginTop: 8 }}
-            />
-          </div>
-          
-          <div>
-            <Text strong>作者</Text>
-            <Input
-              placeholder="请输入作者名称"
-              value={editNovelForm.author}
-              onChange={(e) => setEditNovelForm({ ...editNovelForm, author: e.target.value })}
-              style={{ marginTop: 8 }}
-            />
-          </div>
-          
-          <div>
-            <Text strong>封面URL</Text>
-            <Input
-              placeholder="请输入封面图片URL"
-              value={editNovelForm.cover_url}
-              onChange={(e) => setEditNovelForm({ ...editNovelForm, cover_url: e.target.value })}
-              style={{ marginTop: 8 }}
-            />
-            {editNovelForm.cover_url && (
-              <div style={{ 
-                marginTop: 12, 
-                padding: 8, 
-                border: '1px solid #d9d9d9',
-                borderRadius: 8,
-                textAlign: 'center'
-              }}>
-                <Text c="dimmed" style={{ fontSize: 12, marginBottom: 8, display: 'block' }}>
-                  封面预览：
-                </Text>
-                <img 
-                  src={editNovelForm.cover_url} 
-                  alt="封面预览" 
-                  style={{ 
-                    maxWidth: '100%', 
-                    maxHeight: 300,
-                    borderRadius: 4
-                  }}
-                  onError={(e) => {
-                    e.target.style.display = 'none'
-                    message.error('封面图片加载失败')
-                  }}
-                />
-              </div>
-            )}
-          </div>
-        </Space>
-      </Modal>
 
       {/* 文字替换面板 */}
       <Drawer
@@ -1612,10 +1552,10 @@ function NovelReader() {
         position="right"
         size="xl"
       >
-        <Space direction="vertical" style={{ width: '100%' }} size="large">
+        <Stack gap="lg">
           <div>
-            <Text strong>查找文本</Text>
-            <Input.TextArea
+            <Text fw={600} mb="xs">查找文本</Text>
+            <Textarea
               placeholder="输入要查找的文本"
               value={replaceForm.findText}
               onChange={e => {
@@ -1624,64 +1564,64 @@ function NovelReader() {
                 setPreviewMatches([])
               }}
               rows={3}
-              style={{ marginTop: 8 }}
             />
           </div>
 
           <div>
-            <Text strong>替换为</Text>
-            <Input.TextArea
+            <Text fw={600} mb="xs">替换为</Text>
+            <Textarea
               placeholder="输入替换后的文本（留空表示删除）"
               value={replaceForm.replaceText}
               onChange={e => setReplaceForm({ ...replaceForm, replaceText: e.target.value })}
               rows={3}
-              style={{ marginTop: 8 }}
             />
           </div>
 
           <Divider />
 
-          <div>
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <Checkbox
-                checked={replaceForm.useRegex}
-                onChange={e => {
-                  setReplaceForm({ ...replaceForm, useRegex: e.target.checked })
-                  setShowPreview(false)
-                  setPreviewMatches([])
-                }}
-              >
-                <Text>使用正则表达式</Text>
-                <br />
-                <Text c="dimmed" style={{ fontSize: 12 }}>
-                  启用后可使用正则表达式进行高级匹配
-                </Text>
-              </Checkbox>
+          <Stack gap="sm">
+            <Checkbox
+              checked={replaceForm.useRegex}
+              onChange={e => {
+                setReplaceForm({ ...replaceForm, useRegex: e.currentTarget.checked })
+                setShowPreview(false)
+                setPreviewMatches([])
+              }}
+              label={
+                <div>
+                  <Text>使用正则表达式</Text>
+                  <Text c="dimmed" size="xs">
+                    启用后可使用正则表达式进行高级匹配
+                  </Text>
+                </div>
+              }
+            />
 
-              <Checkbox
-                checked={replaceForm.replaceAllChapters}
-                onChange={e => {
-                  setReplaceForm({ ...replaceForm, replaceAllChapters: e.target.checked })
-                  setShowPreview(false)
-                  setPreviewMatches([])
-                }}
-              >
-                <Text>替换所有章节</Text>
-                <br />
-                <Text c="dimmed" style={{ fontSize: 12 }}>
-                  不勾选则只替换当前章节
-                </Text>
-              </Checkbox>
-            </Space>
-          </div>
+            <Checkbox
+              checked={replaceForm.replaceAllChapters}
+              onChange={e => {
+                setReplaceForm({ ...replaceForm, replaceAllChapters: e.currentTarget.checked })
+                setShowPreview(false)
+                setPreviewMatches([])
+              }}
+              label={
+                <div>
+                  <Text>替换所有章节</Text>
+                  <Text c="dimmed" size="xs">
+                    不勾选则只替换当前章节
+                  </Text>
+                </div>
+              }
+            />
+          </Stack>
 
           <Divider />
 
           {/* 预览按钮 */}
           <Button
-            block
-            size="large"
-            icon={<IconSearch size={18} />}
+            fullWidth
+            size="lg"
+            leftSection={<IconSearch size={18} />}
             loading={previewLoading}
             onClick={handlePreview}
             disabled={!replaceForm.findText.trim()}
@@ -1691,33 +1631,28 @@ function NovelReader() {
 
           {/* 预览结果 */}
           {showPreview && previewMatches.length > 0 && (
-            <div style={{ 
-              maxHeight: '400px', 
-              overflowY: 'auto',
-              border: '1px solid #d9d9d9',
-              borderRadius: '8px',
-              padding: '12px',
-              background: '#fafafa'
-            }}>
-              <Text strong style={{ marginBottom: 12, display: 'block' }}>
+            <Paper 
+              withBorder
+              p="md"
+              style={{ 
+                maxHeight: '400px', 
+                overflowY: 'auto',
+                background: '#fafafa'
+              }}
+            >
+              <Text fw={600} mb="md">
                 🔍 找到 {previewMatches.length} 处匹配
               </Text>
-              <List
-                size="small"
-                dataSource={previewMatches}
-                renderItem={(match, index) => (
-                  <List.Item 
+              <Stack gap="xs">
+                {previewMatches.map((match, index) => (
+                  <Paper
                     key={index}
-                    style={{ 
-                      background: '#fff',
-                      padding: '8px',
-                      marginBottom: '8px',
-                      borderRadius: '4px',
-                      border: '1px solid #e8e8e8'
-                    }}
+                    p="sm"
+                    withBorder
+                    style={{ background: '#fff' }}
                   >
-                    <Space direction="vertical" style={{ width: '100%' }} size="small">
-                      <Text c="dimmed" style={{ fontSize: 12 }}>
+                    <Stack gap="xs">
+                      <Text c="dimmed" size="xs">
                         第 {match.chapter_num} 章 - {match.chapter_title}
                       </Text>
                       <div style={{ 
@@ -1725,9 +1660,10 @@ function NovelReader() {
                         lineHeight: 1.6,
                         wordBreak: 'break-all'
                       }}>
-                        <Text>{match.before_text}</Text>
+                        <Text component="span">{match.before_text}</Text>
                         <Text 
-                          strong 
+                          component="span"
+                          fw={600}
                           style={{ 
                             background: '#ffe58f',
                             padding: '2px 4px',
@@ -1737,30 +1673,25 @@ function NovelReader() {
                         >
                           {match.matched_text}
                         </Text>
-                        <Text>{match.after_text}</Text>
+                        <Text component="span">{match.after_text}</Text>
                       </div>
-                    </Space>
-                  </List.Item>
-                )}
-              />
-            </div>
+                    </Stack>
+                  </Paper>
+                ))}
+              </Stack>
+            </Paper>
           )}
 
           {showPreview && previewMatches.length === 0 && (
-            <div style={{ 
-              textAlign: 'center',
-              padding: '24px',
-              background: '#fafafa',
-              borderRadius: '8px'
-            }}>
+            <Center py="xl" style={{ background: '#fafafa', borderRadius: '8px' }}>
               <Text c="dimmed">未找到匹配项</Text>
-            </div>
+            </Center>
           )}
 
           <Divider />
 
           <div>
-            <Text type="warning" strong>⚠️ 重要提示</Text>
+            <Text c="yellow" fw={600}>⚠️ 重要提示</Text>
             <ul style={{ marginTop: 8, paddingLeft: 20, color: '#faad14', fontSize: 12 }}>
               <li>所有替换操作不区分大小写</li>
               <li>替换将直接修改数据库中的内容</li>
@@ -1770,17 +1701,17 @@ function NovelReader() {
           </div>
 
           <Button
-            type="primary"
-            block
-            size="large"
-            icon={<IconSwitchHorizontal size={18} />}
+            variant="filled"
+            fullWidth
+            size="lg"
+            leftSection={<IconSwitchHorizontal size={18} />}
             loading={replaceLoading}
             onClick={handleReplace}
             disabled={!showPreview || previewMatches.length === 0}
           >
             {replaceLoading ? '替换中...' : `确认替换 ${previewMatches.length} 处`}
           </Button>
-        </Space>
+        </Stack>
       </Drawer>
     </div>
   )
