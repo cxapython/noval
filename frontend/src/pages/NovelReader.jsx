@@ -1168,7 +1168,7 @@ function NovelReader() {
                       {chapter.content.split('\n').map((para, i) => (
                         para.trim() && (
                           <Text 
-                            key={i} 
+                            key={`${chapter.index}-${i}`}
                             component="p"
                             style={{ 
                               textIndent: '2em', 
