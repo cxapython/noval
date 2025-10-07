@@ -1,26 +1,26 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { 
-  Card, List, Button, App, Typography, Space, 
-  Empty, Modal, Input, Tag, Row, Col, Drawer, Radio,
-  Slider, Select, Tooltip, Popover, Badge, Divider, Checkbox
-} from 'antd'
+  Card, Button, Stack, Group, 
+  Modal, TextInput, Badge, Grid, Drawer, Radio,
+  Slider, Select, Tooltip, Divider, Checkbox, Title, Text,
+  Paper, Center, ActionIcon, Box, Progress as MantineProgress
+} from '@mantine/core'
+import { notifications } from '@mantine/notifications'
+import { modals } from '@mantine/modals'
 import { 
-  BookOutlined, ReadOutlined, LeftOutlined, RightOutlined, 
-  UnorderedListOutlined, SearchOutlined, BookFilled,
-  SettingOutlined, HighlightFilled, EditOutlined,
-  DeleteOutlined, PlusOutlined, StarOutlined, StarFilled,
-  SwapOutlined
-} from '@ant-design/icons'
+  IconBook, IconBookmark, IconArrowLeft, IconArrowRight, 
+  IconList, IconSearch, IconBookmarks,
+  IconSettings, IconHighlight, IconEdit,
+  IconTrash, IconPlus, IconStar, IconStarFilled,
+  IconSwitchHorizontal
+} from '@tabler/icons-react'
 import axios from 'axios'
 import './NovelReader.css'
 
-const { Title, Text, Paragraph } = Typography
-const { Search } = Input
 const API_BASE = '/api/reader'
 
 function NovelReader() {
-  const { message } = App.useApp() // 使用 App hook 替代静态 message
   const { novelId } = useParams()
   const navigate = useNavigate()
   
@@ -213,7 +213,11 @@ function NovelReader() {
         setNovels(response.data.novels)
       }
     } catch (error) {
-      message.error('加载小说列表失败')
+      notifications.show({
+        title: '错误',
+        message: '加载小说列表失败',
+        color: 'red'
+      })
     } finally {
       setLoading(false)
     }
@@ -228,7 +232,11 @@ function NovelReader() {
         setChapters(response.data.chapters)
       }
     } catch (error) {
-      message.error('加载小说详情失败')
+      notifications.show({
+        title: '错误',
+        message: '加载小说详情失败',
+        color: 'red'
+      })
     } finally {
       setLoading(false)
     }
@@ -246,7 +254,11 @@ function NovelReader() {
         window.scrollTo(0, 0)
       }
     } catch (error) {
-      message.error('加载章节失败')
+      notifications.show({
+        title: '错误',
+        message: '加载章节失败',
+        color: 'red'
+      })
     } finally {
       setLoading(false)
     }
@@ -284,7 +296,11 @@ function NovelReader() {
         window.scrollTo(0, 0)
       }
     } catch (error) {
-      message.error('加载章节失败')
+      notifications.show({
+        title: '错误',
+        message: '加载章节失败',
+        color: 'red'
+      })
     } finally {
       setLoading(false)
     }
@@ -364,7 +380,11 @@ function NovelReader() {
     if (settings.readingMode === 'page') {
       // 翻页模式：使用 chapterContent
       if (!chapterContent) {
-        message.warning('请先阅读章节内容')
+        notifications.show({
+          title: '提示',
+          message: '请先阅读章节内容',
+          color: 'yellow'
+        })
         return
       }
       currentChapterData = {
@@ -374,7 +394,11 @@ function NovelReader() {
     } else {
       // 滚动模式：尝试根据选中位置确定章节
       if (loadedChapters.length === 0) {
-        message.warning('请先阅读章节内容')
+        notifications.show({
+          title: '提示',
+          message: '请先阅读章节内容',
+          color: 'yellow'
+        })
         return
       }
       
@@ -404,7 +428,11 @@ function NovelReader() {
       // 如果无法确定，使用当前章节
       if (!currentChapterData) {
         if (!chapters[currentChapter]) {
-          message.warning('请先阅读章节内容')
+          notifications.show({
+          title: '提示',
+          message: '请先阅读章节内容',
+          color: 'yellow'
+        })
           return
         }
         const chapter = chapters[currentChapter]
@@ -425,13 +453,21 @@ function NovelReader() {
       })
       
       if (response.data.success) {
-        message.success('添加成功')
+        notifications.show({
+          title: '成功',
+          message: '添加成功',
+          color: 'green'
+        })
         loadBookmarks(novelId)
         setSelectionPopover({ visible: false, x: 0, y: 0 })
         window.getSelection().removeAllRanges()
       }
     } catch (error) {
-      message.error('添加失败')
+      notifications.show({
+        title: '错误',
+        message: '添加失败',
+        color: 'red'
+      })
     }
   }
 
@@ -439,17 +475,29 @@ function NovelReader() {
     try {
       const response = await axios.delete(`${API_BASE}/bookmark/${bookmarkId}`)
       if (response.data.success) {
-        message.success('删除成功')
+        notifications.show({
+          title: '成功',
+          message: '删除成功',
+          color: 'green'
+        })
         loadBookmarks(novelId)
       }
     } catch (error) {
-      message.error('删除失败')
+      notifications.show({
+        title: '错误',
+        message: '删除失败',
+        color: 'red'
+      })
     }
   }
 
   const handleSearch = async () => {
     if (!searchKeyword.trim()) {
-      message.warning('请输入搜索关键词')
+      notifications.show({
+        title: '提示',
+        message: '请输入搜索关键词',
+        color: 'yellow'
+      })
       return
     }
     
@@ -461,17 +509,29 @@ function NovelReader() {
       if (response.data.success) {
         setSearchResults(response.data.results)
         if (response.data.results.length === 0) {
-          message.info('未找到匹配结果')
+          notifications.show({
+            title: '提示',
+            message: '未找到匹配结果',
+            color: 'blue'
+          })
         }
       }
     } catch (error) {
-      message.error('搜索失败')
+      notifications.show({
+        title: '错误',
+        message: '搜索失败',
+        color: 'red'
+      })
     }
   }
 
   const handlePreview = async () => {
     if (!replaceForm.findText.trim()) {
-      message.warning('请输入要查找的文本')
+      notifications.show({
+        title: '提示',
+        message: '请输入要查找的文本',
+        color: 'yellow'
+      })
       return
     }
     
@@ -496,16 +556,32 @@ function NovelReader() {
         setShowPreview(true)
         
         if (response.data.total_matches === 0) {
-          message.info('未找到匹配项')
+          notifications.show({
+            title: '提示',
+            message: '未找到匹配项',
+            color: 'blue'
+          })
         } else {
-          message.success(`找到 ${response.data.total_matches} 处匹配，分布在 ${response.data.affected_chapters} 个章节`)
+          notifications.show({
+            title: '成功',
+            message: `找到 ${response.data.total_matches} 处匹配，分布在 ${response.data.affected_chapters} 个章节`,
+            color: 'green'
+          })
           if (response.data.is_limited) {
-            message.warning('匹配项过多，仅显示前100条')
+            notifications.show({
+              title: '提示',
+              message: '匹配项过多，仅显示前100条',
+              color: 'yellow'
+            })
           }
         }
       }
     } catch (error) {
-      message.error(error.response?.data?.error || '预览失败')
+      notifications.show({
+        title: '错误',
+        message: error.response?.data?.error || '预览失败',
+        color: 'red'
+      })
     } finally {
       setPreviewLoading(false)
     }
@@ -513,13 +589,21 @@ function NovelReader() {
 
   const handleReplace = async () => {
     if (!replaceForm.findText.trim()) {
-      message.warning('请输入要查找的文本')
+      notifications.show({
+        title: '提示',
+        message: '请输入要查找的文本',
+        color: 'yellow'
+      })
       return
     }
     
     // 如果没有预览，先预览
     if (!showPreview || previewMatches.length === 0) {
-      message.warning('请先预览匹配结果')
+      notifications.show({
+        title: '提示',
+        message: '请先预览匹配结果',
+        color: 'yellow'
+      })
       return
     }
     
@@ -548,7 +632,11 @@ function NovelReader() {
       })
       
       if (response.data.success) {
-        message.success(response.data.message)
+        notifications.show({
+          title: '成功',
+          message: response.data.message,
+          color: 'green'
+        })
         
         // 刷新当前章节
         if (settings.readingMode === 'page') {
@@ -570,7 +658,11 @@ function NovelReader() {
         setReplaceVisible(false)
       }
     } catch (error) {
-      message.error(error.response?.data?.error || '替换失败')
+      notifications.show({
+        title: '错误',
+        message: error.response?.data?.error || '替换失败',
+        color: 'red'
+      })
     } finally {
       setReplaceLoading(false)
     }
@@ -623,7 +715,11 @@ function NovelReader() {
 
   const handleSaveNovelEdit = async () => {
     if (!editNovelForm.title.trim()) {
-      message.warning('标题不能为空')
+      notifications.show({
+        title: '提示',
+        message: '标题不能为空',
+        color: 'yellow'
+      })
       return
     }
 
@@ -632,38 +728,66 @@ function NovelReader() {
       const response = await axios.put(`${API_BASE}/novel/${editingNovel.id}`, editNovelForm)
       
       if (response.data.success) {
-        message.success('更新成功')
+        notifications.show({
+          title: '成功',
+          message: '更新成功',
+          color: 'green'
+        })
         setEditNovelVisible(false)
         setEditingNovel(null)
         loadNovels() // 刷新列表
       } else {
-        message.error('更新失败：' + response.data.error)
+        notifications.show({
+          title: '错误',
+          message: '更新失败：' + response.data.error,
+          color: 'red'
+        })
       }
     } catch (error) {
-      message.error('更新失败：' + error.message)
+      notifications.show({
+        title: '错误',
+        message: '更新失败：' + error.message,
+        color: 'red'
+      })
     } finally {
       setEditNovelLoading(false)
     }
   }
 
   const handleDeleteNovel = async (novel) => {
-    Modal.confirm({
+    modals.openConfirmModal({
       title: '确认删除',
-      content: `确定要删除《${novel.title}》吗？此操作不可恢复！`,
-      okText: '确认',
-      okType: 'danger',
-      cancelText: '取消',
-      onOk: async () => {
+      children: (
+        <Text size="sm">
+          确定要删除《{novel.title}》吗？此操作不可恢复！
+        </Text>
+      ),
+      labels: { confirm: '确认', cancel: '取消' },
+      confirmProps: { color: 'red' },
+      centered: true,
+      onConfirm: async () => {
         try {
           const response = await axios.delete(`${API_BASE}/novel/${novel.id}`)
           if (response.data.success) {
-            message.success('删除成功')
+            notifications.show({
+              title: '成功',
+              message: '删除成功',
+              color: 'green'
+            })
             loadNovels()
           } else {
-            message.error('删除失败：' + response.data.error)
+            notifications.show({
+              title: '错误',
+              message: '删除失败：' + response.data.error,
+              color: 'red'
+            })
           }
         } catch (error) {
-          message.error('删除失败：' + error.message)
+          notifications.show({
+            title: '错误',
+            message: '删除失败：' + error.message,
+            color: 'red'
+          })
         }
       }
     })
@@ -684,149 +808,145 @@ function NovelReader() {
   if (!novelId) {
     return (
       <div className="fade-in">
-        <Card title={<Title level={3}>📚 我的书架</Title>}>
+        <Card>
+          <Title order={3}>📚 我的书架</Title>
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '40px' }}>
+            <Center style={{ padding: '40px' }}>
               <Text>加载中...</Text>
-            </div>
+            </Center>
           ) : novels.length === 0 ? (
-            <Empty description="暂无小说，请先运行爬虫采集数据" />
+            <Center style={{ padding: '40px' }}>
+              <Text c="dimmed">暂无小说，请先运行爬虫采集数据</Text>
+            </Center>
           ) : (
-            <List
-              grid={{ gutter: 16, xs: 1, sm: 2, md: 3, lg: 4 }}
-              dataSource={novels}
-              renderItem={(novel) => (
-                <List.Item>
-                  <Badge.Ribbon text={`${novel.total_chapters}章`} color="blue">
-                    <Card
-                      hoverable
-                      cover={
-                        <div 
-                          onClick={() => navigate(`/reader/${novel.id}`)}
-                          style={{ cursor: 'pointer' }}
-                        >
-                          {novel.cover_url ? (
-                            <img 
-                              alt={novel.title}
-                              src={novel.cover_url}
-                              style={{ height: 240, objectFit: 'cover' }}
-                            />
-                          ) : (
-                            <div style={{ 
-                              height: 240, 
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              justifyContent: 'center',
-                              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                              color: '#fff',
-                              fontSize: 72,
-                              fontWeight: 'bold'
-                            }}>
-                              {novel.title[0]}
-                            </div>
-                          )}
-                        </div>
-                      }
-                      actions={[
-                        <Tooltip title="编辑" key="edit">
-                          <Button 
-                            type="text"
-                            icon={<EditOutlined />}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleEditNovel(novel)
-                            }}
-                          />
-                        </Tooltip>,
-                        <Tooltip title="删除" key="delete">
-                          <Button 
-                            type="text"
-                            danger
-                            icon={<DeleteOutlined />}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleDeleteNovel(novel)
-                            }}
-                          />
-                        </Tooltip>
-                      ]}
+            <Grid gutter="md">
+              {novels.map((novel) => (
+                <Grid.Col key={novel.id} span={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                  <Card
+                    shadow="sm"
+                    padding="lg"
+                    style={{ cursor: 'pointer', position: 'relative' }}
+                    onClick={() => navigate(`/reader/${novel.id}`)}
+                  >
+                    <Badge
+                      style={{ position: 'absolute', top: 10, right: 10, zIndex: 1 }}
+                      color="blue"
+                      variant="filled"
                     >
-                      <div 
-                        onClick={() => navigate(`/reader/${novel.id}`)}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        <Card.Meta
-                          title={<Text strong ellipsis={{ rows: 1 }}>{novel.title}</Text>}
-                          description={
-                            <Space direction="vertical" size="small" style={{ width: '100%' }}>
-                              <Text type="secondary" ellipsis>👤 {novel.author || '未知作者'}</Text>
-                              <Text type="secondary">
-                                📖 {novel.total_chapters || 0} 章 | 📝 {Math.floor((novel.total_words || 0) / 10000)} 万字
-                              </Text>
-                            </Space>
-                          }
+                      {novel.total_chapters}章
+                    </Badge>
+                    
+                    <Card.Section>
+                      {novel.cover_url ? (
+                        <img 
+                          alt={novel.title}
+                          src={novel.cover_url}
+                          style={{ height: 240, objectFit: 'cover', width: '100%' }}
                         />
-                      </div>
-                    </Card>
-                  </Badge.Ribbon>
-                </List.Item>
-              )}
-            />
+                      ) : (
+                        <div style={{ 
+                          height: 240, 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center',
+                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                          color: '#fff',
+                          fontSize: 72,
+                          fontWeight: 'bold'
+                        }}>
+                          {novel.title[0]}
+                        </div>
+                      )}
+                    </Card.Section>
+
+                    <Group justify="space-between" mt="md" mb="xs">
+                      <Text fw={600} lineClamp={1}>{novel.title}</Text>
+                    </Group>
+
+                    <Stack gap="xs">
+                      <Text size="sm" c="dimmed">👤 {novel.author || '未知作者'}</Text>
+                      <Text size="sm" c="dimmed">
+                        📖 {novel.total_chapters || 0} 章 | 📝 {Math.floor((novel.total_words || 0) / 10000)} 万字
+                      </Text>
+                    </Stack>
+
+                    <Group justify="center" mt="md">
+                      <Tooltip label="编辑">
+                        <ActionIcon
+                          variant="subtle"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleEditNovel(novel)
+                          }}
+                        >
+                          <IconEdit size={18} />
+                        </ActionIcon>
+                      </Tooltip>
+                      <Tooltip label="删除">
+                        <ActionIcon
+                          variant="subtle"
+                          color="red"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDeleteNovel(novel)
+                          }}
+                        >
+                          <IconTrash size={18} />
+                        </ActionIcon>
+                      </Tooltip>
+                    </Group>
+                  </Card>
+                </Grid.Col>
+              ))}
+            </Grid>
           )}
         </Card>
         
         {/* 编辑小说信息弹窗 */}
         <Modal
-          title="编辑小说信息"
-          open={editNovelVisible}
-          onOk={handleSaveNovelEdit}
-          onCancel={() => {
+          opened={editNovelVisible}
+          onClose={() => {
             setEditNovelVisible(false)
             setEditingNovel(null)
           }}
-          confirmLoading={editNovelLoading}
-          okText="保存"
-          cancelText="取消"
-          width={600}
+          title="编辑小说信息"
+          size="lg"
+          centered
         >
-          <Space direction="vertical" style={{ width: '100%' }} size="large">
+          <Stack gap="lg">
             <div>
-              <Text strong>小说标题 *</Text>
-              <Input
+              <Text fw={600} mb="xs">小说标题 *</Text>
+              <TextInput
                 placeholder="请输入小说标题"
                 value={editNovelForm.title}
                 onChange={(e) => setEditNovelForm({ ...editNovelForm, title: e.target.value })}
-                style={{ marginTop: 8 }}
               />
             </div>
             
             <div>
-              <Text strong>作者</Text>
-              <Input
+              <Text fw={600} mb="xs">作者</Text>
+              <TextInput
                 placeholder="请输入作者名称"
                 value={editNovelForm.author}
                 onChange={(e) => setEditNovelForm({ ...editNovelForm, author: e.target.value })}
-                style={{ marginTop: 8 }}
               />
             </div>
             
             <div>
-              <Text strong>封面URL</Text>
-              <Input
+              <Text fw={600} mb="xs">封面URL</Text>
+              <TextInput
                 placeholder="请输入封面图片URL"
                 value={editNovelForm.cover_url}
                 onChange={(e) => setEditNovelForm({ ...editNovelForm, cover_url: e.target.value })}
-                style={{ marginTop: 8 }}
               />
               {editNovelForm.cover_url && (
-                <div style={{ 
-                  marginTop: 12, 
-                  padding: 8, 
-                  border: '1px solid #d9d9d9',
-                  borderRadius: 8,
-                  textAlign: 'center'
-                }}>
-                  <Text type="secondary" style={{ fontSize: 12, marginBottom: 8, display: 'block' }}>
+                <Paper
+                  mt="md"
+                  p="md"
+                  withBorder
+                  style={{ textAlign: 'center' }}
+                >
+                  <Text size="sm" c="dimmed" mb="xs">
                     封面预览：
                   </Text>
                   <img 
@@ -839,13 +959,35 @@ function NovelReader() {
                     }}
                     onError={(e) => {
                       e.target.style.display = 'none'
-                      message.error('封面图片加载失败')
+                      notifications.show({
+                        title: '错误',
+                        message: '封面图片加载失败',
+                        color: 'red'
+                      })
                     }}
                   />
-                </div>
+                </Paper>
               )}
             </div>
-          </Space>
+
+            <Group justify="flex-end" mt="md">
+              <Button
+                variant="default"
+                onClick={() => {
+                  setEditNovelVisible(false)
+                  setEditingNovel(null)
+                }}
+              >
+                取消
+              </Button>
+              <Button
+                loading={editNovelLoading}
+                onClick={handleSaveNovelEdit}
+              >
+                保存
+              </Button>
+            </Group>
+          </Stack>
         </Modal>
       </div>
     )
@@ -854,73 +996,80 @@ function NovelReader() {
   // 渲染阅读界面
   return (
     <div className="novel-reader fade-in" style={{ ...currentTheme, minHeight: '100vh', padding: '24px' }}>
-      <Row gutter={[16, 16]}>
+      <Stack gap="md">
         {/* 顶部导航栏 */}
-        <Col span={24}>
-          <Card style={{ background: currentTheme.background, borderColor: currentTheme.color + '20' }}>
-            <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-              <Button onClick={() => navigate('/reader')}>
-                ← 返回书架
-              </Button>
-              
-                <Space>
-                <Title level={5} style={{ margin: 0, color: currentTheme.color }}>
-                  {novelInfo?.title}
-                </Title>
-                <Tag color="blue">
-                  {currentChapter + 1} / {chapters.length}
-                </Tag>
-              </Space>
+        <Card style={{ background: currentTheme.background, borderColor: currentTheme.color + '20' }}>
+          <Group justify="space-between" wrap="wrap">
+            <Button variant="default" onClick={() => navigate('/reader')}>
+              ← 返回书架
+            </Button>
+            
+            <Group>
+              <Title order={5} style={{ margin: 0, color: currentTheme.color }}>
+                {novelInfo?.title}
+              </Title>
+              <Badge color="blue">
+                {currentChapter + 1} / {chapters.length}
+              </Badge>
+            </Group>
 
-              <Space>
-                <Tooltip title="章节目录">
-                  <Button 
-                    icon={<UnorderedListOutlined />}
-                    onClick={() => setChapterListVisible(true)}
-                  />
-                </Tooltip>
-                <Tooltip title="搜索">
-                  <Button 
-                    icon={<SearchOutlined />}
-                    onClick={() => setSearchVisible(true)}
-                  />
-                </Tooltip>
-                <Tooltip title="书签">
-                  <Badge count={bookmarks.length} overflowCount={99}>
-                    <Button 
-                      icon={<BookFilled />}
-                      onClick={() => setBookmarkVisible(true)}
-                    />
-                  </Badge>
-                </Tooltip>
-                <Tooltip title="设置">
-                  <Button 
-                    icon={<SettingOutlined />}
-                    onClick={() => setSettingsVisible(true)}
-                  />
-                </Tooltip>
-                <Button 
-                  icon={<LeftOutlined />}
-                  disabled={currentChapter === 0}
-                  onClick={handlePrevChapter}
+            <Group gap="xs">
+              <Tooltip label="章节目录">
+                <ActionIcon 
+                  variant="default"
+                  onClick={() => setChapterListVisible(true)}
                 >
-                  上一章
-                </Button>
-                <Button 
-                  type="primary"
-                  icon={<RightOutlined />}
-                  disabled={currentChapter === chapters.length - 1}
-                  onClick={handleNextChapter}
+                  <IconList size={18} />
+                </ActionIcon>
+              </Tooltip>
+              <Tooltip label="搜索">
+                <ActionIcon 
+                  variant="default"
+                  onClick={() => setSearchVisible(true)}
                 >
-                  下一章
-                </Button>
-              </Space>
-            </Space>
-          </Card>
-        </Col>
+                  <IconSearch size={18} />
+                </ActionIcon>
+              </Tooltip>
+              <Tooltip label="书签">
+                <Badge content={bookmarks.length} max={99}>
+                  <ActionIcon 
+                    variant="default"
+                    onClick={() => setBookmarkVisible(true)}
+                  >
+                    <IconBookmarks size={18} />
+                  </ActionIcon>
+                </Badge>
+              </Tooltip>
+              <Tooltip label="设置">
+                <ActionIcon 
+                  variant="default"
+                  onClick={() => setSettingsVisible(true)}
+                >
+                  <IconSettings size={18} />
+                </ActionIcon>
+              </Tooltip>
+              <Button 
+                variant="default"
+                leftSection={<IconArrowLeft size={18} />}
+                disabled={currentChapter === 0}
+                onClick={handlePrevChapter}
+              >
+                上一章
+              </Button>
+              <Button 
+                variant="filled"
+                rightSection={<IconArrowRight size={18} />}
+                disabled={currentChapter === chapters.length - 1}
+                onClick={handleNextChapter}
+              >
+                下一章
+              </Button>
+            </Group>
+          </Group>
+        </Card>
 
         {/* 章节内容 */}
-        <Col span={24}>
+        <div>
           {settings.readingMode === 'page' ? (
             // 翻页模式：只显示当前章节
             <Card 
@@ -1079,21 +1228,21 @@ function NovelReader() {
             <Tooltip title="添加书签">
               <Button 
                 size="small" 
-                icon={<BookFilled />}
+                icon={<IconBookmarks size={18} />}
                 onClick={() => addBookmark('bookmark')}
               />
             </Tooltip>
             <Tooltip title="高亮标记">
               <Button 
                 size="small" 
-                icon={<HighlightFilled />}
+                icon={<IconHighlight size={18} />}
                 onClick={() => addBookmark('highlight')}
               />
             </Tooltip>
             <Tooltip title="添加笔记">
               <Button 
                 size="small" 
-                icon={<EditOutlined />}
+                icon={<IconEdit size={18} />}
                 onClick={() => {
                   const note = prompt('添加笔记：', '')
                   if (note) addBookmark('note', note)
@@ -1231,9 +1380,9 @@ function NovelReader() {
             >
               <Space direction="vertical" size="small" style={{ width: '100%' }}>
                 <Space>
-                  {bookmark.bookmark_type === 'bookmark' && <BookFilled />}
-                  {bookmark.bookmark_type === 'highlight' && <HighlightFilled />}
-                  {bookmark.bookmark_type === 'note' && <EditOutlined />}
+                  {bookmark.bookmark_type === 'bookmark' && <IconBookmarks size={18} />}
+                  {bookmark.bookmark_type === 'highlight' && <IconHighlight size={18} />}
+                  {bookmark.bookmark_type === 'note' && <IconEdit size={18} />}
                   <Text strong>{bookmark.chapter_title}</Text>
                 </Space>
                 {bookmark.selected_text && (
@@ -1358,7 +1507,7 @@ function NovelReader() {
             <Text strong>文字替换工具</Text>
             <Button 
               block 
-              icon={<SwapOutlined />}
+              icon={<IconSwitchHorizontal size={18} />}
               onClick={() => {
                 setSettingsVisible(false)
                 setReplaceVisible(true)
@@ -1528,7 +1677,7 @@ function NovelReader() {
           <Button
             block
             size="large"
-            icon={<SearchOutlined />}
+            icon={<IconSearch size={18} />}
             loading={previewLoading}
             onClick={handlePreview}
             disabled={!replaceForm.findText.trim()}
@@ -1620,7 +1769,7 @@ function NovelReader() {
             type="primary"
             block
             size="large"
-            icon={<SwapOutlined />}
+            icon={<IconSwitchHorizontal size={18} />}
             loading={replaceLoading}
             onClick={handleReplace}
             disabled={!showPreview || previewMatches.length === 0}
