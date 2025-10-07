@@ -10,9 +10,11 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import { 
   Button, Group, Stack, Modal, Card, Stepper, Select, 
-  Badge, Divider, Text, Alert, Switch, NumberInput, TextInput, Textarea
+  Badge, Divider, Text, Alert, Switch, NumberInput, TextInput, Textarea,
+  List
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
+import { modals } from '@mantine/modals';
 import {
   IconPlayerPlay,
   IconClearAll,
@@ -300,17 +302,18 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
       // 验证流程
       const errors = validateFlow(nodes, edges);
       if (errors.length > 0) {
-        Modal.error({
+        modals.open({
           title: '流程验证失败',
-          content: (
-            <div>
+          children: (
+            <Stack gap="xs">
               {errors.map((err, idx) => (
-                <div key={idx} style={{ color: '#ff4d4f', marginBottom: 4 }}>
+                <Text key={idx} c="red" size="sm">
                   • {err}
-                </div>
+                </Text>
               ))}
-            </div>
-          )
+            </Stack>
+          ),
+          centered: true
         });
         return;
       }
@@ -398,17 +401,17 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
     // 如果画布有未保存的节点，弹出确认对话框
     if (nodes.length > 0) {
       const fieldInfo = currentStepConfig.fields.find(f => f.key === fieldKey);
-      Modal.confirm({
+      modals.openConfirmModal({
         title: '确认加载配置',
-        content: (
-          <div>
-            <p>当前画布有节点，加载 <strong>{fieldInfo?.label || fieldKey}</strong> 的配置将清空当前画布。</p>
-            <p>确定要继续吗？</p>
-          </div>
+        children: (
+          <Stack gap="sm">
+            <Text size="sm">当前画布有节点，加载 <strong>{fieldInfo?.label || fieldKey}</strong> 的配置将清空当前画布。</Text>
+            <Text size="sm">确定要继续吗？</Text>
+          </Stack>
         ),
-        okText: '确定加载',
-        cancelText: '取消',
-        onOk: loadFieldConfig
+        labels: { confirm: '确定加载', cancel: '取消' },
+        onConfirm: loadFieldConfig,
+        centered: true
       });
     } else {
       loadFieldConfig();
@@ -417,10 +420,12 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
 
   // 删除已保存的字段
   const handleDeleteField = (fieldKey) => {
-    Modal.confirm({
+    modals.openConfirmModal({
       title: '确认删除',
-      content: `确定要删除字段 "${fieldKey}" 的配置吗？`,
-      onOk: () => {
+      children: <Text size="sm">确定要删除字段 "{fieldKey}" 的配置吗？</Text>,
+      labels: { confirm: '删除', cancel: '取消' },
+      confirmProps: { color: 'red' },
+      onConfirm: () => {
         const currentFields = getCurrentFields();
         const newFields = { ...currentFields };
         delete newFields[fieldKey];
@@ -430,16 +435,19 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
           message: '已删除字段配置',
           color: 'green'
         });
-      }
+      },
+      centered: true
     });
   };
 
   // 清空画布
   const handleClear = useCallback(() => {
-    Modal.confirm({
+    modals.openConfirmModal({
       title: '确认清空',
-      content: '确定要清空当前流程吗？此操作不可恢复。',
-      onOk: () => {
+      children: <Text size="sm">确定要清空当前流程吗？此操作不可恢复。</Text>,
+      labels: { confirm: '确认', cancel: '取消' },
+      confirmProps: { color: 'red' },
+      onConfirm: () => {
         setNodes([]);
         setEdges([]);
         notifications.show({
@@ -447,7 +455,8 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
           message: '画布已清空',
           color: 'green'
         });
-      }
+      },
+      centered: true
     });
   }, [setNodes, setEdges]);
 
@@ -608,22 +617,25 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
       color: 'green'
     });
     
-    Modal.success({
+    modals.open({
       title: '配置生成成功',
-      content: (
-        <div>
-          <p>已配置字段统计：</p>
-          <p>• 小说信息: {Object.keys(novelInfoFields).length} 个字段</p>
-          <p>• 章节列表: {Object.keys(chapterListFields).length} 个字段 
-            {chapterListPagination.enabled && <Tag color="green" style={{marginLeft: 8}}>已启用翻页</Tag>}
-          </p>
-          <p>• 章节内容: {Object.keys(chapterContentFields).length} 个字段
-            {contentPagination.enabled && <Tag color="green" style={{marginLeft: 8}}>已启用翻页</Tag>}
-          </p>
+      children: (
+        <Stack gap="sm">
+          <Text size="sm">已配置字段统计：</Text>
+          <Text size="sm">• 小说信息: {Object.keys(novelInfoFields).length} 个字段</Text>
+          <Text size="sm">
+            • 章节列表: {Object.keys(chapterListFields).length} 个字段 
+            {chapterListPagination.enabled && <Badge color="green" ml={8}>已启用翻页</Badge>}
+          </Text>
+          <Text size="sm">
+            • 章节内容: {Object.keys(chapterContentFields).length} 个字段
+            {contentPagination.enabled && <Badge color="green" ml={8}> 已启用翻页</Badge>}
+          </Text>
           <Divider />
-          <p>请切换到 <strong>JSON视图</strong> 查看完整配置并保存。</p>
-        </div>
-      )
+          <Text size="sm">请切换到 <strong>JSON视图</strong> 查看完整配置并保存。</Text>
+        </Stack>
+      ),
+      centered: true
     });
   };
 
@@ -684,12 +696,12 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
       </Button>
 
       {/* 步骤指示器 */}
-      <Card size="small">
-        <Steps current={currentStep} size="small">
+      <Card padding="sm" radius="md" withBorder>
+        <Stepper active={currentStep} size="sm">
           {STEPS_CONFIG.map(step => (
-            <Step 
+            <Stepper.Step 
               key={step.step} 
-              title={<span style={{ fontSize: 13 }}>{step.title}</span>}
+              label={<span style={{ fontSize: 13 }}>{step.title}</span>}
               description={<span style={{ fontSize: 11 }}>{`${Object.keys(
                 step.step === 0 ? novelInfoFields :
                 step.step === 1 ? chapterListFields :
@@ -697,7 +709,7 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
               ).length}/${step.fields.filter(f => f.required).length} 必填`}</span>}
             />
           ))}
-        </Steps>
+        </Stepper>
       </Card>
 
       <div style={{ display: 'flex', flex: 1, gap: 0, position: 'relative', minHeight: 0 }}>
@@ -838,28 +850,30 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
                   onChange={(value) => {
                     // 如果选择的是已配置的字段，提示用户加载进行编辑
                     if (currentFields[value] && value !== selectedField) {
-                      Modal.confirm({
+                      modals.openConfirmModal({
                         title: '切换到已配置字段',
-                        content: `字段 "${currentStepConfig.fields.find(f => f.key === value)?.label}" 已有配置，是否加载到画布进行编辑？`,
-                        okText: '加载配置',
-                        cancelText: '创建新配置',
-                        onOk: () => {
+                        children: <Text size="sm">字段 "{currentStepConfig.fields.find(f => f.key === value)?.label}" 已有配置，是否加载到画布进行编辑？</Text>,
+                        labels: { confirm: '加载配置', cancel: '创建新配置' },
+                        onConfirm: () => {
                           handleEditField(value);
                         },
                         onCancel: () => {
                           setSelectedField(value);
                           // 清空画布，准备创建新配置
                           if (nodes.length > 0) {
-                            Modal.confirm({
+                            modals.openConfirmModal({
                               title: '确认清空画布',
-                              content: '当前画布有节点，切换字段将清空画布。确定继续吗？',
-                              onOk: () => {
+                              children: <Text size="sm">当前画布有节点，切换字段将清空画布。确定继续吗？</Text>,
+                              labels: { confirm: '确认', cancel: '取消' },
+                              onConfirm: () => {
                                 setNodes([]);
                                 setEdges([]);
-                              }
+                              },
+                              centered: true
                             });
                           }
-                        }
+                        },
+                        centered: true
                       });
                     } else {
                       setSelectedField(value);
