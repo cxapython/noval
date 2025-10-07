@@ -100,31 +100,8 @@ export const NODE_CATEGORIES = {
         inputs: 1,
         outputs: 1,
         description: '将字符串按分隔符分割成数组'
-      },
-      {
-        type: 'extract-first',
-        label: '提取第一个',
-        category: 'processor',
-        defaultData: {
-          method: 'extract_first',
-          params: {}
-        },
-        inputs: 1,
-        outputs: 1,
-        description: '从数组中提取第一个元素'
-      },
-      {
-        type: 'extract-index',
-        label: '索引选择器',
-        category: 'processor',
-        defaultData: {
-          method: 'extract_index',
-          params: { index: -1 }
-        },
-        inputs: 1,
-        outputs: 1,
-        description: '从数组中提取指定索引元素（-1=最后一个，0=第一个，999=全部）'
       }
+      // 注：已移除"提取第一个"和"索引选择器"，XPath提取器节点已内置索引选择功能
     ]
   }
 };

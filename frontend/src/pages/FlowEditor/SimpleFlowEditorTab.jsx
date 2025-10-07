@@ -12,6 +12,8 @@ import {
   Button, Space, message, Modal, Card, Steps, Select, 
   List, Tag, Divider, Typography, Alert, Switch, Form, Input, InputNumber
 } from 'antd';
+
+const { TextArea } = Input;
 import {
   PlayCircleOutlined,
   ClearOutlined,
@@ -25,7 +27,9 @@ import {
   MenuUnfoldOutlined,
   ColumnWidthOutlined,
   UpOutlined,
-  DownOutlined
+  DownOutlined,
+  FullscreenOutlined,
+  FullscreenExitOutlined
 } from '@ant-design/icons';
 
 import NodePalette from './NodePalette';
@@ -49,8 +53,8 @@ const nodeTypes = {
   'regex-replace': ProcessorNode,
   'join': ProcessorNode,
   'split': ProcessorNode,
-  'extract-first': ProcessorNode,
-  'extract-index': ProcessorNode
+  'extract-first': ProcessorNode,  // 保留兼容性（已从面板移除）
+  'extract-index': ProcessorNode   // 保留兼容性（已从面板移除）
 };
 
 let nodeIdCounter = 1;
@@ -143,6 +147,9 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
   const [rightPanelVisible, setRightPanelVisible] = useState(true);
   const [topConfigVisible, setTopConfigVisible] = useState(true); // 顶部配置栏显示状态
   const [isResizing, setIsResizing] = useState(null); // 'left' | 'right' | null
+  
+  // 全屏状态
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // 获取当前步骤配置
   const currentStepConfig = STEPS_CONFIG[currentStep];
@@ -181,6 +188,28 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
       document.removeEventListener('mouseup', handleMouseUp);
     };
   }, [isResizing]);
+
+  // 处理ESC键退出全屏
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isFullscreen]);
+
+  // 切换全屏
+  const toggleFullscreen = () => {
+    setIsFullscreen(!isFullscreen);
+    if (!isFullscreen) {
+      message.success('已进入全屏模式，按ESC键退出');
+    }
+  };
   
   // 设置当前步骤的已配置字段
   const setCurrentFields = (fields) => {
@@ -576,25 +605,59 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
   };
 
   return (
-    <div style={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
+    <div 
+      className={isFullscreen ? 'flow-editor-fullscreen' : ''}
+      style={{ 
+        height: isFullscreen ? '100vh' : 'calc(100vh - 180px)', 
+        display: 'flex', 
+        flexDirection: 'column', 
+        gap: 8,
+        position: isFullscreen ? 'fixed' : 'relative',
+        top: isFullscreen ? 0 : 'auto',
+        left: isFullscreen ? 0 : 'auto',
+        right: isFullscreen ? 0 : 'auto',
+        bottom: isFullscreen ? 0 : 'auto',
+        zIndex: isFullscreen ? 9999 : 'auto',
+        background: isFullscreen ? '#fff' : 'transparent',
+        padding: isFullscreen ? '16px' : '0',
+        transition: 'all 0.3s ease'
+      }}
+    >
+      {/* 全屏切换按钮 */}
+      <Button
+        type={isFullscreen ? 'default' : 'primary'}
+        icon={isFullscreen ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
+        onClick={toggleFullscreen}
+        style={{
+          position: 'absolute',
+          top: isFullscreen ? 16 : 8,
+          right: isFullscreen ? 16 : 8,
+          zIndex: 10000,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+        }}
+        title={isFullscreen ? '退出全屏 (ESC)' : '进入全屏'}
+      >
+        {isFullscreen ? '退出全屏' : '全屏'}
+      </Button>
+
       {/* 步骤指示器 */}
-      <Card size="small" style={{ marginBottom: 16 }}>
+      <Card size="small">
         <Steps current={currentStep} size="small">
           {STEPS_CONFIG.map(step => (
             <Step 
               key={step.step} 
-              title={step.title}
-              description={`${Object.keys(
+              title={<span style={{ fontSize: 13 }}>{step.title}</span>}
+              description={<span style={{ fontSize: 11 }}>{`${Object.keys(
                 step.step === 0 ? novelInfoFields :
                 step.step === 1 ? chapterListFields :
                 chapterContentFields
-              ).length}/${step.fields.filter(f => f.required).length} 必填`}
+              ).length}/${step.fields.filter(f => f.required).length} 必填`}</span>}
             />
           ))}
         </Steps>
       </Card>
 
-      <div style={{ display: 'flex', flex: 1, gap: 0, position: 'relative' }}>
+      <div style={{ display: 'flex', flex: 1, gap: 0, position: 'relative', minHeight: 0 }}>
         {/* 左侧：节点面板 */}
         {leftPanelVisible && (
           <>
@@ -674,12 +737,21 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
         )}
 
         {/* 中间：主要内容 */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, padding: '0 8px', position: 'relative' }}>
-          {/* 顶部配置栏 */}
+        <div style={{ 
+          flex: 1, 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: 6, 
+          padding: '0 6px', 
+          position: 'relative',
+          minWidth: 0,
+          overflow: 'hidden'
+        }}>
+          {/* 顶部配置栏 - 更紧凑 */}
           {topConfigVisible ? (
             <Card 
               size="small" 
-              bodyStyle={{ padding: '12px 16px' }}
+              bodyStyle={{ padding: '8px 12px' }}
               extra={
                 <Button
                   type="text"
@@ -687,40 +759,36 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
                   icon={<UpOutlined />}
                   onClick={() => setTopConfigVisible(false)}
                   title="隐藏配置栏"
-                >
-                  收起
-                </Button>
+                />
               }
             >
               <Alert
-                message={`当前步骤: ${currentStepConfig.title}`}
-                description={currentStepConfig.description}
+                message={`当前: ${currentStepConfig.title} - ${currentStepConfig.description}`}
                 type="info"
                 showIcon
-                style={{ marginBottom: 12 }}
+                style={{ marginBottom: 8, padding: '6px 12px' }}
+                closable
               />
             
-            {/* 章节列表的特殊说明 */}
+            {/* 章节列表的特殊说明 - 更紧凑 */}
             {currentStep === 1 && (
               <Alert
-                message="📖 两层提取架构说明"
-                description={
-                  <div style={{ fontSize: 11, lineHeight: '1.6' }}>
-                    <p style={{ marginBottom: 4 }}><strong>第1层 - items：</strong>批量选择所有章节容器（如：<code>//ul/li</code>）</p>
-                    <p style={{ marginBottom: 0 }}><strong>第2层 - title/url：</strong>相对路径提取（如：<code>./a/text()</code>）</p>
-                  </div>
+                message={
+                  <span style={{ fontSize: 11 }}>
+                    📖 第1层-items选容器(//ul/li)，第2层-title/url提取(./a/text())
+                  </span>
                 }
                 type="warning"
                 showIcon
                 closable
-                style={{ marginBottom: 8, background: '#fffbe6', padding: '6px 12px' }}
+                style={{ marginBottom: 6, padding: '4px 8px' }}
               />
             )}
             
-            <Space size="middle" style={{ width: '100%', marginBottom: 8 }}>
+            <Space size="small" style={{ width: '100%', marginBottom: 6 }}>
               <div style={{ flex: 1 }}>
-                <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
-                  选择要配置的字段
+                <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 2 }}>
+                  配置字段
                 </Text>
                 <Select
                   value={selectedField}
@@ -822,11 +890,12 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
           {/* 画布区域 */}
           <div 
             style={{ 
-              flex: 1, 
+              flex: 1,
               position: 'relative', 
               border: '1px solid #d9d9d9', 
-              borderRadius: 8,
-              marginTop: topConfigVisible ? 0 : '40px' // 为展开按钮留出空间
+              borderRadius: 6,
+              marginTop: topConfigVisible ? 0 : '36px',
+              minHeight: 0  // 重要：允许flex子元素收缩
             }} 
             ref={reactFlowWrapper}
           >
@@ -863,6 +932,7 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
               fitView
               minZoom={0.5}
               maxZoom={1.5}
+              style={{ width: '100%', height: '100%' }}
             >
               <Background color="#f0f0f0" gap={16} />
               <Controls />
@@ -870,8 +940,8 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
           </div>
 
           {/* 底部导航按钮 */}
-          <Card size="small">
-            <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+          <Card size="small" bodyStyle={{ padding: '10px 16px' }} style={{ flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Button
                 icon={<ArrowLeftOutlined />}
                 onClick={handlePrevStep}
@@ -880,18 +950,19 @@ function SimpleFlowEditorTab({ configData, onConfigChange }) {
                 上一步
               </Button>
 
-              <Text type="secondary">
+              <Text type="secondary" style={{ fontSize: 13 }}>
                 步骤 {currentStep + 1} / 3
               </Text>
 
               <Button
                 type="primary"
                 icon={currentStep === 2 ? <PlayCircleOutlined /> : <ArrowRightOutlined />}
+                iconPosition="end"
                 onClick={handleNextStep}
               >
                 {currentStep === 2 ? '生成配置' : '下一步'}
               </Button>
-            </Space>
+            </div>
           </Card>
         </div>
 

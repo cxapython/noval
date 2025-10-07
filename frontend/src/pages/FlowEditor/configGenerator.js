@@ -32,21 +32,25 @@ export function generateFieldConfigFromFlow(nodes, edges, fieldName) {
   // 3. 按连线顺序找到所有后续处理器节点
   const processors = getConnectedProcessors(extractorNode.id, nodes, edges);
 
-  // 4. 检查第一个节点是否是索引选择器，如果是则提取为 index
-  // 索引逻辑：
-  // - 如果有索引选择器：使用其配置的值
-  // - 如果没有索引选择器：
-  //   - content字段默认999（获取所有文本节点）
-  //   - 其他字段默认0（取第一个元素）
+  // 4. 确定索引值
+  // 优先级：
+  // 1. 提取器节点上配置的index（新增）
+  // 2. 连接的索引选择器处理器
+  // 3. 默认值：content字段=999（全部），其他字段=0（第一个）
   let indexValue;
   let processStart = 0;
   
-  if (processors.length > 0 && processors[0].data.method === 'extract_index') {
-    // 有索引选择器，使用其配置的值
-    indexValue = processors[0].data.params?.index ?? -1;
+  // 优先使用提取器节点自身的index配置
+  if (extractorNode.data.index !== undefined) {
+    indexValue = extractorNode.data.index;
+  } 
+  // 其次检查是否有索引选择器处理器（向后兼容）
+  else if (processors.length > 0 && processors[0].data.method === 'extract_index') {
+    indexValue = processors[0].data.params?.index ?? 0;
     processStart = 1; // 跳过第一个索引选择器节点
-  } else {
-    // 没有索引选择器，根据字段类型设置默认值
+  } 
+  // 最后使用默认值
+  else {
     indexValue = (fieldName === 'content') ? 999 : 0;
   }
 
@@ -215,7 +219,7 @@ export function generateFlowFromFieldConfig(fieldConfig, fieldName) {
   const edges = [];
   let nodeIdCounter = 1;
 
-  // 1. 创建提取器节点
+  // 1. 创建提取器节点（包含index配置）
   const extractorType = fieldConfig.type === 'xpath' ? 'xpath-extractor' : 'regex-extractor';
   const extractorNode = {
     id: `node-${nodeIdCounter++}`,
@@ -223,11 +227,12 @@ export function generateFlowFromFieldConfig(fieldConfig, fieldName) {
     position: { x: 100, y: 100 },
     data: {
       expression: fieldConfig.expression,
-      type: fieldConfig.type
+      type: fieldConfig.type,
+      index: fieldConfig.index !== undefined ? fieldConfig.index : 0 // 添加索引配置
     },
     style: {
       width: 320,
-      height: 200
+      height: 220  // 增加高度以容纳索引选择器
     }
   };
   nodes.push(extractorNode);

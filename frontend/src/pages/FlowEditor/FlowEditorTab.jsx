@@ -19,7 +19,9 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   UpOutlined,
-  DownOutlined
+  DownOutlined,
+  FullscreenOutlined,
+  FullscreenExitOutlined
 } from '@ant-design/icons';
 
 const { Text } = Typography;
@@ -41,8 +43,8 @@ const nodeTypes = {
   'regex-replace': ProcessorNode,
   'join': ProcessorNode,
   'split': ProcessorNode,
-  'extract-first': ProcessorNode,
-  'extract-index': ProcessorNode
+  'extract-first': ProcessorNode,  // 保留兼容性（已从面板移除）
+  'extract-index': ProcessorNode   // 保留兼容性（已从面板移除）
 };
 
 let nodeIdCounter = 1;
@@ -94,6 +96,9 @@ function FlowEditorTab({ configData, onConfigChange }) {
   const [leftPanelVisible, setLeftPanelVisible] = useState(true);
   const [topConfigVisible, setTopConfigVisible] = useState(true); // 顶部配置栏显示状态
   const [isResizing, setIsResizing] = useState(false);
+  
+  // 全屏状态
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // 处理拖拽调节宽度
   useEffect(() => {
@@ -116,6 +121,28 @@ function FlowEditorTab({ configData, onConfigChange }) {
       document.removeEventListener('mouseup', handleMouseUp);
     };
   }, [isResizing]);
+
+  // 处理ESC键退出全屏
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isFullscreen]);
+
+  // 切换全屏
+  const toggleFullscreen = () => {
+    setIsFullscreen(!isFullscreen);
+    if (!isFullscreen) {
+      message.success('已进入全屏模式，按ESC键退出');
+    }
+  };
 
   // 节点数据更新处理
   const handleNodeDataChange = useCallback((nodeId, field, value) => {
@@ -273,7 +300,38 @@ function FlowEditorTab({ configData, onConfigChange }) {
   }, [setNodes, setEdges]);
 
   return (
-    <div style={{ height: 'calc(100vh - 300px)', display: 'flex', position: 'relative' }}>
+    <div 
+      className={isFullscreen ? 'flow-editor-fullscreen' : ''}
+      style={{ 
+        height: isFullscreen ? '100vh' : 'calc(100vh - 300px)', 
+        display: 'flex', 
+        position: isFullscreen ? 'fixed' : 'relative',
+        top: isFullscreen ? 0 : 'auto',
+        left: isFullscreen ? 0 : 'auto',
+        right: isFullscreen ? 0 : 'auto',
+        bottom: isFullscreen ? 0 : 'auto',
+        zIndex: isFullscreen ? 9999 : 'auto',
+        background: isFullscreen ? '#fff' : 'transparent',
+        transition: 'all 0.3s ease'
+      }}
+    >
+      {/* 全屏切换按钮 */}
+      <Button
+        type={isFullscreen ? 'default' : 'primary'}
+        icon={isFullscreen ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
+        onClick={toggleFullscreen}
+        style={{
+          position: 'absolute',
+          top: 8,
+          right: 8,
+          zIndex: 10000,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+        }}
+        title={isFullscreen ? '退出全屏 (ESC)' : '进入全屏'}
+      >
+        {isFullscreen ? '退出全屏' : '全屏'}
+      </Button>
+
       {/* 左侧：节点面板 */}
       {leftPanelVisible && (
         <>

@@ -1,39 +1,169 @@
+/* React Flow 画布 - 现代化设计 */
 .react-flow {
-  background: #fafafa;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
+  background-image: 
+    radial-gradient(circle at 25% 25%, rgba(99, 102, 241, 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 75% 75%, rgba(59, 130, 246, 0.03) 0%, transparent 50%),
+    linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
 }
 
 .react-flow__node {
   cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.react-flow__node:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.02);
 }
 
 .react-flow__node.selected {
-  box-shadow: 0 0 0 2px #1890ff;
+  box-shadow: 0 8px 24px rgba(24, 144, 255, 0.2), 
+              0 0 0 3px rgba(24, 144, 255, 0.15);
+  transform: scale(1.01);
 }
 
+/* 连接线样式 */
 .react-flow__edge-path {
-  stroke-width: 2;
+  stroke-width: 2.5;
+  stroke: #94a3b8;
+  transition: stroke 0.2s ease;
+}
+
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke: #3b82f6;
+  stroke-width: 3;
 }
 
 .react-flow__edge.selected .react-flow__edge-path {
   stroke: #1890ff;
-  stroke-width: 3;
+  stroke-width: 3.5;
+  filter: drop-shadow(0 2px 4px rgba(24, 144, 255, 0.3));
 }
 
-.react-flow__controls {
+.react-flow__edge.animated .react-flow__edge-path {
+  stroke-dasharray: 5;
+  animation: dashdraw 0.5s linear infinite;
+}
+
+@keyframes dashdraw {
+  to {
+    stroke-dashoffset: -10;
+  }
+}
+
+/* 连接点样式 */
+.react-flow__handle {
+  width: 12px;
+  height: 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: 3px solid #fff;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.react-flow__handle:hover {
+  width: 14px;
+  height: 14px;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.react-flow__handle-right {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+}
+
+.react-flow__handle-left {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+/* 控制按钮 */
+.react-flow__controls {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
   overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
 }
 
 .react-flow__controls-button {
   border-bottom: 1px solid #e8e8e8;
+  transition: all 0.2s ease;
+  background: transparent;
 }
 
 .react-flow__controls-button:hover {
-  background: #f5f5f5;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  color: #1890ff;
+  transform: scale(1.05);
 }
 
+.react-flow__controls-button svg {
+  transition: transform 0.2s ease;
+}
+
+.react-flow__controls-button:hover svg {
+  transform: scale(1.1);
+}
+
+/* 小地图 */
 .react-flow__minimap {
-  border-radius: 8px;
+  border-radius: 12px;
   overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+}
+
+/* 背景网格 */
+.react-flow__background {
+  background-color: transparent;
+}
+
+/* 选择框 */
+.react-flow__selection {
+  background: rgba(24, 144, 255, 0.08);
+  border: 2px solid #1890ff;
+  border-radius: 4px;
+}
+
+/* 全屏模式样式 */
+.flow-editor-fullscreen {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 全屏模式下的画布优化 */
+.flow-editor-fullscreen .react-flow {
+  border-radius: 8px;
+}
+
+/* 全屏模式下的卡片样式优化 */
+.flow-editor-fullscreen .ant-card {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* 全屏按钮悬停效果 */
+.flow-editor-fullscreen button[title*="退出全屏"] {
+  animation: pulse 2s ease infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+  50% {
+    box-shadow: 0 4px 16px rgba(24, 144, 255, 0.3);
+  }
 }

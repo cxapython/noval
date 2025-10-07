@@ -33,7 +33,8 @@ class HtmlParser:
         
         parse_type = parser_config.get('type', 'xpath')
         expression = parser_config.get('expression', '')
-        index = self._safe_int(parser_config.get('index', -1), -1)
+        # 索引默认0（第一个元素）。特殊值：-1=最后一个, 999=全部
+        index = self._safe_int(parser_config.get('index', 0), 0)
         default = parser_config.get('default', None)
         post_process = parser_config.get('process', [])
         
@@ -68,11 +69,13 @@ class HtmlParser:
         all_results = root.xpath(expression).getall()
         
         # 处理索引：支持Python标准的正负数索引
+        # 特殊值：999 = 获取所有元素
+        # 常用值：0 = 第一个, -1 = 最后一个, 1 = 第二个, -2 = 倒数第二个
         if index is None or (isinstance(index, int) and index == 999):
             # None 或 999 表示获取所有
             return all_results
         elif all_results:
-            # 使用Python标准索引：-1=最后一个, -2=倒数第二, 0=第一个
+            # 使用Python标准索引
             try:
                 return all_results[index]
             except IndexError:
@@ -85,7 +88,7 @@ class HtmlParser:
         """使用正则表达式解析"""
         matches = re.findall(expression, html)
         
-        # 处理索引
+        # 处理索引：特殊值999=获取所有，其他遵循Python索引规则
         if index is None or (isinstance(index, int) and index == 999):
             # None 或 999 表示获取所有
             return matches

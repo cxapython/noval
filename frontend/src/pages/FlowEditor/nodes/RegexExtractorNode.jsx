@@ -34,7 +34,17 @@ function RegexExtractorNode({ data, id, selected }) {
           height: '100%',
           border: selected ? '2px solid #722ed1' : '1px solid #d9d9d9',
           boxShadow: selected ? '0 0 10px rgba(114,46,209,0.3)' : '0 2px 8px rgba(0,0,0,0.1)',
-          background: '#f9f0ff'
+          background: '#f9f0ff',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}
+        headStyle={{
+          flexShrink: 0
+        }}
+        bodyStyle={{
+          overflow: 'auto',
+          flex: 1
         }}
       >
         <Handle 

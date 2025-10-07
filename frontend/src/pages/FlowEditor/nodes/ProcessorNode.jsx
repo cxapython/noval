@@ -16,8 +16,16 @@ function ProcessorNode({ data, id, selected }) {
     switch (method) {
       case 'strip':
         return (
-          <div style={{ fontSize: 12, color: '#999' }}>
-            无需额外参数
+          <div style={{ 
+            fontSize: 11, 
+            color: '#64748b',
+            padding: '8px 10px',
+            background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+            borderRadius: 6,
+            border: '1px solid #e2e8f0',
+            textAlign: 'center'
+          }}>
+            ✨ 无需额外参数
           </div>
         );
       
@@ -25,7 +33,7 @@ function ProcessorNode({ data, id, selected }) {
         return (
           <>
             <div style={{ marginBottom: 8 }}>
-              <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>
+              <div style={{ marginBottom: 4, fontSize: 11, color: '#64748b', fontWeight: 600 }}>
                 原字符串
               </div>
               <Input
@@ -33,17 +41,19 @@ function ProcessorNode({ data, id, selected }) {
                 value={params.old || ''}
                 onChange={(e) => handleChange('old', e.target.value)}
                 size="small"
+                style={{ borderRadius: 6, border: '1px solid #e2e8f0' }}
               />
             </div>
             <div>
-              <div style={{ marginBottom: 4, fontSize: 12, color: '#666' }}>
+              <div style={{ marginBottom: 4, fontSize: 11, color: '#64748b', fontWeight: 600 }}>
                 新字符串
               </div>
               <Input
-                placeholder="替换为（留空表示删除）"
+                placeholder="替换为（留空=删除）"
                 value={params.new || ''}
                 onChange={(e) => handleChange('new', e.target.value)}
                 size="small"
+                style={{ borderRadius: 6, border: '1px solid #e2e8f0' }}
               />
             </div>
           </>
@@ -130,8 +140,16 @@ function ProcessorNode({ data, id, selected }) {
       
       case 'extract_first':
         return (
-          <div style={{ fontSize: 12, color: '#999' }}>
-            提取数组第一个元素
+          <div style={{ 
+            fontSize: 11, 
+            color: '#64748b',
+            padding: '8px 10px',
+            background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+            borderRadius: 6,
+            border: '1px solid #e2e8f0',
+            textAlign: 'center'
+          }}>
+            ✨ 提取数组第一个元素
           </div>
         );
       
@@ -140,57 +158,107 @@ function ProcessorNode({ data, id, selected }) {
     }
   };
 
-  const getMethodLabel = (method) => {
-    const labels = {
-      'strip': '🧹 去除空格',
-      'replace': '🔄 字符替换',
-      'regex_replace': '🔍 正则替换',
-      'join': '📦 合并数组',
-      'split': '✂️ 分割字符串',
-      'extract_first': '👆 提取第一个',
-      'extract_index': '🎯 索引选择器'
+  const getMethodConfig = (method) => {
+    const configs = {
+      'strip': { icon: '🧹', label: '去除空格', color: '#10b981' },
+      'replace': { icon: '🔄', label: '字符替换', color: '#8b5cf6' },
+      'regex_replace': { icon: '🔍', label: '正则替换', color: '#ec4899' },
+      'join': { icon: '📦', label: '合并数组', color: '#f59e0b' },
+      'split': { icon: '✂️', label: '分割字符串', color: '#06b6d4' },
+      'extract_first': { icon: '👆', label: '提取第一个', color: '#6366f1' },
+      'extract_index': { icon: '🎯', label: '索引选择器', color: '#ef4444' }
     };
-    return labels[method] || method;
+    return configs[method] || { icon: '🔧', label: method, color: '#52c41a' };
   };
+
+  const methodConfig = getMethodConfig(data.method);
 
   return (
     <>
       <NodeResizer
-        color="#52c41a"
+        color={methodConfig.color}
         isVisible={selected}
-        minWidth={250}
-        minHeight={150}
+        minWidth={260}
+        minHeight={140}
       />
       <Card 
         size="small" 
         title={
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span>{getMethodLabel(data.method)}</span>
+            <div style={{
+              width: 24,
+              height: 24,
+              borderRadius: 6,
+              background: `linear-gradient(135deg, ${methodConfig.color} 0%, ${methodConfig.color}dd 100%)`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 12,
+              boxShadow: `0 2px 8px ${methodConfig.color}40`
+            }}>
+              {methodConfig.icon}
+            </div>
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#1e293b' }}>{methodConfig.label}</span>
             <Tooltip title={data.description || '数据清洗处理节点'}>
-              <QuestionCircleOutlined style={{ fontSize: 12, color: '#999' }} />
+              <QuestionCircleOutlined style={{ fontSize: 11, color: '#94a3b8' }} />
             </Tooltip>
           </div>
         }
         style={{ 
           width: '100%',
           height: '100%',
-          border: selected ? '2px solid #52c41a' : '1px solid #d9d9d9',
-          boxShadow: selected ? '0 0 10px rgba(82,196,26,0.3)' : '0 2px 8px rgba(0,0,0,0.1)',
-          background: '#f6ffed'
+          border: selected ? 'none' : '1px solid #e2e8f0',
+          boxShadow: selected 
+            ? `0 12px 28px ${methodConfig.color}30, 0 0 0 3px ${methodConfig.color}20` 
+            : '0 2px 8px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(15, 23, 42, 0.02)',
+          borderRadius: 10,
+          background: '#ffffff',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column'
+        }}
+        headStyle={{
+          minHeight: 40,
+          padding: '8px 14px',
+          background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+          borderBottom: '1px solid #e2e8f0',
+          flexShrink: 0
+        }}
+        bodyStyle={{
+          padding: '12px 14px',
+          background: '#ffffff',
+          overflow: 'auto',
+          height: 'calc(100% - 40px)'
         }}
       >
         <Handle 
           type="target" 
           position={Position.Left}
-          style={{ background: '#52c41a' }}
+          style={{ 
+            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+            width: 12,
+            height: 12,
+            border: '3px solid #fff',
+            boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
+            transition: 'all 0.2s ease'
+          }}
         />
         <Handle 
           type="source" 
           position={Position.Right}
-          style={{ background: '#52c41a' }}
+          style={{ 
+            background: `linear-gradient(135deg, ${methodConfig.color} 0%, ${methodConfig.color}dd 100%)`,
+            width: 12,
+            height: 12,
+            border: '3px solid #fff',
+            boxShadow: `0 2px 8px ${methodConfig.color}50`,
+            transition: 'all 0.2s ease'
+          }}
         />
         
-        {renderParamInputs()}
+        <div style={{ fontSize: 12 }}>
+          {renderParamInputs()}
+        </div>
       </Card>
     </>
   );
