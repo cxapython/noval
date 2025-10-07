@@ -39,6 +39,18 @@
 - ⏳ 待完成：Select细节优化，部分样式组件
 - 📝 说明：核心功能已完成，剩余为样式细节
 
+#### NovelReader.jsx（2025-10-07 - 核心完成）
+- ✅ Imports 迁移完成：移除所有 Ant Design imports
+- ✅ 通知系统迁移：19处 message → notifications.show()
+- ✅ 图标系统：10+处 Ant Design Icons → Tabler Icons
+- ✅ Modal 系统：1处 Modal.confirm → modals.openConfirmModal
+- ✅ 顶部导航栏完整迁移：Row/Col → Stack/Group
+- ✅ 小说列表页面完整迁移：List → Grid，Badge.Ribbon → Badge
+- ✅ 编辑小说Modal完整迁移
+- ✅ Drawer迁移：5个Drawer（章节列表、搜索、书签、设置、替换）API迁移完成
+- ⏳ 待完成：Drawer内部组件（List.Item、Input.TextArea、Radio.Group、Slider等）
+- 📝 说明：核心架构和API已完成，剩余为Drawer内部细节组件
+
 ### 🔄 进行中
 
 无
@@ -59,7 +71,7 @@
   - [x] XPathExtractorNode.jsx
   - [x] RegexExtractorNode.jsx
   - [x] ProcessorNode.jsx
-- [ ] NovelReader.jsx（1637行，复杂的阅读器页面）
+- [🟢] NovelReader.jsx（核心完成：导航、列表、Drawer架构、Notifications、Modal全部迁移）
 
 ## 🎯 迁移原则
 
@@ -72,9 +84,9 @@
 ## 📊 迁移统计
 
 - ✅ 完全完成：7个组件（3个主要页面 + 4个节点组件）
-- 🟢 核心完成：1个组件（SimpleFlowEditorTab - 核心功能完成）
-- ⏳ 待迁移：2个复杂组件（FlowEditorTab + NovelReader）
-- 📈 完成度：约 80%（按组件数）/ 约 90%（按使用频率）
+- 🟢 核心完成：2个组件（SimpleFlowEditorTab + NovelReader - 核心功能和架构完成）
+- ⏳ 待迁移：1个复杂组件（FlowEditorTab）
+- 📈 完成度：约 90%（按组件数）/ 约 95%（按使用频率）
 
 ## 💡 后续建议
 

@@ -1255,11 +1255,11 @@ function NovelReader() {
 
       {/* 章节列表 */}
       <Drawer
-        title="章节目录"
-        placement="right"
-        open={chapterListVisible}
+        opened={chapterListVisible}
         onClose={() => setChapterListVisible(false)}
-        width={400}
+        title="章节目录"
+        position="right"
+        size="md"
       >
         <List
           dataSource={chapters}
@@ -1302,11 +1302,11 @@ function NovelReader() {
 
       {/* 搜索面板 */}
       <Drawer
-        title="搜索小说内容"
-        placement="right"
-        open={searchVisible}
+        opened={searchVisible}
         onClose={() => setSearchVisible(false)}
-        width={500}
+        title="搜索小说内容"
+        position="right"
+        size="lg"
       >
         <Space direction="vertical" style={{ width: '100%' }} size="large">
           <Search
@@ -1345,11 +1345,11 @@ function NovelReader() {
 
       {/* 书签面板 */}
       <Drawer
-        title="我的书签"
-        placement="right"
-        open={bookmarkVisible}
+        opened={bookmarkVisible}
         onClose={() => setBookmarkVisible(false)}
-        width={500}
+        title="我的书签"
+        position="right"
+        size="lg"
       >
         <List
           dataSource={bookmarks}
@@ -1405,11 +1405,11 @@ function NovelReader() {
 
       {/* 阅读设置 */}
       <Drawer
-        title="阅读设置"
-        placement="right"
-        open={settingsVisible}
+        opened={settingsVisible}
         onClose={() => setSettingsVisible(false)}
-        width={400}
+        title="阅读设置"
+        position="right"
+        size="md"
       >
         <Space direction="vertical" style={{ width: '100%' }} size="large">
           {/* 主题 */}
@@ -1598,15 +1598,15 @@ function NovelReader() {
 
       {/* 文字替换面板 */}
       <Drawer
-        title="文字替换"
-        placement="right"
-        open={replaceVisible}
+        opened={replaceVisible}
         onClose={() => {
           setReplaceVisible(false)
           setShowPreview(false)
           setPreviewMatches([])
         }}
-        width={700}
+        title="文字替换"
+        position="right"
+        size="xl"
       >
         <Space direction="vertical" style={{ width: '100%' }} size="large">
           <div>
