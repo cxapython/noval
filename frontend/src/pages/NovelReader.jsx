@@ -1081,7 +1081,7 @@ function NovelReader() {
             >
               {chapterContent && (
                 <div style={{ maxWidth: 800, margin: '0 auto' }}>
-                  <Title level={3} style={{ textAlign: 'center', marginBottom: 32, color: currentTheme.color }}>
+                  <Title order={3} style={{ textAlign: 'center', marginBottom: 32, color: currentTheme.color }}>
                     {chapterContent.title}
                   </Title>
                   
@@ -1152,7 +1152,7 @@ function NovelReader() {
                   }}
                 >
                   <div style={{ maxWidth: 800, margin: '0 auto' }} data-chapter-index={idx}>
-                    <Title level={3} style={{ textAlign: 'center', marginBottom: 32, color: currentTheme.color }}>
+                    <Title order={3} style={{ textAlign: 'center', marginBottom: 32, color: currentTheme.color }}>
                       {chapter.title}
                     </Title>
                     
@@ -1194,20 +1194,20 @@ function NovelReader() {
               
               {isLoadingMore && (
                 <div style={{ textAlign: 'center', padding: '24px' }}>
-                  <Text type="secondary">正在加载下一章...</Text>
+                  <Text c="dimmed">正在加载下一章...</Text>
                 </div>
               )}
               
               {loadedChapters.length > 0 && 
                loadedChapters[loadedChapters.length - 1].index >= chapters.length - 1 && (
                 <div style={{ textAlign: 'center', padding: '48px' }}>
-                  <Text type="secondary">已经是最后一章了</Text>
+                  <Text c="dimmed">已经是最后一章了</Text>
                 </div>
               )}
             </div>
           )}
-        </Col>
-      </Row>
+        </div>
+      </Stack>
 
       {/* 文本选择菜单 */}
       {selectionPopover.visible && (
@@ -1261,14 +1261,14 @@ function NovelReader() {
         position="right"
         size="md"
       >
-        <List
-          dataSource={chapters}
-          renderItem={(chapter, index) => (
-            <List.Item
+        <Stack gap="xs">
+          {chapters.map((chapter, index) => (
+            <Paper
+              key={index}
+              p="sm"
               style={{ 
                 cursor: 'pointer',
-                background: index === currentChapter ? '#e6f7ff' : 'transparent',
-                padding: '12px'
+                backgroundColor: index === currentChapter ? 'var(--mantine-color-blue-light)' : 'transparent'
               }}
               onClick={() => {
                 setCurrentChapter(index)
@@ -1282,22 +1282,21 @@ function NovelReader() {
                 }
               }}
             >
-              <List.Item.Meta
-                avatar={
-                  <ReadOutlined 
-                    style={{ color: index === currentChapter ? '#1890ff' : '#999' }} 
-                  />
-                }
-                title={
-                  <Text strong={index === currentChapter}>
+              <Group gap="sm" align="flex-start">
+                <IconBookmark 
+                  size={18}
+                  style={{ color: index === currentChapter ? 'var(--mantine-color-blue-filled)' : '#999' }} 
+                />
+                <Stack gap={4} style={{ flex: 1 }}>
+                  <Text fw={index === currentChapter ? 600 : 400}>
                     第 {chapter.num} 章
                   </Text>
-                }
-                description={chapter.title}
-              />
-            </List.Item>
-          )}
-        />
+                  <Text size="sm" c="dimmed">{chapter.title}</Text>
+                </Stack>
+              </Group>
+            </Paper>
+          ))}
+        </Stack>
       </Drawer>
 
       {/* 搜索面板 */}
@@ -1320,7 +1319,7 @@ function NovelReader() {
           
           {searchResults.length > 0 && (
             <div>
-              <Text type="secondary">找到 {searchResults.length} 个结果</Text>
+              <Text c="dimmed">找到 {searchResults.length} 个结果</Text>
               <List
                 dataSource={searchResults}
                 renderItem={(result) => (
@@ -1351,56 +1350,61 @@ function NovelReader() {
         position="right"
         size="lg"
       >
-        <List
-          dataSource={bookmarks}
-          renderItem={(bookmark) => (
-            <Card 
-              size="small" 
+        {bookmarks.length === 0 ? (
+          <Center py="xl">
+            <Text c="dimmed">暂无书签</Text>
+          </Center>
+        ) : (
+          bookmarks.map((bookmark) => (
+            <Card
+              key={bookmark.id} 
+              padding="sm"
+              shadow="sm" 
               style={{ marginBottom: 16 }}
-              actions={[
-                <Button 
-                  type="link" 
-                  size="small"
-                  onClick={() => {
-                    jumpToChapter(bookmark.chapter_num)
-                    setBookmarkVisible(false)
-                  }}
-                >
-                  跳转
-                </Button>,
-                <Button 
-                  type="link" 
-                  size="small" 
-                  danger
-                  onClick={() => deleteBookmark(bookmark.id)}
-                >
-                  删除
-                </Button>
-              ]}
             >
-              <Space direction="vertical" size="small" style={{ width: '100%' }}>
-                <Space>
+              <Stack gap="sm">
+                <Group gap="xs">
                   {bookmark.bookmark_type === 'bookmark' && <IconBookmarks size={18} />}
                   {bookmark.bookmark_type === 'highlight' && <IconHighlight size={18} />}
                   {bookmark.bookmark_type === 'note' && <IconEdit size={18} />}
-                  <Text strong>{bookmark.chapter_title}</Text>
-                </Space>
+                  <Text fw={600}>{bookmark.chapter_title}</Text>
+                </Group>
                 {bookmark.selected_text && (
-                  <Text type="secondary" style={{ fontSize: 12 }}>
+                  <Text c="dimmed" size="xs">
                     "{bookmark.selected_text.substring(0, 100)}..."
                   </Text>
                 )}
                 {bookmark.note_content && (
-                  <Text style={{ fontSize: 12 }}>💭 {bookmark.note_content}</Text>
+                  <Text size="xs">💭 {bookmark.note_content}</Text>
                 )}
-                <Text type="secondary" style={{ fontSize: 11 }}>
+                <Text c="dimmed" size="xs">
                   {new Date(bookmark.created_at).toLocaleString()}
                 </Text>
-              </Space>
+
+                <Group justify="center" gap="xs" mt="xs">
+                  <Button 
+                    variant="subtle" 
+                    size="xs"
+                    onClick={() => {
+                      jumpToChapter(bookmark.chapter_num)
+                      setBookmarkVisible(false)
+                    }}
+                  >
+                    跳转
+                  </Button>
+                  <Button 
+                    variant="subtle" 
+                    size="xs"
+                    color="red"
+                    onClick={() => deleteBookmark(bookmark.id)}
+                  >
+                    删除
+                  </Button>
+                </Group>
+              </Stack>
             </Card>
-          )}
-          locale={{ emptyText: '暂无书签' }}
-        />
+          ))
+        )}
       </Drawer>
 
       {/* 阅读设置 */}
@@ -1516,7 +1520,7 @@ function NovelReader() {
             >
               打开替换工具
             </Button>
-            <Text type="secondary" style={{ fontSize: 12, marginTop: 8, display: 'block' }}>
+            <Text c="dimmed" style={{ fontSize: 12, marginTop: 8, display: 'block' }}>
               支持字符匹配和正则表达式，可替换当前章节或全部章节
             </Text>
           </div>
@@ -1574,7 +1578,7 @@ function NovelReader() {
                 borderRadius: 8,
                 textAlign: 'center'
               }}>
-                <Text type="secondary" style={{ fontSize: 12, marginBottom: 8, display: 'block' }}>
+                <Text c="dimmed" style={{ fontSize: 12, marginBottom: 8, display: 'block' }}>
                   封面预览：
                 </Text>
                 <img 
@@ -1649,7 +1653,7 @@ function NovelReader() {
               >
                 <Text>使用正则表达式</Text>
                 <br />
-                <Text type="secondary" style={{ fontSize: 12 }}>
+                <Text c="dimmed" style={{ fontSize: 12 }}>
                   启用后可使用正则表达式进行高级匹配
                 </Text>
               </Checkbox>
@@ -1664,7 +1668,7 @@ function NovelReader() {
               >
                 <Text>替换所有章节</Text>
                 <br />
-                <Text type="secondary" style={{ fontSize: 12 }}>
+                <Text c="dimmed" style={{ fontSize: 12 }}>
                   不勾选则只替换当前章节
                 </Text>
               </Checkbox>
@@ -1713,7 +1717,7 @@ function NovelReader() {
                     }}
                   >
                     <Space direction="vertical" style={{ width: '100%' }} size="small">
-                      <Text type="secondary" style={{ fontSize: 12 }}>
+                      <Text c="dimmed" style={{ fontSize: 12 }}>
                         第 {match.chapter_num} 章 - {match.chapter_title}
                       </Text>
                       <div style={{ 
@@ -1749,7 +1753,7 @@ function NovelReader() {
               background: '#fafafa',
               borderRadius: '8px'
             }}>
-              <Text type="secondary">未找到匹配项</Text>
+              <Text c="dimmed">未找到匹配项</Text>
             </div>
           )}
 
