@@ -1366,7 +1366,7 @@ function NovelReader() {
                 </ActionIcon>
               </Tooltip>
               <Button 
-                variant="subtle"
+                variant="default"
                 leftSection={<IconArrowLeft size={18} />}
                 disabled={currentChapter === 0}
                 onClick={handlePrevChapter}

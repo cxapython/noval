@@ -59,7 +59,7 @@ function Layout({ children }) {
             <Tabs 
               value={getActiveTab()} 
               onChange={handleTabChange}
-              variant="default"
+              variant="pills"
               ml="md"
             >
               <Tabs.List>
