@@ -119,7 +119,7 @@
 | Phase | RFC | 预计时间 | 状态 |
 |-------|-----|---------|------|
 | Phase 1 | RFC1 | 0.5-1天 | ✅ 已完成 |
-| Phase 1 | RFC2 | 1-1.5天 | ⏳ 待开始 |
+| Phase 1 | RFC2 | 1-1.5天 | ✅ 已完成 |
 | Phase 1 | RFC3 | 0.5-1天 | ⏳ 待开始 |
 | Phase 2 | RFC4 | 1-1.5天 | ⏳ 待开始 |
 | Phase 2 | RFC5 | 0.5-1天 | ⏳ 待开始 |
@@ -210,7 +210,7 @@
 
 ### 代码文件
 - [x] `frontend/public/element-selector.js`
-- [ ] `frontend/src/utils/enhanced-xpath-generator.js`
+- [x] `frontend/src/utils/enhanced-xpath-generator.js`
 - [ ] `backend/routes/crawler_v5.py`
 - [ ] `frontend/src/components/VisualXPathSelector/`
 - [ ] `frontend/src/pages/ConfigWizard.jsx` (修改)

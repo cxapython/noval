@@ -209,6 +209,335 @@
     return path.join(' > ');
   }
   
+  // ============ 增强型XPath生成 ============
+  
+  /**
+   * 生成增强型XPath候选列表
+   */
+  function generateEnhancedXPath(element) {
+    const candidates = [];
+    
+    try {
+      // 策略1: 语义化属性
+      const semantic = trySemanticXPath(element);
+      if (semantic) candidates.push(semantic);
+      
+      // 策略2: 稳定ID
+      const stableId = tryStableIdXPath(element);
+      if (stableId) candidates.push(stableId);
+      
+      // 策略3: 语义化Class
+      const semanticClass = trySemanticClassXPath(element);
+      if (semanticClass) candidates.push(semanticClass);
+      
+      // 策略4: 结构化路径
+      const structural = tryStructuralXPath(element);
+      if (structural) candidates.push(structural);
+      
+      // 策略5: 属性组合
+      const multiAttr = tryAttributeXPath(element);
+      if (multiAttr) candidates.push(multiAttr);
+      
+      // 策略6: 位置索引
+      const positional = tryPositionalXPath(element);
+      if (positional) candidates.push(positional);
+      
+      // 策略7: 文本匹配（降级）
+      const textBased = tryTextXPath(element);
+      if (textBased) candidates.push(textBased);
+      
+    } catch (error) {
+      console.error('XPath生成失败:', error);
+    }
+    
+    // 验证并排序
+    const validated = candidates.filter(c => validateXPath(c.xpath, element));
+    return validated.sort((a, b) => b.confidence - a.confidence);
+  }
+  
+  function trySemanticXPath(element) {
+    // 测试属性
+    const testAttrs = ['data-testid', 'data-test', 'data-qa', 'data-field'];
+    for (const attr of testAttrs) {
+      const value = element.getAttribute(attr);
+      if (value && !isDynamic(value)) {
+        return {
+          xpath: `//*[@${attr}="${escapeXPath(value)}"]`,
+          type: 'semantic',
+          description: `语义属性: ${attr}="${value}"`,
+          confidence: 0.95
+        };
+      }
+    }
+    
+    // ARIA属性
+    const ariaLabel = element.getAttribute('aria-label');
+    if (ariaLabel && !isDynamic(ariaLabel)) {
+      return {
+        xpath: `//${element.tagName.toLowerCase()}[@aria-label="${escapeXPath(ariaLabel)}"]`,
+        type: 'aria',
+        description: `ARIA标签: ${ariaLabel}`,
+        confidence: 0.88
+      };
+    }
+    
+    return null;
+  }
+  
+  function tryStableIdXPath(element) {
+    if (element.id && !isDynamic(element.id)) {
+      return {
+        xpath: `//*[@id="${escapeXPath(element.id)}"]`,
+        type: 'stable_id',
+        description: `稳定ID: ${element.id}`,
+        confidence: 0.92
+      };
+    }
+    return null;
+  }
+  
+  function trySemanticClassXPath(element) {
+    const classes = getMeaningfulClasses(element);
+    if (classes.length > 0) {
+      const tag = element.tagName.toLowerCase();
+      const cls = classes[0];
+      const xpath = `//${tag}[contains(@class, "${escapeXPath(cls)}")]`;
+      
+      if (countXPathMatches(xpath) === 1) {
+        return {
+          xpath: xpath,
+          type: 'semantic_class',
+          description: `语义类名: ${cls}`,
+          confidence: 0.85
+        };
+      }
+    }
+    return null;
+  }
+  
+  function tryStructuralXPath(element) {
+    const container = findSemanticContainer(element);
+    if (!container) return null;
+    
+    const tag = element.tagName.toLowerCase();
+    const containerTag = container.tagName.toLowerCase();
+    
+    // 容器内唯一元素
+    const containerXPath = getContainerXPath(container);
+    if (containerXPath) {
+      const xpath = `${containerXPath}//${tag}`;
+      if (countXPathMatches(xpath) === 1) {
+        return {
+          xpath: xpath,
+          type: 'structural',
+          description: '容器内唯一元素',
+          confidence: 0.80
+        };
+      }
+    }
+    
+    return null;
+  }
+  
+  function tryAttributeXPath(element) {
+    const tag = element.tagName.toLowerCase();
+    const conditions = [];
+    
+    // 收集稳定属性
+    ['name', 'type', 'rel'].forEach(attr => {
+      const value = element.getAttribute(attr);
+      if (value && !isDynamic(value)) {
+        conditions.push(`@${attr}="${escapeXPath(value)}"`);
+      }
+    });
+    
+    if (conditions.length > 0) {
+      const xpath = `//${tag}[${conditions.join(' and ')}]`;
+      if (countXPathMatches(xpath) === 1) {
+        return {
+          xpath: xpath,
+          type: 'multi_attribute',
+          description: `多属性组合 (${conditions.length}个)`,
+          confidence: 0.75
+        };
+      }
+    }
+    
+    return null;
+  }
+  
+  function tryPositionalXPath(element) {
+    const tag = element.tagName.toLowerCase();
+    const parent = element.parentElement;
+    
+    if (!parent || parent.tagName === 'BODY') return null;
+    
+    const siblings = Array.from(parent.children).filter(el => el.tagName === element.tagName);
+    const position = siblings.indexOf(element) + 1;
+    
+    if (position > 0) {
+      const parentTag = parent.tagName.toLowerCase();
+      const xpath = `//${parentTag}/${tag}[${position}]`;
+      
+      return {
+        xpath: xpath,
+        type: 'positional',
+        description: `父级约束位置 (第${position}个)`,
+        confidence: 0.65
+      };
+    }
+    
+    return null;
+  }
+  
+  function tryTextXPath(element) {
+    const text = element.textContent?.trim();
+    if (!text || text.length < 3 || text.length > 50) return null;
+    
+    if (containsDynamicContent(text)) return null;
+    
+    const keywords = extractKeywords(text);
+    if (keywords.length === 0) return null;
+    
+    const tag = element.tagName.toLowerCase();
+    const keyword = keywords[0];
+    
+    return {
+      xpath: `//${tag}[contains(text(), "${escapeXPath(keyword)}")]`,
+      type: 'text',
+      description: `文本关键词: "${keyword}"`,
+      confidence: 0.25,
+      warning: '基于文本，通用性有限'
+    };
+  }
+  
+  // 辅助函数
+  
+  function isDynamic(value) {
+    if (!value) return true;
+    const patterns = [
+      /^\d{8,}$/,
+      /^[a-f0-9]{8,}$/i,
+      /session|token|tmp|random/i,
+      /\d{4}-\d{2}-\d{2}/
+    ];
+    return patterns.some(p => p.test(value));
+  }
+  
+  function containsDynamicContent(text) {
+    const patterns = [
+      /\d{4}-\d{2}-\d{2}/,
+      /\d{2}:\d{2}/,
+      /\d+天前|\d+小时前/,
+      /第\d+章|第\d+期/
+    ];
+    return patterns.some(p => p.test(text));
+  }
+  
+  function getMeaningfulClasses(element) {
+    if (!element.className) return [];
+    
+    const classes = element.className.split(/\s+/).filter(c => {
+      if (c.startsWith('xpath-')) return false;
+      if (c.length < 3) return false;
+      if (isDynamic(c)) return false;
+      
+      return /title|content|author|cover|chapter|book|article|item|card|btn|link/i.test(c);
+    });
+    
+    return classes.slice(0, 3);
+  }
+  
+  function findSemanticContainer(element) {
+    let current = element.parentElement;
+    let depth = 0;
+    
+    while (current && depth < 5) {
+      const tag = current.tagName.toLowerCase();
+      const classStr = (current.className || '').toLowerCase();
+      
+      if (['article', 'section', 'main'].includes(tag)) {
+        return current;
+      }
+      
+      if (/book-info|article|card|container|wrapper/.test(classStr)) {
+        return current;
+      }
+      
+      current = current.parentElement;
+      depth++;
+    }
+    
+    return null;
+  }
+  
+  function getContainerXPath(container) {
+    if (!container) return null;
+    
+    const tag = container.tagName.toLowerCase();
+    
+    if (container.id && !isDynamic(container.id)) {
+      return `//*[@id="${escapeXPath(container.id)}"]`;
+    }
+    
+    const classes = getMeaningfulClasses(container);
+    if (classes.length > 0) {
+      return `//${tag}[contains(@class, "${escapeXPath(classes[0])}")]`;
+    }
+    
+    return `//${tag}`;
+  }
+  
+  function extractKeywords(text) {
+    const cleaned = text.replace(/[0-9\s\.,;!?，。；！？]/g, ' ');
+    const words = cleaned.split(/\s+/).filter(w => w.length >= 2);
+    return words.sort((a, b) => b.length - a.length).slice(0, 3);
+  }
+  
+  function validateXPath(xpath, targetElement) {
+    try {
+      const result = document.evaluate(
+        xpath, document, null,
+        XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null
+      );
+      return result.snapshotLength === 1 && result.snapshotItem(0) === targetElement;
+    } catch (error) {
+      return false;
+    }
+  }
+  
+  function countXPathMatches(xpath) {
+    try {
+      const result = document.evaluate(
+        xpath, document, null,
+        XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null
+      );
+      return result.snapshotLength;
+    } catch (error) {
+      return 0;
+    }
+  }
+  
+  function escapeXPath(str) {
+    if (!str) return '';
+    if (str.includes('"') && str.includes("'")) {
+      return str.replace(/"/g, '&quot;');
+    }
+    return str;
+  }
+  
+  function generateSimpleXPath(element) {
+    const tag = element.tagName.toLowerCase();
+    const parent = element.parentElement;
+    
+    if (!parent) return `//${tag}`;
+    
+    const siblings = Array.from(parent.children).filter(el => el.tagName === element.tagName);
+    const position = siblings.indexOf(element) + 1;
+    
+    return `//${parent.tagName.toLowerCase()}/${tag}[${position}]`;
+  }
+  
   // ============ 事件处理 ============
   function handleMouseOver(event) {
     if (!state.isActive) return;
@@ -243,6 +572,12 @@
     // 提取元素信息
     const elementInfo = extractElementInfo(element);
     
+    // 生成增强型XPath候选
+    elementInfo.xpathCandidates = generateEnhancedXPath(element);
+    elementInfo.xpath = elementInfo.xpathCandidates.length > 0 ? 
+                        elementInfo.xpathCandidates[0].xpath : 
+                        generateSimpleXPath(element);
+    
     // 高亮选中的元素
     highlightElement(element, 'selected');
     
@@ -250,6 +585,7 @@
     sendMessageToParent('elementSelected', elementInfo);
     
     log('元素已选择:', elementInfo.tagName, elementInfo.cssSelector);
+    log('XPath候选数量:', elementInfo.xpathCandidates.length);
   }
   
   function handleDoubleClick(event) {
