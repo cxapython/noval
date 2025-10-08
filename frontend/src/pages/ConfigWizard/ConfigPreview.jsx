@@ -1,6 +1,11 @@
+import { useState } from 'react'
 import { Card, Badge, Group, Button, Text, Stack, Alert, Table } from '@mantine/core'
-import { IconCode, IconCopy, IconDeviceFloppy, IconArrowLeft, IconCircleCheck } from '@tabler/icons-react'
+import { IconCode, IconCopy, IconDeviceFloppy, IconArrowLeft, IconCircleCheck, IconFileCode } from '@tabler/icons-react'
 import { notifications } from '@mantine/notifications'
+import axios from 'axios'
+import CodeEditor from '../../components/CodeEditor'
+
+const API_BASE = 'http://localhost:5001/api/crawler'
 
 /**
  * 配置预览组件
@@ -20,18 +25,94 @@ function ConfigPreview({
   onBack,
   onNavigateToList
 }) {
+  const [editorVisible, setEditorVisible] = useState(false)
+  const [currentCode, setCurrentCode] = useState('')
+  const [currentFilename, setCurrentFilename] = useState('')
+  const [generatingCode, setGeneratingCode] = useState(false)
+
   const copyToClipboard = () => {
     navigator.clipboard.writeText(JSON.stringify(config, null, 2))
     notifications.show({ title: '成功', message: '配置已复制到剪贴板', color: 'green' })
   }
 
-  return (
-    <Card>
-      <Card.Section withBorder inheritPadding py="md">
-        <strong style={{ fontSize: 18 }}>📝 步骤4：配置预览与保存</strong>
-      </Card.Section>
+  // 生成爬虫代码（配置保存成功后才可用）
+  const handleGenerateCode = async () => {
+    if (saveStatus !== 'success') {
+      notifications.show({ 
+        title: '提示', 
+        message: '请先保存配置后再生成代码', 
+        color: 'yellow' 
+      })
+      return
+    }
 
-      <Stack mt="md">
+    try {
+      setGeneratingCode(true)
+      const configFilename = `config_${siteName}.json`
+      const response = await axios.post(`${API_BASE}/generate-crawler/${configFilename}`)
+      
+      if (response.data.success) {
+        setCurrentCode(response.data.content)
+        setCurrentFilename(response.data.filename)
+        setEditorVisible(true)
+        notifications.show({ 
+          title: '成功', 
+          message: '代码已生成，请在编辑器中查看和编辑', 
+          color: 'green' 
+        })
+      }
+    } catch (error) {
+      console.error('❌ Generate failed:', error)
+      notifications.show({ 
+        title: '错误', 
+        message: '生成失败: ' + error.message, 
+        color: 'red' 
+      })
+    } finally {
+      setGeneratingCode(false)
+    }
+  }
+
+  // 保存爬虫代码到文件
+  const handleSaveCrawler = async (code, filename) => {
+    try {
+      const response = await axios.post(`${API_BASE}/save-crawler`, {
+        filename: filename,
+        content: code
+      })
+      if (response.data.success) {
+        notifications.show({ 
+          title: '成功', 
+          message: response.data.message, 
+          color: 'green' 
+        })
+      }
+    } catch (error) {
+      notifications.show({ 
+        title: '错误', 
+        message: '保存失败: ' + error.message, 
+        color: 'red' 
+      })
+      throw error
+    }
+  }
+
+  return (
+    <>
+      <CodeEditor
+        visible={editorVisible}
+        onClose={() => setEditorVisible(false)}
+        code={currentCode}
+        filename={currentFilename}
+        onSave={handleSaveCrawler}
+      />
+
+      <Card>
+        <Card.Section withBorder inheritPadding py="md">
+          <strong style={{ fontSize: 18 }}>📝 步骤4：配置预览与保存</strong>
+        </Card.Section>
+
+        <Stack mt="md">
         {saveStatus === 'success' ? (
           <Alert
             icon={<IconCircleCheck />}
@@ -183,6 +264,17 @@ function ConfigPreview({
             >
               复制JSON
             </Button>
+            {saveStatus === 'success' && (
+              <Button
+                variant="light"
+                color="green"
+                leftSection={<IconFileCode size={16} />}
+                onClick={handleGenerateCode}
+                loading={generatingCode}
+              >
+                {generatingCode ? '生成中...' : '生成爬虫代码'}
+              </Button>
+            )}
             {saveStatus !== 'success' && (
               <Button
                 leftSection={<IconDeviceFloppy size={16} />}
@@ -196,6 +288,7 @@ function ConfigPreview({
         </Group>
       </Stack>
     </Card>
+    </>
   )
 }
 

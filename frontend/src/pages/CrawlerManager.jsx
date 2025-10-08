@@ -9,12 +9,13 @@ import {
   IconPlus, IconTrash, 
   IconFileText, IconEdit,
   IconFlask, IconPlayerPlay,
-  IconApps
+  IconApps, IconFileCode
 } from '@tabler/icons-react'
 import { notifications } from '@mantine/notifications'
 import { modals } from '@mantine/modals'
 import { useForm } from '@mantine/form'
 import axios from 'axios'
+import CodeEditor from '../components/CodeEditor'
 
 const API_BASE = '/api/crawler'
 
@@ -23,6 +24,11 @@ function CrawlerManager() {
   const location = useLocation()
   const [configs, setConfigs] = useState([])
   const [loading, setLoading] = useState(false)
+  
+  // 代码编辑器状态
+  const [editorVisible, setEditorVisible] = useState(false)
+  const [currentCode, setCurrentCode] = useState('')
+  const [currentFilename, setCurrentFilename] = useState('')
   
   // 运行爬虫对话框状态
   const [runModalVisible, setRunModalVisible] = useState(false)
@@ -157,8 +163,72 @@ function CrawlerManager() {
     }
   }
 
+  const handleGenerate = async (filename) => {
+    try {
+      setLoading(true)
+      const response = await axios.post(`${API_BASE}/generate-crawler/${filename}`)
+      console.log('🚀 API Response:', {
+        success: response.data.success,
+        contentLength: response.data.content?.length,
+        filename: response.data.filename
+      })
+      
+      if (response.data.success) {
+        // 打开代码编辑器
+        setCurrentCode(response.data.content)
+        setCurrentFilename(response.data.filename)
+        setEditorVisible(true)
+        notifications.show({ 
+          title: '成功', 
+          message: '代码已生成，请在编辑器中查看和编辑', 
+          color: 'green' 
+        })
+      }
+    } catch (error) {
+      console.error('❌ Generate failed:', error)
+      notifications.show({ 
+        title: '错误', 
+        message: '生成失败: ' + error.message, 
+        color: 'red' 
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSaveCrawler = async (code, filename) => {
+    try {
+      const response = await axios.post(`${API_BASE}/save-crawler`, {
+        filename: filename,
+        content: code
+      })
+      if (response.data.success) {
+        notifications.show({ 
+          title: '成功', 
+          message: response.data.message, 
+          color: 'green' 
+        })
+      }
+    } catch (error) {
+      notifications.show({ 
+        title: '错误', 
+        message: '保存失败: ' + error.message, 
+        color: 'red' 
+      })
+      throw error
+    }
+  }
+
   return (
     <Box className="fade-in">
+      <CodeEditor
+        visible={editorVisible}
+        onClose={() => setEditorVisible(false)}
+        code={currentCode}
+        filename={currentFilename}
+        onSave={handleSaveCrawler}
+      />
+      
       <Card shadow="sm" padding="lg" radius="md" withBorder>
         <Stack gap="lg">
           <Group justify="space-between">
@@ -239,35 +309,57 @@ function CrawlerManager() {
                     )}
                   </Stack>
 
-                  <Group gap="xs" mt="md">
+                  <Stack gap="xs" mt="md">
+                    <Group gap="xs">
+                      <Button 
+                        variant="light"
+                        color="green"
+                        size="xs"
+                        leftSection={<IconPlayerPlay size={14} />}
+                        onClick={() => handleRun(config)}
+                        style={{ flex: 1 }}
+                      >
+                        运行
+                      </Button>
+                      <Button 
+                        variant="light"
+                        size="xs"
+                        leftSection={<IconEdit size={14} />}
+                        onClick={() => handleEdit(config.filename)}
+                        style={{ flex: 1 }}
+                      >
+                        编辑
+                      </Button>
+                      <ActionIcon 
+                        variant="light"
+                        color="red"
+                        size="lg"
+                        onClick={() => handleDelete(config.filename)}
+                      >
+                        <IconTrash size={16} />
+                      </ActionIcon>
+                    </Group>
                     <Button 
-                      variant="light"
-                      color="green"
+                      variant="outline"
                       size="xs"
-                      leftSection={<IconPlayerPlay size={14} />}
-                      onClick={() => handleRun(config)}
-                      style={{ flex: 1 }}
+                      leftSection={<IconFileCode size={14} />}
+                      onClick={() => {
+                        modals.openConfirmModal({
+                          title: '生成爬虫代码',
+                          children: (
+                            <Text size="sm">
+                              将基于此配置生成可独立运行的Python爬虫代码，方便下载测试。是否继续？
+                            </Text>
+                          ),
+                          labels: { confirm: '生成', cancel: '取消' },
+                          onConfirm: () => handleGenerate(config.filename),
+                        })
+                      }}
+                      fullWidth
                     >
-                      运行
+                      生成代码
                     </Button>
-                    <Button 
-                      variant="light"
-                      size="xs"
-                      leftSection={<IconEdit size={14} />}
-                      onClick={() => handleEdit(config.filename)}
-                      style={{ flex: 1 }}
-                    >
-                      编辑
-                    </Button>
-                    <ActionIcon 
-                      variant="light"
-                      color="red"
-                      size="lg"
-                      onClick={() => handleDelete(config.filename)}
-                    >
-                      <IconTrash size={16} />
-                    </ActionIcon>
-                  </Group>
+                  </Stack>
                 </Card>
               ))}
             </SimpleGrid>
