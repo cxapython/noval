@@ -301,16 +301,24 @@
     if (classes.length > 0) {
       const tag = element.tagName.toLowerCase();
       const cls = classes[0];
-      const xpath = `//${tag}[contains(@class, "${escapeXPath(cls)}")]`;
+      let xpath = `//${tag}[contains(@class, "${escapeXPath(cls)}")]`;
+      const matchCount = countXPathMatches(xpath);
       
-      if (countXPathMatches(xpath) === 1) {
-        return {
-          xpath: xpath,
-          type: 'semantic_class',
-          description: `语义类名: ${cls}`,
-          confidence: 0.85
-        };
+      // 如果匹配多个元素，尝试添加文本条件
+      if (matchCount > 1) {
+        const text = element.textContent?.trim().substring(0, 30);
+        if (text && text.length > 3) {
+          xpath = `//${tag}[contains(@class, "${escapeXPath(cls)}") and contains(text(), "${escapeXPath(text)}")]`;
+        }
       }
+      
+      return {
+        xpath: xpath,
+        type: 'semantic_class',
+        description: `语义类名: ${cls}${matchCount > 1 ? ` (匹配${matchCount}个)` : ''}`,
+        confidence: matchCount === 1 ? 0.85 : 0.70,
+        matchCount: matchCount
+      };
     }
     return null;
   }
@@ -322,18 +330,34 @@
     const tag = element.tagName.toLowerCase();
     const containerTag = container.tagName.toLowerCase();
     
-    // 容器内唯一元素
+    // 容器内元素
     const containerXPath = getContainerXPath(container);
     if (containerXPath) {
-      const xpath = `${containerXPath}//${tag}`;
-      if (countXPathMatches(xpath) === 1) {
-        return {
-          xpath: xpath,
-          type: 'structural',
-          description: '容器内唯一元素',
-          confidence: 0.80
-        };
+      let xpath = `${containerXPath}//${tag}`;
+      const matchCount = countXPathMatches(xpath);
+      
+      // 如果匹配多个，尝试添加位置或类名条件
+      if (matchCount > 1) {
+        const classes = getMeaningfulClasses(element);
+        if (classes.length > 0) {
+          xpath = `${containerXPath}//${tag}[contains(@class, "${escapeXPath(classes[0])}")]`;
+        } else {
+          // 使用相对位置
+          const siblings = Array.from(container.querySelectorAll(tag));
+          const index = siblings.indexOf(element) + 1;
+          if (index > 0) {
+            xpath = `(${containerXPath}//${tag})[${index}]`;
+          }
+        }
       }
+      
+      return {
+        xpath: xpath,
+        type: 'structural',
+        description: `容器内${tag}元素${matchCount > 1 ? ` (${matchCount}个中的第${Array.from(container.querySelectorAll(tag)).indexOf(element) + 1}个)` : ''}`,
+        confidence: matchCount === 1 ? 0.80 : 0.65,
+        matchCount: matchCount
+      };
     }
     
     return null;
@@ -344,7 +368,7 @@
     const conditions = [];
     
     // 收集稳定属性
-    ['name', 'type', 'rel'].forEach(attr => {
+    ['name', 'type', 'rel', 'title', 'alt'].forEach(attr => {
       const value = element.getAttribute(attr);
       if (value && !isDynamic(value)) {
         conditions.push(`@${attr}="${escapeXPath(value)}"`);
@@ -352,15 +376,24 @@
     });
     
     if (conditions.length > 0) {
-      const xpath = `//${tag}[${conditions.join(' and ')}]`;
-      if (countXPathMatches(xpath) === 1) {
-        return {
-          xpath: xpath,
-          type: 'multi_attribute',
-          description: `多属性组合 (${conditions.length}个)`,
-          confidence: 0.75
-        };
+      let xpath = `//${tag}[${conditions.join(' and ')}]`;
+      const matchCount = countXPathMatches(xpath);
+      
+      // 如果匹配多个，尝试添加类名条件
+      if (matchCount > 1) {
+        const classes = getMeaningfulClasses(element);
+        if (classes.length > 0) {
+          xpath = `//${tag}[${conditions.join(' and ')} and contains(@class, "${escapeXPath(classes[0])}")]`;
+        }
       }
+      
+      return {
+        xpath: xpath,
+        type: 'multi_attribute',
+        description: `多属性组合 (${conditions.length}个)${matchCount > 1 ? ` 匹配${matchCount}个` : ''}`,
+        confidence: matchCount === 1 ? 0.75 : 0.60,
+        matchCount: matchCount
+      };
     }
     
     return null;
@@ -500,7 +533,18 @@
         xpath, document, null,
         XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null
       );
-      return result.snapshotLength === 1 && result.snapshotItem(0) === targetElement;
+      
+      // 检查是否有匹配结果
+      if (result.snapshotLength === 0) return false;
+      
+      // 检查目标元素是否在匹配结果中
+      for (let i = 0; i < result.snapshotLength; i++) {
+        if (result.snapshotItem(i) === targetElement) {
+          return true;
+        }
+      }
+      
+      return false;
     } catch (error) {
       return false;
     }

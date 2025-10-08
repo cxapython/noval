@@ -348,66 +348,123 @@ function ConfigWizard() {
   }
 
   // V5: 处理可视化选择器的字段确认
-  const handleVisualFieldConfirm = (field) => {
-    console.log('📥 收到可视化选择器的字段:', field)
+  const handleVisualFieldConfirm = (fieldsOrField) => {
+    // 支持单个字段或字段数组
+    const fields = Array.isArray(fieldsOrField) ? fieldsOrField : [fieldsOrField];
     
-    // 1. 设置选中的XPath
-    setSelectedXpath(field.xpath)
-    setManualXpath(field.xpath) // 同步到手动输入框
+    console.log('📥 收到可视化选择器的字段:', fields);
     
-    // 2. 智能设置属性提取方式
-    const tag = field.tagName?.toLowerCase()
-    const fieldType = field.type || ''
+    const pageType = getCurrentPageType();
+    const fieldTypes = FIELD_TYPES[pageType];
+    const currentFields = getCurrentFields();
+    const addedFields = [];
+    const skippedFields = [];
     
-    if (fieldType === 'link' || tag === 'a' || selectedFieldType === 'url' || selectedFieldType === 'next_page') {
-      // 链接字段，自动设置为提取href属性
-      if (!field.xpath.includes('@href')) {
-        setAttributeType('custom')
-        setCustomAttribute('href')
-      }
-    } else if (tag === 'img' || selectedFieldType === 'cover_url') {
-      // 图片字段，自动设置为提取src属性
-      if (!field.xpath.includes('@src')) {
-        setAttributeType('custom')
-        setCustomAttribute('src')
-      }
-    } else {
-      // 其他字段，使用自动模式
-      setAttributeType('auto')
-      setCustomAttribute('')
-    }
-    
-    // 3. 尝试智能匹配字段类型
-    if (field.name) {
-      const pageType = getCurrentPageType()
-      const fieldTypes = FIELD_TYPES[pageType]
+    // 批量处理每个字段
+    fields.forEach((field) => {
+      // 1. 智能匹配字段类型
+      let matchedFieldType = null;
       
-      // 检查字段名是否匹配
-      if (fieldTypes && fieldTypes[field.name]) {
-        setSelectedFieldType(field.name)
-      } else {
-        // 尝试模糊匹配
-        for (const key in fieldTypes) {
-          if (field.name.toLowerCase().includes(key.toLowerCase())) {
-            setSelectedFieldType(key)
-            break
+      // 优先使用用户在可视化选择器中选择的字段类型
+      if (field.fieldType && fieldTypes[field.fieldType]) {
+        matchedFieldType = field.fieldType;
+      } else if (field.name) {
+        // 精确匹配
+        if (fieldTypes[field.name]) {
+          matchedFieldType = field.name;
+        } else {
+          // 模糊匹配
+          for (const key in fieldTypes) {
+            if (field.name.toLowerCase().includes(key.toLowerCase()) || 
+                key.toLowerCase().includes(field.name.toLowerCase())) {
+              matchedFieldType = key;
+              break;
+            }
           }
         }
       }
+      
+      // 如果没有匹配到字段类型，跳过
+      if (!matchedFieldType) {
+        skippedFields.push(`${field.name || '未命名'} (无法匹配字段类型)`);
+        return;
+      }
+      
+      // 检查字段是否已存在
+      if (currentFields[matchedFieldType]) {
+        skippedFields.push(`${fieldTypes[matchedFieldType].label} (已存在)`);
+        return;
+      }
+      
+      // 2. 智能设置属性提取方式
+      const tag = field.tagName?.toLowerCase();
+      const fieldType = field.type || '';
+      let xpath = field.xpath;
+      let attributeType = 'auto';
+      let customAttribute = '';
+      
+      // 链接字段（章节链接、下一页等）
+      if (fieldType === 'link' || tag === 'a' || matchedFieldType === 'url' || matchedFieldType === 'next_page') {
+        if (!xpath.includes('@href')) {
+          xpath = xpath.endsWith('/text()') ? xpath.replace('/text()', '/@href') : `${xpath}/@href`;
+          customAttribute = 'href';
+        }
+      } 
+      // 图片字段（封面）
+      else if (tag === 'img' || matchedFieldType === 'cover_url') {
+        if (!xpath.includes('@src')) {
+          xpath = xpath.endsWith('/text()') ? xpath.replace('/text()', '/@src') : `${xpath}/@src`;
+          customAttribute = 'src';
+        }
+      }
+      
+      // 3. 创建字段配置
+      const fieldInfo = fieldTypes[matchedFieldType];
+      const fieldConfig = {
+        type: 'xpath',
+        expression: xpath,
+        index: matchedFieldType === 'tags' || matchedFieldType === 'items' || matchedFieldType === 'content' ? 999 : -1,
+        process: fieldInfo.defaultProcess || []
+      };
+      
+      // 如果有自定义属性，添加到配置
+      if (customAttribute) {
+        fieldConfig.attribute = customAttribute;
+      }
+      
+      // 4. 添加到当前字段配置
+      currentFields[matchedFieldType] = fieldConfig;
+      addedFields.push(fieldInfo.label || matchedFieldType);
+    });
+    
+    // 更新字段配置
+    if (addedFields.length > 0) {
+      setCurrentFields(currentFields);
     }
     
-    // 4. 显示提示
-    notifications.show({
-      title: '✅ 已导入XPath',
-      message: `${field.name || '字段'}: ${field.xpath.substring(0, 60)}...`,
-      color: 'green',
-      autoClose: 3000
-    })
+    // 5. 显示结果提示
+    if (addedFields.length > 0) {
+      notifications.show({
+        title: `✅ 批量导入成功 (${addedFields.length}/${fields.length})`,
+        message: addedFields.join('、'),
+        color: 'green',
+        autoClose: 4000
+      });
+    }
     
-    // 5. 滚动到字段配置区域
+    if (skippedFields.length > 0) {
+      notifications.show({
+        title: `⚠️ 跳过 ${skippedFields.length} 个字段`,
+        message: skippedFields.join('、'),
+        color: 'yellow',
+        autoClose: 4000
+      });
+    }
+    
+    // 6. 滚动到已识别字段区域
     setTimeout(() => {
-      window.scrollTo({ top: 600, behavior: 'smooth' })
-    }, 300)
+      window.scrollTo({ top: 200, behavior: 'smooth' });
+    }, 500);
   }
 
   // 更新字段的清洗规则
@@ -1515,6 +1572,7 @@ function ConfigWizard() {
           visible={visualSelectorVisible}
           onClose={() => setVisualSelectorVisible(false)}
           url={targetUrl}
+          cachedHtml={pageData?.html} // 传递已渲染的HTML，避免重复请求
           currentFieldType={selectedFieldType}
           pageType={getCurrentPageType()}
           onFieldConfirm={handleVisualFieldConfirm}

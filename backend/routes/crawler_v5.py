@@ -9,8 +9,15 @@ from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeo
 from loguru import logger
 import os
 from pathlib import Path
+import time
 
 crawler_v5_bp = Blueprint('crawler_v5', __name__, url_prefix='/api/crawler/v5')
+
+# ============ HTML缓存 ============
+# 避免重复网络请求，缓存已加载的HTML
+# 格式: { url: { 'html': html_content, 'timestamp': time.time(), 'injected_html': injected_html } }
+HTML_CACHE = {}
+CACHE_EXPIRE_TIME = 3600  # 缓存1小时
 
 # ============ 脚本加载 ============
 
@@ -154,6 +161,29 @@ def proxy_page():
         
         logger.info(f"📡 代理访问页面: {url}")
         
+        # 检查缓存
+        current_time = time.time()
+        cache_key = url
+        
+        if cache_key in HTML_CACHE:
+            cache_data = HTML_CACHE[cache_key]
+            # 检查缓存是否过期
+            if current_time - cache_data['timestamp'] < CACHE_EXPIRE_TIME:
+                logger.info(f"✅ 使用缓存的HTML ({int(current_time - cache_data['timestamp'])}秒前)")
+                
+                response = Response(cache_data['injected_html'], mimetype='text/html; charset=utf-8')
+                response.headers['Access-Control-Allow-Origin'] = '*'
+                response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+                response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+                response.headers['Content-Security-Policy'] = "frame-ancestors *;"
+                response.headers['X-Frame-Options'] = 'ALLOWALL'
+                response.headers['X-Cache'] = 'HIT'
+                
+                return response
+            else:
+                logger.info(f"⚠️ 缓存已过期，重新加载")
+                del HTML_CACHE[cache_key]
+        
         # 加载脚本
         selector_script = load_selector_script()
         xpath_script = load_xpath_generator_script()
@@ -203,13 +233,21 @@ def proxy_page():
                 logger.info(f"✅ 页面加载成功: {title}")
                 
                 # 注入脚本
-                html = inject_scripts(html, selector_script, xpath_script)
+                injected_html = inject_scripts(html, selector_script, xpath_script)
+                
+                # 保存到缓存
+                HTML_CACHE[cache_key] = {
+                    'html': html,
+                    'injected_html': injected_html,
+                    'timestamp': time.time()
+                }
+                logger.info(f"💾 HTML已缓存")
                 
                 # 关闭浏览器
                 browser.close()
                 
                 # 返回HTML
-                response = Response(html, mimetype='text/html; charset=utf-8')
+                response = Response(injected_html, mimetype='text/html; charset=utf-8')
                 
                 # 添加CORS头部
                 response.headers['Access-Control-Allow-Origin'] = '*'
@@ -219,6 +257,7 @@ def proxy_page():
                 # 添加CSP头部，允许iframe嵌入
                 response.headers['Content-Security-Policy'] = "frame-ancestors *;"
                 response.headers['X-Frame-Options'] = 'ALLOWALL'
+                response.headers['X-Cache'] = 'MISS'
                 
                 logger.info(f"✅ 代理页面成功返回")
                 
@@ -432,4 +471,61 @@ def health_check():
         'status': 'running',
         'version': '5.0.0'
     })
+
+
+@crawler_v5_bp.route('/inject-html', methods=['POST', 'OPTIONS'])
+def inject_cached_html():
+    """
+    为缓存的HTML注入脚本
+    用于复用ConfigWizard已经渲染的HTML，避免重复请求
+    
+    Body Parameters:
+      - html: HTML内容 (必需)
+      - url: 原始URL (可选，用于日志)
+    
+    Returns:
+      - 注入脚本后的HTML
+    """
+    # 处理CORS预检请求
+    if request.method == 'OPTIONS':
+        response = Response('')
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+        return response
+    
+    try:
+        data = request.json
+        html = data.get('html', '')
+        url = data.get('url', 'cached')
+        
+        if not html:
+            return Response('HTML内容不能为空', status=400)
+        
+        logger.info(f"📝 处理缓存HTML: {url} ({len(html)} bytes)")
+        
+        # 加载脚本
+        selector_script = load_selector_script()
+        xpath_script = load_xpath_generator_script()
+        
+        if not selector_script:
+            return Response('元素选择器脚本加载失败', status=500)
+        
+        # 注入脚本
+        injected_html = inject_scripts(html, selector_script, xpath_script)
+        
+        logger.info(f"✅ HTML脚本注入成功 (原始: {len(html)} bytes, 注入后: {len(injected_html)} bytes)")
+        
+        # 返回HTML
+        response = Response(injected_html, mimetype='text/html; charset=utf-8')
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['X-Cache-Source'] = 'ConfigWizard-Render'
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"❌ 注入脚本失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return Response(f'注入脚本失败: {str(e)}', status=500)
 

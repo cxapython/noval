@@ -25,7 +25,9 @@ import {
   Code,
   Accordion,
   ActionIcon,
-  Tooltip
+  Tooltip,
+  TextInput,
+  Select
 } from '@mantine/core';
 import {
   IconReload,
@@ -38,10 +40,32 @@ import {
 import { notifications } from '@mantine/notifications';
 import './VisualXPathSelector.css';
 
+// 字段类型选项配置
+const FIELD_TYPE_OPTIONS = {
+  novel_info: [
+    { value: 'title', label: '小说标题' },
+    { value: 'author', label: '作者' },
+    { value: 'cover_url', label: '封面图片URL' },
+    { value: 'intro', label: '简介' },
+    { value: 'status', label: '状态' },
+    { value: 'category', label: '分类' },
+    { value: 'tags', label: '标签' }
+  ],
+  chapter_list: [
+    { value: 'items', label: '列表项选择器' },
+    { value: 'title', label: '章节标题' },
+    { value: 'url', label: '章节链接' }
+  ],
+  chapter_content: [
+    { value: 'content', label: '正文内容' }
+  ]
+};
+
 const VisualXPathSelector = ({
   visible,
   onClose,
   url,
+  cachedHtml = null, // 缓存的HTML，如果提供则不请求URL
   currentFieldType = '',
   pageType = 'novel_info',
   onFieldConfirm
@@ -52,13 +76,18 @@ const VisualXPathSelector = ({
   const [currentSelection, setCurrentSelection] = useState(null);
   const [selectedFields, setSelectedFields] = useState([]);
   const [selectedXPathIndex, setSelectedXPathIndex] = useState(0);
+  const [iframeKey, setIframeKey] = useState(Date.now()); // 用于强制重新挂载iframe
+  const [fieldTypeSelection, setFieldTypeSelection] = useState(''); // 用户选择的字段类型
   const iframeRef = useRef(null);
   
   // ============ 生命周期 ============
   useEffect(() => {
     if (visible) {
-      setPageLoading(true);
-      setPageLoaded(false);
+      // 只在首次打开或URL变化时重新生成key
+      // 不在每次Modal打开时都重新挂载iframe，避免白屏和重复请求
+      if (!pageLoaded) {
+        setPageLoading(true);
+      }
       
       // 监听iframe消息
       window.addEventListener('message', handleIframeMessage);
@@ -67,8 +96,10 @@ const VisualXPathSelector = ({
         window.removeEventListener('message', handleIframeMessage);
       };
     } else {
-      // Modal关闭时重置状态
-      resetState();
+      // Modal关闭时只重置选择状态，保留页面加载状态
+      setCurrentSelection(null);
+      setFieldTypeSelection('');
+      setSelectedXPathIndex(0);
     }
   }, [visible]);
   
@@ -113,16 +144,19 @@ const VisualXPathSelector = ({
   const handleElementSelected = (elementData) => {
     console.log('🎯 元素已选择:', elementData);
     
-    // 智能推荐字段名
-    const suggestedName = suggestFieldName(elementData, selectedFields, currentFieldType);
+    // 智能推荐字段类型
+    const suggestedType = suggestFieldType(elementData, pageType);
     const detectedType = detectFieldType(elementData);
     
     // 设置当前选择
     setCurrentSelection({
       ...elementData,
-      fieldName: suggestedName,
+      suggestedFieldType: suggestedType,
       fieldType: detectedType
     });
+    
+    // 设置字段类型（使用推荐值）
+    setFieldTypeSelection(suggestedType);
     
     // 重置XPath选择索引
     setSelectedXPathIndex(0);
@@ -135,8 +169,25 @@ const VisualXPathSelector = ({
     });
   };
   
+  const sendMessageToIframe = (type, data = {}) => {
+    if (iframeRef.current && iframeRef.current.contentWindow) {
+      iframeRef.current.contentWindow.postMessage({
+        source: 'visual-selector',
+        type: `xpath-selector-${type}`,
+        data: data
+      }, '*');
+    }
+  };
+  
   const handleConfirmSelection = () => {
-    if (!currentSelection) return;
+    if (!currentSelection || !fieldTypeSelection) {
+      notifications.show({
+        title: '⚠️ 提示',
+        message: '请选择字段类型',
+        color: 'yellow'
+      });
+      return;
+    }
     
     // 获取选中的XPath
     const xpathCandidates = currentSelection.xpathCandidates || [];
@@ -152,10 +203,17 @@ const VisualXPathSelector = ({
       return;
     }
     
-    // 创建字段对象
+    // 获取字段显示名称（label）
+    const fieldOptions = FIELD_TYPE_OPTIONS[pageType] || [];
+    const selectedFieldOption = fieldOptions.find(opt => opt.value === fieldTypeSelection);
+    const fieldLabel = selectedFieldOption?.label || fieldTypeSelection;
+    
+    // 创建字段对象，name直接使用字段类型的value（如title、author等）
     const field = {
       id: Date.now(),
-      name: currentSelection.fieldName || `field_${selectedFields.length + 1}`,
+      name: fieldTypeSelection, // 直接使用字段类型值，与数据库字段名一致
+      fieldType: fieldTypeSelection, // 用于ConfigWizard匹配
+      fieldLabel: fieldLabel, // 用于显示
       xpath: xpath,
       xpathInfo: selectedCandidate || { type: 'manual', confidence: 0.5 },
       cssSelector: currentSelection.cssSelector,
@@ -169,13 +227,15 @@ const VisualXPathSelector = ({
     // 添加到已选字段列表
     setSelectedFields(prev => [...prev, field]);
     
-    // 清空当前选择
+    // 清空当前选择，准备选择下一个元素
+    // 不清除高亮，让用户看到已选择的元素
     setCurrentSelection(null);
     setSelectedXPathIndex(0);
+    setFieldTypeSelection('');
     
     notifications.show({
       title: '✅ 字段已添加',
-      message: `${field.name}: ${field.text}...`,
+      message: `${fieldLabel}: ${field.text}...`,
       color: 'green',
       autoClose: 2000
     });
@@ -201,39 +261,57 @@ const VisualXPathSelector = ({
     }
     
     // 回调到父组件
-    // 对于ConfigWizard，一次配置一个字段，返回第一个
-    const firstField = selectedFields[0];
-    
+    // 返回所有已选字段，支持批量导入
     if (onFieldConfirm) {
-      onFieldConfirm(firstField);
+      onFieldConfirm(selectedFields);
     }
+    
+    notifications.show({
+      title: '✅ 批量导入成功',
+      message: `已导入 ${selectedFields.length} 个字段到配置向导`,
+      color: 'green',
+      autoClose: 3000
+    });
+    
+    // 完成后清空已选字段，但保留页面加载状态
+    setSelectedFields([]);
     
     // 关闭Modal
     handleClose();
   };
   
   const handleClose = () => {
-    resetState();
+    // 关闭时只清空选择状态，不重置页面加载状态
+    // 这样下次打开时页面还在，不需要重新加载
+    setCurrentSelection(null);
+    setFieldTypeSelection('');
+    setSelectedXPathIndex(0);
+    
     if (onClose) {
       onClose();
     }
   };
   
   const resetState = () => {
+    // 完全重置状态（用于手动刷新）
     setPageLoaded(false);
     setPageLoading(true);
     setCurrentSelection(null);
     setSelectedFields([]);
     setSelectedXPathIndex(0);
+    setFieldTypeSelection('');
   };
   
   const handleReload = () => {
-    if (iframeRef.current) {
-      iframeRef.current.src = iframeRef.current.src;
-      setPageLoading(true);
-      setPageLoaded(false);
-      setCurrentSelection(null);
-    }
+    // 手动刷新：完全重置并重新加载页面
+    resetState();
+    setIframeKey(Date.now()); // 生成新的key，强制重新挂载iframe
+    notifications.show({
+      title: '🔄 正在刷新',
+      message: '重新加载页面...',
+      color: 'blue',
+      autoClose: 2000
+    });
   };
   
   const copyToClipboard = (text) => {
@@ -248,34 +326,27 @@ const VisualXPathSelector = ({
   
   // ============ 辅助函数 ============
   
-  const suggestFieldName = (elementData, existingFields, currentType) => {
-    // 基于元素特征推荐字段名
+  const suggestFieldType = (elementData, pageType) => {
+    // 基于元素特征推荐字段类型
     const tag = elementData.tagName?.toLowerCase();
     const classStr = elementData.className || '';
-    const text = elementData.textContent || '';
     
-    // 检查data-field属性
-    if (elementData.attributes && elementData.attributes['data-field']) {
-      return elementData.attributes['data-field'];
-    }
+    // 基于标签推荐
+    if (tag === 'h1' || tag === 'h2') return 'title';
+    if (tag === 'img') return 'cover_url';
+    if (tag === 'a' && pageType === 'chapter_list') return 'url';
     
     // 基于class推荐
     if (/title|heading/i.test(classStr)) return 'title';
     if (/author|writer/i.test(classStr)) return 'author';
     if (/cover|image/i.test(classStr)) return 'cover_url';
-    if (/content|description|intro/i.test(classStr)) return 'intro';
-    if (/chapter/i.test(classStr)) return 'chapter_link';
+    if (/intro|description/i.test(classStr)) return 'intro';
+    if (/chapter/i.test(classStr) && pageType === 'chapter_list') return 'url';
+    if (/content/i.test(classStr) && pageType === 'chapter_content') return 'content';
     
-    // 基于标签推荐
-    if (tag === 'h1' || tag === 'h2') return 'title';
-    if (tag === 'img') return 'cover_url';
-    if (tag === 'a') return 'link';
-    
-    // 基于当前字段类型
-    if (currentType) return currentType;
-    
-    // 默认
-    return `field_${existingFields.length + 1}`;
+    // 默认返回第一个可用的字段类型
+    const options = FIELD_TYPE_OPTIONS[pageType] || [];
+    return options.length > 0 ? options[0].value : '';
   };
   
   const detectFieldType = (elementData) => {
@@ -383,11 +454,46 @@ const VisualXPathSelector = ({
           </Stack>
         </Card>
         
+        {/* 字段配置 */}
+        <Card withBorder style={{ backgroundColor: '#f8f9fa' }}>
+          <Stack gap="sm">
+            <Text size="sm" fw={700}>⚙️ 字段配置</Text>
+            
+            <Select
+              label="选择字段类型"
+              placeholder="请选择字段类型"
+              data={FIELD_TYPE_OPTIONS[pageType] || []}
+              value={fieldTypeSelection}
+              onChange={setFieldTypeSelection}
+              required
+              searchable
+              description="字段名将自动使用字段类型值（如：title、author）"
+            />
+            
+            {fieldTypeSelection && (
+              <Alert color="blue" variant="light" p="xs">
+                <Stack gap={4}>
+                  <Text size="xs">
+                    ✅ 字段类型：<strong>{FIELD_TYPE_OPTIONS[pageType]?.find(opt => opt.value === fieldTypeSelection)?.label}</strong>
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    字段名：<Code>{fieldTypeSelection}</Code> （与数据库字段名一致）
+                  </Text>
+                </Stack>
+              </Alert>
+            )}
+          </Stack>
+        </Card>
+        
         <Group grow>
           <Button
             variant="outline"
             color="gray"
-            onClick={() => setCurrentSelection(null)}
+            onClick={() => {
+              setCurrentSelection(null);
+              setFieldName('');
+              setFieldTypeSelection('');
+            }}
           >
             取消
           </Button>
@@ -395,6 +501,7 @@ const VisualXPathSelector = ({
             color="blue"
             leftSection={<IconCheck size={16} />}
             onClick={handleConfirmSelection}
+            disabled={!fieldTypeSelection}
           >
             确认添加
           </Button>
@@ -418,10 +525,15 @@ const VisualXPathSelector = ({
           <Card key={field.id} withBorder shadow="sm">
             <Stack gap="xs">
               <Group justify="space-between">
-                <Group gap="xs">
-                  <Badge color="green">#{index + 1}</Badge>
-                  <Text size="sm" fw={700}>{field.name}</Text>
-                </Group>
+                <Stack gap={2}>
+                  <Group gap="xs">
+                    <Badge color="green">#{index + 1}</Badge>
+                    <Text size="sm" fw={700}>{field.fieldLabel || field.name}</Text>
+                  </Group>
+                  <Text size="xs" c="dimmed">
+                    字段名：<Code style={{ fontSize: '11px' }}>{field.name}</Code>
+                  </Text>
+                </Stack>
                 <Group gap={5}>
                   <Tooltip label="复制XPath">
                     <ActionIcon
@@ -446,7 +558,7 @@ const VisualXPathSelector = ({
               </Group>
               
               <Text size="xs" c="dimmed" lineClamp={1}>
-                {field.text}
+                提取内容：{field.text || '(无文本)'}
               </Text>
               
               <Accordion variant="contained">
@@ -476,8 +588,55 @@ const VisualXPathSelector = ({
     );
   };
   
-  // 生成代理URL
-  const proxyUrl = url ? `http://localhost:5001/api/crawler/v5/proxy-page?url=${encodeURIComponent(url)}&wait_time=2` : '';
+  // 生成代理URL或使用缓存HTML
+  const [blobUrl, setBlobUrl] = useState('');
+  
+  // 如果有缓存HTML，处理注入脚本后生成blob URL
+  useEffect(() => {
+    if (visible && cachedHtml && !blobUrl) {
+      // 有缓存HTML，发送到后端注入脚本
+      console.log('✅ 使用已渲染的HTML，无需重新请求网络');
+      notifications.show({
+        title: '⚡ 使用缓存',
+        message: '复用已渲染的HTML，加载更快',
+        color: 'blue',
+        autoClose: 2000
+      });
+      
+      fetch('http://localhost:5001/api/crawler/v5/inject-html', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ html: cachedHtml, url: url })
+      })
+      .then(res => res.text())
+      .then(injectedHtml => {
+        // 创建blob URL
+        const blob = new Blob([injectedHtml], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        setBlobUrl(url);
+        setPageLoading(false);
+        setPageLoaded(true);
+      })
+      .catch(err => {
+        console.error('注入脚本失败:', err);
+        notifications.show({
+          title: '错误',
+          message: '处理缓存HTML失败',
+          color: 'red'
+        });
+      });
+    }
+    
+    // 清理blob URL
+    return () => {
+      if (blobUrl) {
+        URL.revokeObjectURL(blobUrl);
+      }
+    };
+  }, [visible, cachedHtml, iframeKey]);
+  
+  // 优先使用blob URL（缓存HTML），否则使用代理URL
+  const proxyUrl = blobUrl || (url ? `http://localhost:5001/api/crawler/v5/proxy-page?url=${encodeURIComponent(url)}&wait_time=2&_t=${iframeKey}` : '');
   
   return (
     <Modal
@@ -498,7 +657,14 @@ const VisualXPathSelector = ({
               <Stack gap="sm" style={{ height: '100%' }}>
                 <Group justify="space-between">
                   <div>
-                    <Text size="sm" fw={700}>页面预览</Text>
+                    <Group gap="xs">
+                      <Text size="sm" fw={700}>页面预览</Text>
+                      {cachedHtml && (
+                        <Badge color="cyan" size="sm" variant="light">
+                          ⚡ 缓存复用
+                        </Badge>
+                      )}
+                    </Group>
                     <Text size="xs" c="dimmed" lineClamp={1}>{url}</Text>
                   </div>
                   <Group gap={5}>
@@ -532,6 +698,7 @@ const VisualXPathSelector = ({
                   )}
                   
                   <iframe
+                    key={iframeKey}
                     ref={iframeRef}
                     src={proxyUrl}
                     style={{
@@ -569,6 +736,11 @@ const VisualXPathSelector = ({
                     <Text size="sm" fw={700}>✅ 已选字段</Text>
                     <Badge color="blue">{selectedFields.length}</Badge>
                   </Group>
+                  {selectedFields.length === 0 && (
+                    <Alert color="blue" variant="light" p="xs">
+                      💡 可依次选择多个元素，点击"完成选择"批量导入
+                    </Alert>
+                  )}
                   <Divider />
                   <ScrollArea style={{ flex: 1 }}>
                     {renderSelectedFields()}
@@ -592,7 +764,7 @@ const VisualXPathSelector = ({
                   onClick={handleFinish}
                   disabled={selectedFields.length === 0}
                 >
-                  完成选择
+                  完成选择{selectedFields.length > 0 && ` (导入${selectedFields.length}个)`}
                 </Button>
               </Group>
             </Stack>
