@@ -27,7 +27,7 @@ const API_BASE = '/api/reader'
 function CoverImage({ url, alt, style, fallback }) {
   const [cachedUrl, setCachedUrl] = useState(url)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(false)
+  const [imgError, setImgError] = useState(false)
 
   useEffect(() => {
     if (!url) {
@@ -42,23 +42,24 @@ function CoverImage({ url, alt, style, fallback }) {
       return
     }
 
-    // 从缓存加载
+    // 从缓存加载（getCover 永远不会抛出异常，会返回原始URL）
     setLoading(true)
-    setError(false)
+    setImgError(false)
     coverCache.getCover(url)
       .then(cachedData => {
         setCachedUrl(cachedData || url)
         setLoading(false)
       })
       .catch(err => {
-        console.error('加载封面失败:', err)
+        // 理论上不会到这里，但以防万一
+        console.warn('getCover 异常:', err)
         setCachedUrl(url) // 降级到原始URL
         setLoading(false)
-        setError(true)
       })
   }, [url])
 
-  if (!url || error) {
+  // 只有在URL不存在，或者图片真的加载失败时才显示fallback
+  if (!url || imgError) {
     return fallback || null
   }
 
@@ -67,7 +68,10 @@ function CoverImage({ url, alt, style, fallback }) {
       src={cachedUrl}
       alt={alt}
       style={style}
-      onError={() => setError(true)}
+      onError={() => {
+        console.warn('图片显示失败:', cachedUrl)
+        setImgError(true)
+      }}
     />
   )
 }

@@ -153,29 +153,66 @@ class CoverCache {
    * 通过Canvas加载图片（处理跨域）
    */
   async loadImageViaCanvas(url) {
+    // 先尝试带 crossOrigin
+    try {
+      return await this.loadImageWithCrossOrigin(url, true)
+    } catch (error) {
+      console.warn('带 crossOrigin 加载失败，尝试不带 crossOrigin:', error.message)
+      // 再尝试不带 crossOrigin（虽然不能缓存，但至少能显示）
+      try {
+        return await this.loadImageWithCrossOrigin(url, false)
+      } catch (finalError) {
+        throw new Error('所有方式都无法加载图片')
+      }
+    }
+  }
+
+  /**
+   * 加载图片（可选是否使用 crossOrigin）
+   */
+  async loadImageWithCrossOrigin(url, useCrossOrigin) {
     return new Promise((resolve, reject) => {
       const img = new Image()
-      img.crossOrigin = 'anonymous' // 尝试请求 CORS
+      
+      if (useCrossOrigin) {
+        img.crossOrigin = 'anonymous'
+      }
+      
+      // 设置超时（10秒）
+      const timeout = setTimeout(() => {
+        img.src = '' // 取消加载
+        reject(new Error('图片加载超时'))
+      }, 10000)
       
       img.onload = () => {
-        try {
-          const canvas = document.createElement('canvas')
-          canvas.width = img.width
-          canvas.height = img.height
-          
-          const ctx = canvas.getContext('2d')
-          ctx.drawImage(img, 0, 0)
-          
-          // 转换为 base64
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.9)
-          resolve(dataUrl)
-        } catch (canvasError) {
-          console.error('Canvas 转换失败:', canvasError)
-          reject(canvasError)
+        clearTimeout(timeout)
+        
+        if (useCrossOrigin) {
+          // 带 crossOrigin，可以通过 Canvas 缓存
+          try {
+            const canvas = document.createElement('canvas')
+            canvas.width = img.width
+            canvas.height = img.height
+            
+            const ctx = canvas.getContext('2d')
+            ctx.drawImage(img, 0, 0)
+            
+            // 转换为 base64
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.9)
+            resolve(dataUrl)
+          } catch (canvasError) {
+            console.error('Canvas 转换失败:', canvasError)
+            reject(canvasError)
+          }
+        } else {
+          // 不带 crossOrigin，无法缓存，但返回原始URL
+          console.log('图片加载成功但无法缓存（跨域限制）')
+          reject(new Error('图片无法缓存'))
         }
       }
       
-      img.onerror = () => {
+      img.onerror = (e) => {
+        clearTimeout(timeout)
         reject(new Error('图片加载失败'))
       }
       
