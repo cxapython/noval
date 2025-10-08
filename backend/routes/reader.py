@@ -179,20 +179,30 @@ def extract_site_and_book_id(source_url):
     else:
         return None, None
     
-    # 提取book_id（通常是URL路径中的数字）
-    # 例如: https://www.djks5.com/44/44920/ -> book_id=44920
+    # 提取book_id（支持多种格式）
+    # 格式1: /389253.html -> book_id=389253
+    # 格式2: /44/44920/ -> book_id=44920
+    # 格式3: /book/12345/ -> book_id=12345
+    
+    # 尝试匹配 .html 格式
+    match = re.search(r'/(\d+)\.html?', source_url)
+    if match:
+        book_id = match.group(1)
+        return site_name, book_id
+    
+    # 尝试匹配 URL 末尾的数字
     match = re.search(r'/(\d+)/?$', source_url.rstrip('/'))
     if match:
         book_id = match.group(1)
-    else:
-        # 尝试其他模式
-        match = re.search(r'/(\d+)/', source_url)
-        if match:
-            book_id = match.group(1)
-        else:
-            return site_name, None
+        return site_name, book_id
     
-    return site_name, book_id
+    # 尝试匹配 URL 中的数字（最后一个）
+    matches = re.findall(r'/(\d+)/', source_url)
+    if matches:
+        book_id = matches[-1]  # 取最后一个数字
+        return site_name, book_id
+    
+    return site_name, None
 
 
 @reader_bp.route('/novel/<int:novel_id>', methods=['DELETE'])
