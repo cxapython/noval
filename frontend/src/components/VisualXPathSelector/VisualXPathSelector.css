@@ -1,0 +1,71 @@
+/**
+ * VisualXPathSelector 样式
+ */
+
+.visual-xpath-selector {
+  height: 100%;
+  width: 100%;
+}
+
+.preview-panel {
+  flex: 1;
+  min-width: 0;
+}
+
+.config-panel {
+  width: 400px;
+  min-width: 400px;
+  max-width: 500px;
+}
+
+/* iframe样式优化 */
+.visual-xpath-selector iframe {
+  display: block;
+}
+
+/* 确保Modal内容区域可滚动 */
+.visual-xpath-selector .mantine-ScrollArea-root {
+  height: 100%;
+}
+
+/* XPath候选卡片hover效果 */
+.visual-xpath-selector .mantine-Card-root {
+  transition: all 0.2s ease;
+}
+
+.visual-xpath-selector .mantine-Card-root:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 字段列表样式 */
+.field-item {
+  transition: all 0.2s ease;
+}
+
+.field-item:hover {
+  background-color: #f8f9fa;
+}
+
+/* 加载状态 */
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+/* 响应式优化 */
+@media (max-width: 1200px) {
+  .config-panel {
+    width: 350px;
+    min-width: 350px;
+  }
+}
+

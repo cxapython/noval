@@ -16,6 +16,7 @@ from flask_socketio import SocketIO, emit
 from loguru import logger
 from backend.routes.crawler import crawler_bp
 from backend.routes.reader import reader_bp
+from backend.routes.crawler_v5 import crawler_v5_bp
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'novel-crawler-secret-key'
@@ -27,6 +28,7 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 # 注册蓝图
 app.register_blueprint(crawler_bp, url_prefix='/api/crawler')
 app.register_blueprint(reader_bp, url_prefix='/api/reader')
+app.register_blueprint(crawler_v5_bp)  # V5路由已包含url_prefix
 
 # WebSocket 事件
 @socketio.on('connect')
