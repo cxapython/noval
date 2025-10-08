@@ -12,7 +12,8 @@ class CoverCache {
   constructor() {
     this.db = null
     this.initPromise = this.initDB()
-    this.failedUrls = new Set() // 记录无法缓存的URL
+    this.failedUrls = new Map() // 记录无法缓存的URL及失败时间
+    this.failedUrlExpiry = 60 * 60 * 1000 // 失败URL记录保留1小时
   }
 
   /**
@@ -63,27 +64,32 @@ class CoverCache {
     try {
       await this.ensureDB()
       
-      // 检查是否在失败列表中
+      // 检查是否在失败列表中（且未过期）
       if (this.failedUrls.has(url)) {
-        console.log('⚠️ URL在失败列表中，直接使用原始URL:', url)
-        return url
+        const failedTime = this.failedUrls.get(url)
+        const now = Date.now()
+        
+        if (now - failedTime < this.failedUrlExpiry) {
+          // 失败记录未过期，直接使用原始URL
+          return url
+        } else {
+          // 失败记录已过期，移除并重试
+          this.failedUrls.delete(url)
+        }
       }
       
       // 先从缓存中查找
       const cached = await this.getFromCache(url)
       if (cached) {
-        console.log('✅ 从缓存加载封面:', url)
         return cached.dataUrl
       }
 
       // 缓存中没有，下载并缓存
-      console.log('⬇️ 下载封面:', url)
       const dataUrl = await this.downloadAndCache(url)
       return dataUrl
     } catch (error) {
-      console.warn('获取封面失败，使用原始URL:', url, error.message)
       // 添加到失败列表，避免重复尝试
-      this.failedUrls.add(url)
+      this.failedUrls.set(url, Date.now())
       return url // 返回原始URL作为降级方案
     }
   }
@@ -305,12 +311,38 @@ class CoverCache {
       request.onsuccess = () => {
         resolve({
           count: request.result,
+          failedCount: this.failedUrls.size,
           dbName: DB_NAME,
           storeName: STORE_NAME
         })
       }
       request.onerror = () => reject(request.error)
     })
+  }
+
+  /**
+   * 清除失败URL列表
+   */
+  clearFailedUrls() {
+    this.failedUrls.clear()
+    console.log('✅ 已清除失败URL列表')
+  }
+
+  /**
+   * 检查URL是否在失败列表中
+   */
+  isUrlFailed(url) {
+    if (!this.failedUrls.has(url)) return false
+    
+    const failedTime = this.failedUrls.get(url)
+    const now = Date.now()
+    
+    if (now - failedTime >= this.failedUrlExpiry) {
+      this.failedUrls.delete(url)
+      return false
+    }
+    
+    return true
   }
 
   /**
