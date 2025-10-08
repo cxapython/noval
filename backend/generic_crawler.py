@@ -67,6 +67,7 @@ class GenericNovelCrawler:
         self.site_name = site_info.get('name')
         self.base_url = site_info.get('base_url')
         self.start_url = self.config_manager.build_url('book_detail', book_id=book_id)
+        self.url_templates = self.config_manager.get_url_templates()
 
         # 初始化HTML解析器
         self.parser = HtmlParser(self.base_url)
@@ -234,7 +235,7 @@ class GenericNovelCrawler:
         # 检查是否有分页
         pagination_config = chapter_list_config.get('pagination')
         if pagination_config and pagination_config.get('enabled', False):
-            # 有分页
+            # 有分页 - 使用 url_templates.chapter_list_page 构建翻页URL
             max_page = self._get_max_page(html, pagination_config)
             logger.info(f"📄 共 {max_page} 页章节列表")
 
@@ -242,7 +243,8 @@ class GenericNovelCrawler:
                 if page == 1:
                     page_html = html
                 else:
-                    page_url = self._build_pagination_url(page, pagination_config)
+                    # 使用 url_templates.chapter_list_page 构建URL
+                    page_url = self._build_pagination_url(page)
                     logger.info(f"📄 获取第 {page} 页: {page_url}")
                     page_html = self.fetcher.get_page(page_url,
                                                       max_retries=self.config_manager.get_max_retries())
@@ -278,23 +280,31 @@ class GenericNovelCrawler:
         # 复用章节内容的提取逻辑
         return self._extract_max_pages_from_html(html, max_page_xpath_config, max_page_manual)
 
-    def _build_pagination_url(self, page: int, pagination_config: Dict) -> str:
+    def _build_pagination_url(self, page: int = 2) -> str:
         """
         构建章节列表分页URL（从第2页开始）
+        使用 url_templates.chapter_list_page 配置
         """
         return self.config_manager.build_url('chapter_list_page', book_id=self.book_id, page=page)
 
-    def _build_content_next_page_url(self, chapter_url: str, page: int, next_page_config: Dict) -> str:
+    def _build_content_next_page_url(self, chapter_url: str, page: int, next_page_config: Dict = None) -> str:
         """
         构建章节内容翻页URL（从第2页开始）
+        使用 url_templates.chapter_content_page 配置
+        
         :param chapter_url: 章节URL，用于提取book_id和chapter_id
         :param page: 页码（≥2）
-        :param next_page_config: next_page配置
+        :param next_page_config: next_page配置（可选，保留兼容性）
         :return: 下一页URL，如果无法构建则返回None
         """
         # 从chapter_url中提取book_id和chapter_id
-        # 提取所有数字序列（按照在URL中出现的顺序）
-        numbers = re.findall(r'\d+', chapter_url)
+        # 先去除协议和域名，只提取路径中的数字（避免提取域名中的数字如djks5.com中的5）
+        from urllib.parse import urlparse
+        parsed_url = urlparse(chapter_url)
+        url_path = parsed_url.path  # 例如: /novel/41934/123.html 或 /book/41934/123.html
+        
+        # 从路径中提取所有数字序列
+        numbers = re.findall(r'\d+', url_path)
 
         book_id = ''
         chapter_id = ''
@@ -308,10 +318,10 @@ class GenericNovelCrawler:
             chapter_id = numbers[0]
             book_id = self.book_id or ''
         else:
-            logger.warning(f"无法从URL提取ID: {chapter_url}")
+            logger.warning(f"⚠️  无法从URL提取ID: {chapter_url}")
             return None
 
-        # 使用url_templates.chapter_content_page构建URL
+        # 使用 url_templates.chapter_content_page 构建URL
         try:
             next_url = self.config_manager.build_url(
                 'chapter_content_page',
@@ -319,10 +329,10 @@ class GenericNovelCrawler:
                 chapter_id=chapter_id,
                 page=page
             )
-            logger.debug(f"构建翻页URL: {next_url} (book_id={book_id}, chapter_id={chapter_id}, page={page})")
+            logger.debug(f"📄 构建翻页URL: {next_url} (book_id={book_id}, chapter_id={chapter_id}, page={page})")
             return next_url
         except Exception as e:
-            logger.error(f"构建翻页URL失败: {e}, chapter_url: {chapter_url}")
+            logger.error(f"❌ 构建翻页URL失败: {e}, chapter_url: {chapter_url}")
             return None
 
     def _parse_chapters_from_page(self, html: str, chapter_list_config: Dict) -> List[Dict]:
@@ -483,17 +493,11 @@ class GenericNovelCrawler:
 
             # 检查是否有下一页
             if next_page_config and next_page_config.get('enabled', False):
-                # 优先使用url_pattern构建URL
-                if next_page_config.get('url_pattern'):
-                    next_url = self._build_content_next_page_url(
-                        chapter_url, page_num + 1, next_page_config
-                    )
-                else:
-                    # 使用XPath提取链接
-                    next_url = self.parser.parse_with_config(html, next_page_config)
-                    if next_url:
-                        next_url = urljoin(self.base_url, next_url)
-
+                # 使用 url_templates.chapter_content_page 构建下一页URL
+                next_url = self._build_content_next_page_url(
+                    chapter_url, page_num + 1, next_page_config
+                )
+                
                 if next_url and next_url != current_url:
                     current_url = next_url
                     page_num += 1
@@ -655,7 +659,7 @@ class GenericNovelCrawler:
         self.skipped_count = 0
         start_time = time.time()
 
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+        with ThreadPoolExecutor(max_workers=1) as executor:
             futures = {executor.submit(self.download_and_save_chapter, i): i
                        for i in range(len(self.chapters))}
 
