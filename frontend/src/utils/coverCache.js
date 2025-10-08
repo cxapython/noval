@@ -70,11 +70,12 @@ class CoverCache {
         const now = Date.now()
         
         if (now - failedTime < this.failedUrlExpiry) {
-          // 失败记录未过期，直接使用原始URL
+          // 失败记录未过期，直接使用原始URL（不再重试）
           return url
         } else {
           // 失败记录已过期，移除并重试
           this.failedUrls.delete(url)
+          console.log('⏰ 失败记录已过期，重新尝试缓存:', url.substring(0, 60))
         }
       }
       
@@ -85,11 +86,14 @@ class CoverCache {
       }
 
       // 缓存中没有，下载并缓存
+      console.log('📥 开始下载封面:', url.substring(0, 60))
       const dataUrl = await this.downloadAndCache(url)
+      console.log('✅ 封面已缓存')
       return dataUrl
     } catch (error) {
-      // 添加到失败列表，避免重复尝试
+      // 添加到失败列表，避免重复尝试（1小时内）
       this.failedUrls.set(url, Date.now())
+      console.log('❌ 无法缓存，使用原始URL:', url.substring(0, 60))
       return url // 返回原始URL作为降级方案
     }
   }

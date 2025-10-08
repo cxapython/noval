@@ -28,6 +28,7 @@ function CoverImage({ url, alt, style, fallback }) {
   const [cachedUrl, setCachedUrl] = useState(url)
   const [loading, setLoading] = useState(true)
   const [imgError, setImgError] = useState(false)
+  const [isFromCache, setIsFromCache] = useState(false)
 
   useEffect(() => {
     if (!url) {
@@ -39,15 +40,27 @@ function CoverImage({ url, alt, style, fallback }) {
     if (url.startsWith('data:') || url.startsWith('blob:')) {
       setCachedUrl(url)
       setLoading(false)
+      setIsFromCache(true)
       return
     }
 
     // 从缓存加载（getCover 永远不会抛出异常，会返回原始URL）
     setLoading(true)
     setImgError(false)
+    
+    const startTime = performance.now()
+    
     coverCache.getCover(url)
       .then(cachedData => {
+        const loadTime = performance.now() - startTime
+        const fromCache = cachedData !== url && cachedData?.startsWith('data:')
+        
+        if (fromCache) {
+          console.log(`✅ 从缓存加载封面 (${loadTime.toFixed(0)}ms):`, url.substring(0, 50))
+        }
+        
         setCachedUrl(cachedData || url)
+        setIsFromCache(fromCache)
         setLoading(false)
       })
       .catch(err => {
@@ -69,7 +82,7 @@ function CoverImage({ url, alt, style, fallback }) {
       alt={alt}
       style={style}
       onError={() => {
-        console.warn('图片显示失败:', cachedUrl)
+        console.warn('图片显示失败:', cachedUrl?.substring(0, 100))
         setImgError(true)
       }}
     />
