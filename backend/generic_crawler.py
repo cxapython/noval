@@ -493,8 +493,8 @@ class GenericNovelCrawler:
                 if all_content and content == all_content[-1]:
                     duplicate_page_count += 1
                     logger.info(f"ℹ️  第{page_num}页内容与上一页重复 (连续{duplicate_page_count}次)")
-                    if duplicate_page_count >= 3:
-                        logger.info(f"⚠️  连续3页内容重复，停止翻页")
+                    if duplicate_page_count >= 2:
+                        logger.info(f"⚠️  连续2页内容重复，停止翻页")
                         break
                 else:
                     # 内容不重复，重置计数并添加
