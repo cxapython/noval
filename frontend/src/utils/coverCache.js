@@ -12,6 +12,7 @@ class CoverCache {
   constructor() {
     this.db = null
     this.initPromise = this.initDB()
+    this.failedUrls = new Set() // 记录无法缓存的URL
   }
 
   /**
@@ -62,6 +63,12 @@ class CoverCache {
     try {
       await this.ensureDB()
       
+      // 检查是否在失败列表中
+      if (this.failedUrls.has(url)) {
+        console.log('⚠️ URL在失败列表中，直接使用原始URL:', url)
+        return url
+      }
+      
       // 先从缓存中查找
       const cached = await this.getFromCache(url)
       if (cached) {
@@ -74,7 +81,9 @@ class CoverCache {
       const dataUrl = await this.downloadAndCache(url)
       return dataUrl
     } catch (error) {
-      console.error('获取封面失败:', error)
+      console.warn('获取封面失败，使用原始URL:', url, error.message)
+      // 添加到失败列表，避免重复尝试
+      this.failedUrls.add(url)
       return url // 返回原始URL作为降级方案
     }
   }
@@ -118,21 +127,60 @@ class CoverCache {
    */
   async downloadAndCache(url) {
     try {
-      // 跨域图片处理
-      const response = await fetch(url)
-      const blob = await response.blob()
-      
-      // 转换为 base64
-      const dataUrl = await this.blobToDataUrl(blob)
-      
-      // 存入缓存
-      await this.saveToCache(url, dataUrl)
-      
-      return dataUrl
+      // 先尝试使用 fetch（支持 CORS 的图片）
+      try {
+        const response = await fetch(url, { mode: 'cors' })
+        const blob = await response.blob()
+        const dataUrl = await this.blobToDataUrl(blob)
+        await this.saveToCache(url, dataUrl)
+        return dataUrl
+      } catch (fetchError) {
+        console.warn('Fetch 失败，尝试使用 Image 加载:', fetchError.message)
+        
+        // 使用 Image + Canvas 方式（可以处理部分跨域图片）
+        const dataUrl = await this.loadImageViaCanvas(url)
+        await this.saveToCache(url, dataUrl)
+        return dataUrl
+      }
     } catch (error) {
-      console.error('下载封面失败:', error)
+      console.error('下载封面失败，使用原始URL:', error.message)
+      // 失败时返回原始URL，不缓存
       throw error
     }
+  }
+
+  /**
+   * 通过Canvas加载图片（处理跨域）
+   */
+  async loadImageViaCanvas(url) {
+    return new Promise((resolve, reject) => {
+      const img = new Image()
+      img.crossOrigin = 'anonymous' // 尝试请求 CORS
+      
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas')
+          canvas.width = img.width
+          canvas.height = img.height
+          
+          const ctx = canvas.getContext('2d')
+          ctx.drawImage(img, 0, 0)
+          
+          // 转换为 base64
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.9)
+          resolve(dataUrl)
+        } catch (canvasError) {
+          console.error('Canvas 转换失败:', canvasError)
+          reject(canvasError)
+        }
+      }
+      
+      img.onerror = () => {
+        reject(new Error('图片加载失败'))
+      }
+      
+      img.src = url
+    })
   }
 
   /**
