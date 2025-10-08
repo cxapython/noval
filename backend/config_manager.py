@@ -6,6 +6,8 @@
 import json
 from typing import Dict, List, Optional
 from pathlib import Path
+from urllib.parse import urljoin
+
 from loguru import logger
 
 
@@ -148,7 +150,6 @@ class ConfigManager:
         
         # 如果不是完整URL，添加base_url
         if not url.startswith('http'):
-            from urllib.parse import urljoin
             base_url = self.get_site_info().get('base_url', '')
             url = urljoin(base_url, url)
         
