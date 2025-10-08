@@ -132,26 +132,23 @@ class CoverCache {
    * 下载封面并缓存
    */
   async downloadAndCache(url) {
+    // 先尝试使用 fetch（支持 CORS 的图片）
     try {
-      // 先尝试使用 fetch（支持 CORS 的图片）
+      const response = await fetch(url, { mode: 'cors' })
+      const blob = await response.blob()
+      const dataUrl = await this.blobToDataUrl(blob)
+      await this.saveToCache(url, dataUrl)
+      return dataUrl
+    } catch (fetchError) {
+      // Fetch 失败，尝试使用 Image + Canvas
       try {
-        const response = await fetch(url, { mode: 'cors' })
-        const blob = await response.blob()
-        const dataUrl = await this.blobToDataUrl(blob)
-        await this.saveToCache(url, dataUrl)
-        return dataUrl
-      } catch (fetchError) {
-        console.warn('Fetch 失败，尝试使用 Image 加载:', fetchError.message)
-        
-        // 使用 Image + Canvas 方式（可以处理部分跨域图片）
         const dataUrl = await this.loadImageViaCanvas(url)
         await this.saveToCache(url, dataUrl)
         return dataUrl
+      } catch (canvasError) {
+        // Canvas 也失败了，但图片可能能直接显示，抛出错误让调用者使用原始URL
+        throw new Error('无法缓存图片')
       }
-    } catch (error) {
-      console.error('下载封面失败，使用原始URL:', error.message)
-      // 失败时返回原始URL，不缓存
-      throw error
     }
   }
 
@@ -159,22 +156,18 @@ class CoverCache {
    * 通过Canvas加载图片（处理跨域）
    */
   async loadImageViaCanvas(url) {
-    // 先尝试带 crossOrigin
+    // 先尝试带 crossOrigin（可以缓存）
     try {
       return await this.loadImageWithCrossOrigin(url, true)
     } catch (error) {
-      console.warn('带 crossOrigin 加载失败，尝试不带 crossOrigin:', error.message)
-      // 再尝试不带 crossOrigin（虽然不能缓存，但至少能显示）
-      try {
-        return await this.loadImageWithCrossOrigin(url, false)
-      } catch (finalError) {
-        throw new Error('所有方式都无法加载图片')
-      }
+      // 带 crossOrigin 失败，尝试不带（不能缓存但可能能显示）
+      // 这里直接抛出错误，让调用者使用原始URL
+      throw new Error('Canvas转换失败，图片可能不支持CORS')
     }
   }
 
   /**
-   * 加载图片（可选是否使用 crossOrigin）
+   * 加载图片（使用 crossOrigin）
    */
   async loadImageWithCrossOrigin(url, useCrossOrigin) {
     return new Promise((resolve, reject) => {
@@ -193,31 +186,23 @@ class CoverCache {
       img.onload = () => {
         clearTimeout(timeout)
         
-        if (useCrossOrigin) {
-          // 带 crossOrigin，可以通过 Canvas 缓存
-          try {
-            const canvas = document.createElement('canvas')
-            canvas.width = img.width
-            canvas.height = img.height
-            
-            const ctx = canvas.getContext('2d')
-            ctx.drawImage(img, 0, 0)
-            
-            // 转换为 base64
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.9)
-            resolve(dataUrl)
-          } catch (canvasError) {
-            console.error('Canvas 转换失败:', canvasError)
-            reject(canvasError)
-          }
-        } else {
-          // 不带 crossOrigin，无法缓存，但返回原始URL
-          console.log('图片加载成功但无法缓存（跨域限制）')
-          reject(new Error('图片无法缓存'))
+        try {
+          const canvas = document.createElement('canvas')
+          canvas.width = img.width
+          canvas.height = img.height
+          
+          const ctx = canvas.getContext('2d')
+          ctx.drawImage(img, 0, 0)
+          
+          // 转换为 base64
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.9)
+          resolve(dataUrl)
+        } catch (canvasError) {
+          reject(canvasError)
         }
       }
       
-      img.onerror = (e) => {
+      img.onerror = () => {
         clearTimeout(timeout)
         reject(new Error('图片加载失败'))
       }
