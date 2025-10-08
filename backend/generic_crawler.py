@@ -655,7 +655,7 @@ class GenericNovelCrawler:
         self.skipped_count = 0
         start_time = time.time()
 
-        with ThreadPoolExecutor(max_workers=1) as executor:
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             futures = {executor.submit(self.download_and_save_chapter, i): i
                        for i in range(len(self.chapters))}
 
