@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { 
-  Card, Button, Tabs, Textarea, Loader, Badge, Group, Stack, Center
+  Card, Button, Tabs, Textarea, Loader, Badge, Group, Stack, Center, Box
 } from '@mantine/core'
 import { 
   IconDeviceFloppy, IconCode, 
@@ -230,7 +230,7 @@ function ConfigEditorPage() {
   }
 
   return (
-    <div className="fade-in" style={{ padding: '0 24px 24px' }}>
+    <Box className="fade-in" px="xl" pb="xl">
       <Card shadow="sm" padding="lg" radius="md" withBorder>
         <Stack gap="lg">
           <Group justify="space-between">
@@ -294,7 +294,7 @@ function ConfigEditorPage() {
           </Tabs>
         </Stack>
       </Card>
-    </div>
+    </Box>
   )
 }
 

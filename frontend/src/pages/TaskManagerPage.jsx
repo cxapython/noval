@@ -399,11 +399,12 @@ function TaskManagerPage() {
   };
 
   return (
-    <div className="fade-in" style={{ padding: '24px' }}>
-      <Card shadow="sm" padding="lg" radius="md" withBorder>
-        <Stack gap="lg">
-          {/* 标题和操作栏 */}
-          <Group justify="space-between">
+    <>
+      <Box className="fade-in" p="xl">
+        <Card shadow="sm" padding="lg" radius="md" withBorder>
+          <Stack gap="lg">
+            {/* 标题和操作栏 */}
+            <Group justify="space-between">
             <Title order={2}>📋 任务管理</Title>
             <Group>
               <Button
@@ -601,6 +602,7 @@ function TaskManagerPage() {
           </Stack>
         </Stack>
       </Card>
+      </Box>
 
       {/* 创建任务对话框 */}
       <Modal
@@ -754,19 +756,19 @@ function TaskManagerPage() {
               />
               <Grid mt="md">
                 <Grid.Col span={4}>
-                  <Paper p="sm" radius="md" style={{ textAlign: 'center', background: 'var(--mantine-color-gray-0)' }}>
+                  <Paper p="sm" radius="md" withBorder style={{ textAlign: 'center' }}>
                     <Text size="xs" c="dimmed">总章节</Text>
                     <Text size="xl" fw={700}>{selectedTask.total_chapters}</Text>
                   </Paper>
                 </Grid.Col>
                 <Grid.Col span={4}>
-                  <Paper p="sm" radius="md" style={{ textAlign: 'center', background: 'var(--mantine-color-green-0)' }}>
+                  <Paper p="sm" radius="md" withBorder style={{ textAlign: 'center' }}>
                     <Text size="xs" c="dimmed">已完成</Text>
                     <Text size="xl" fw={700} c="green">{selectedTask.completed_chapters}</Text>
                   </Paper>
                 </Grid.Col>
                 <Grid.Col span={4}>
-                  <Paper p="sm" radius="md" style={{ textAlign: 'center', background: 'var(--mantine-color-red-0)' }}>
+                  <Paper p="sm" radius="md" withBorder style={{ textAlign: 'center' }}>
                     <Text size="xs" c="dimmed">失败</Text>
                     <Text size="xl" fw={700} c="red">{selectedTask.failed_chapters}</Text>
                   </Paper>
@@ -786,10 +788,11 @@ function TaskManagerPage() {
               <Paper 
                 p="md" 
                 radius="md"
+                withBorder
+                bg="dark.8"
                 style={{ 
                   height: '400px', 
-                  overflowY: 'auto', 
-                  backgroundColor: '#1e1e1e', 
+                  overflowY: 'auto',
                   fontFamily: 'Consolas, Monaco, monospace',
                   fontSize: '12px'
                 }}
@@ -798,7 +801,7 @@ function TaskManagerPage() {
                   <Stack gap="xs">
                     {taskLogs.map((log, index) => (
                       <div key={index} style={{ color: getLogColor(log.level) }}>
-                        <span style={{ color: '#888' }}>
+                        <span style={{ opacity: 0.6 }}>
                           {new Date(log.timestamp).toLocaleTimeString('zh-CN')}
                         </span>
                         {' '}
@@ -821,7 +824,7 @@ function TaskManagerPage() {
           </Stack>
         )}
       </Drawer>
-    </div>
+    </>
   );
 }
 

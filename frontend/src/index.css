@@ -10,7 +10,7 @@
   --danger-color: #ff4d4f;
   --info-color: #1890ff;
   
-  /* 中性色 */
+  /* 中性色 - 亮色模式 */
   --text-primary: #262626;
   --text-secondary: #595959;
   --text-tertiary: #8c8c8c;
@@ -36,18 +36,38 @@
                  Arial, sans-serif;
 }
 
+/* 暗色模式变量 */
+[data-mantine-color-scheme="dark"] {
+  --text-primary: #c1c2c5;
+  --text-secondary: #909296;
+  --text-tertiary: #5c5f66;
+  --border-color: #373a40;
+  --divider-color: #2c2e33;
+  --bg-color: #25262b;
+  --bg-gray: #1a1b1e;
+  --bg-hover: #2c2e33;
+  
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
 body {
   font-family: var(--font-family);
   font-size: 14px;
   line-height: 1.5715;
-  color: var(--text-primary);
-  background-color: var(--bg-gray);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -63,12 +83,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #d9d9d9;
+  background: var(--border-color);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #bfbfbf;
+  background: var(--text-tertiary);
 }
 
 /* 通用按钮样式 */

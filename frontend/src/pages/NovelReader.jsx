@@ -4,7 +4,8 @@ import {
   Card, Button, Stack, Group, 
   Modal, TextInput, Textarea, Badge, Grid, Drawer, Radio,
   Slider, Select, Tooltip, Divider, Checkbox, Title, Text,
-  Paper, Center, ActionIcon, Box, Progress as MantineProgress
+  Paper, Center, ActionIcon, Box, Progress as MantineProgress,
+  FileButton
 } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { modals } from '@mantine/modals'
@@ -13,12 +14,63 @@ import {
   IconList, IconSearch, IconBookmarks,
   IconSettings, IconHighlight, IconEdit,
   IconTrash, IconPlus, IconStar, IconStarFilled,
-  IconSwitchHorizontal, IconGridDots, IconLayoutList
+  IconSwitchHorizontal, IconGridDots, IconLayoutList,
+  IconUpload
 } from '@tabler/icons-react'
 import axios from 'axios'
+import coverCache from '../utils/coverCache'
 import './NovelReader.css'
 
 const API_BASE = '/api/reader'
+
+// 封面图片组件（带缓存）
+function CoverImage({ url, alt, style, fallback }) {
+  const [cachedUrl, setCachedUrl] = useState(url)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
+
+  useEffect(() => {
+    if (!url) {
+      setLoading(false)
+      return
+    }
+
+    // 如果是 base64 或 blob URL，直接使用
+    if (url.startsWith('data:') || url.startsWith('blob:')) {
+      setCachedUrl(url)
+      setLoading(false)
+      return
+    }
+
+    // 从缓存加载
+    setLoading(true)
+    setError(false)
+    coverCache.getCover(url)
+      .then(cachedData => {
+        setCachedUrl(cachedData || url)
+        setLoading(false)
+      })
+      .catch(err => {
+        console.error('加载封面失败:', err)
+        setCachedUrl(url) // 降级到原始URL
+        setLoading(false)
+        setError(true)
+      })
+  }, [url])
+
+  if (!url || error) {
+    return fallback || null
+  }
+
+  return (
+    <img
+      src={cachedUrl}
+      alt={alt}
+      style={style}
+      onError={() => setError(true)}
+    />
+  )
+}
 
 function NovelReader() {
   const { novelId } = useParams()
@@ -865,10 +917,27 @@ function NovelReader() {
                     
                     <Card.Section>
                       {novel.cover_url ? (
-                        <img 
+                        <CoverImage
+                          url={novel.cover_url}
                           alt={novel.title}
-                          src={novel.cover_url}
                           style={{ height: 240, objectFit: 'cover', width: '100%' }}
+                          fallback={
+                            <div style={{ 
+                              height: 240, 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              justifyContent: 'center',
+                              flexDirection: 'column',
+                              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                              color: '#fff',
+                              gap: 12
+                            }}>
+                              <IconBook size={80} stroke={1.5} />
+                              <Text size="xl" fw={700} style={{ letterSpacing: 1 }}>
+                                {novel.title.substring(0, 4)}
+                              </Text>
+                            </div>
+                          }
                         />
                       ) : (
                         <div style={{ 
@@ -943,15 +1012,34 @@ function NovelReader() {
                     {/* 封面缩略图 */}
                     <div style={{ flexShrink: 0 }}>
                       {novel.cover_url ? (
-                        <img 
+                        <CoverImage
+                          url={novel.cover_url}
                           alt={novel.title}
-                          src={novel.cover_url}
                           style={{ 
                             width: 80, 
                             height: 106, 
                             objectFit: 'cover',
                             borderRadius: 6
                           }}
+                          fallback={
+                            <div style={{ 
+                              width: 80,
+                              height: 106,
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              justifyContent: 'center',
+                              flexDirection: 'column',
+                              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                              color: '#fff',
+                              borderRadius: 6,
+                              gap: 6
+                            }}>
+                              <IconBook size={32} stroke={1.5} />
+                              <Text size="xs" fw={600}>
+                                {novel.title.substring(0, 2)}
+                              </Text>
+                            </div>
+                          }
                         />
                       ) : (
                         <div style={{ 
@@ -1057,12 +1145,76 @@ function NovelReader() {
             </div>
             
             <div>
-              <Text fw={600} mb="xs">封面URL</Text>
-              <TextInput
-                placeholder="请输入封面图片URL"
-                value={editNovelForm.cover_url}
-                onChange={(e) => setEditNovelForm({ ...editNovelForm, cover_url: e.target.value })}
-              />
+              <Text fw={600} mb="xs">封面</Text>
+              <Stack gap="sm">
+                <TextInput
+                  placeholder="请输入封面图片URL"
+                  value={editNovelForm.cover_url}
+                  onChange={(e) => setEditNovelForm({ ...editNovelForm, cover_url: e.target.value })}
+                />
+                <Group gap="xs">
+                  <FileButton
+                    accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
+                    onChange={async (file) => {
+                      if (!file) return
+                      
+                      // 检查文件大小（限制5MB）
+                      if (file.size > 5 * 1024 * 1024) {
+                        notifications.show({
+                          title: '错误',
+                          message: '图片文件不能超过 5MB',
+                          color: 'red'
+                        })
+                        return
+                      }
+                      
+                      try {
+                        // 转换为 base64
+                        const reader = new FileReader()
+                        reader.onloadend = async () => {
+                          const base64Data = reader.result
+                          setEditNovelForm({ ...editNovelForm, cover_url: base64Data })
+                          
+                          notifications.show({
+                            title: '成功',
+                            message: '图片已加载',
+                            color: 'green'
+                          })
+                        }
+                        reader.onerror = () => {
+                          notifications.show({
+                            title: '错误',
+                            message: '读取图片失败',
+                            color: 'red'
+                          })
+                        }
+                        reader.readAsDataURL(file)
+                      } catch (error) {
+                        console.error('处理图片失败:', error)
+                        notifications.show({
+                          title: '错误',
+                          message: '处理图片失败',
+                          color: 'red'
+                        })
+                      }
+                    }}
+                  >
+                    {(props) => (
+                      <Button 
+                        {...props} 
+                        variant="light" 
+                        leftSection={<IconUpload size={18} />}
+                      >
+                        上传本地图片
+                      </Button>
+                    )}
+                  </FileButton>
+                  <Text size="xs" c="dimmed">
+                    支持 JPG、PNG、GIF、WebP，最大 5MB
+                  </Text>
+                </Group>
+              </Stack>
+              
               {editNovelForm.cover_url && (
                 <Paper
                   mt="md"
@@ -1774,7 +1926,6 @@ function NovelReader() {
                     key={index}
                     p="sm"
                     withBorder
-                    style={{ background: '#fff' }}
                   >
                     <Stack gap="xs">
                       <Text c="dimmed" size="xs">
@@ -1808,9 +1959,11 @@ function NovelReader() {
           )}
 
           {showPreview && previewMatches.length === 0 && (
-            <Center py="xl" style={{ background: '#fafafa', borderRadius: '8px' }}>
-              <Text c="dimmed">未找到匹配项</Text>
-            </Center>
+            <Paper withBorder py="xl">
+              <Center>
+                <Text c="dimmed">未找到匹配项</Text>
+              </Center>
+            </Paper>
           )}
 
           <Divider />

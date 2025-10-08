@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { 
   Card, Button, Group, Stack, 
   Modal, TextInput, NumberInput, Switch, Tabs,
-  SimpleGrid, Text, Badge, ActionIcon, Title
+  SimpleGrid, Text, Badge, ActionIcon, Title, Box
 } from '@mantine/core'
 import { 
   IconPlus, IconTrash, 
@@ -158,7 +158,7 @@ function CrawlerManager() {
   }
 
   return (
-    <div className="fade-in">
+    <Box className="fade-in">
       <Card shadow="sm" padding="lg" radius="md" withBorder>
         <Stack gap="lg">
           <Group justify="space-between">
@@ -190,8 +190,7 @@ function CrawlerManager() {
               shadow="xs" 
               padding="xl" 
               style={{ 
-                textAlign: 'center',
-                background: 'var(--mantine-color-gray-0)'
+                textAlign: 'center'
               }}
             >
               <Stack align="center" gap="md">
@@ -334,10 +333,7 @@ function CrawlerManager() {
 
             <Card 
               padding="md" 
-              style={{ 
-                background: 'var(--mantine-color-blue-0)',
-                border: '1px solid var(--mantine-color-blue-2)'
-              }}
+              withBorder
             >
               <Text size="sm" c="dimmed">
                 💡 提示：爬虫将在后台运行，你可以继续使用其他功能。
@@ -362,7 +358,7 @@ function CrawlerManager() {
           </Stack>
         </form>
       </Modal>
-    </div>
+    </Box>
   )
 }
 

@@ -8,7 +8,7 @@ function URLTemplateForm({ urlTemplates, setUrlTemplates }) {
   return (
     <Card 
       withBorder
-      style={{ marginBottom: 24, background: '#fffbe6', borderColor: '#ffe58f' }}
+      style={{ marginBottom: 24 }}
     >
       <Card.Section withBorder inheritPadding py="xs">
         <strong>URL模板配置</strong>

@@ -7,7 +7,7 @@ function SiteInfoForm({ siteName, setSiteName, baseUrl, setBaseUrl }) {
   return (
     <Card 
       withBorder
-      style={{ marginBottom: 24, background: '#f0f5ff' }}
+      style={{ marginBottom: 24 }}
     >
       <Card.Section withBorder inheritPadding py="xs">
         <strong>网站信息</strong>

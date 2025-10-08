@@ -19,7 +19,7 @@ function RecognizedFieldsList({
   return (
     <Card 
       withBorder
-      style={{ marginBottom: 24, background: '#f6ffed', borderColor: '#b7eb8f' }}
+      style={{ marginBottom: 24 }}
     >
       <Card.Section withBorder inheritPadding py="xs">
         <Group>

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Card, Button, TextInput, Textarea, Loader, Alert, Group, Stack,
   Image, Badge, Divider, Tooltip, Checkbox, Radio, Select,
-  Accordion, Text, Modal, NumberInput, Switch, Title, Center
+  Accordion, Text, Modal, NumberInput, Switch, Title, Center, Box
 } from '@mantine/core'
 import {
   IconArrowLeft, IconArrowRight, IconDeviceFloppy,
@@ -627,7 +627,7 @@ function ConfigWizard() {
   ]
 
   return (
-    <div className="fade-in" style={{ padding: '0 24px 24px' }}>
+    <Box className="fade-in" px="xl" pb="xl">
       <Card>
         <div style={{ marginBottom: 24 }}>
           <Group style={{ width: '100%', justifyContent: 'space-between' }}>
@@ -1108,7 +1108,7 @@ function ConfigWizard() {
                 </Group>
               }
               size="small" 
-              style={{ marginBottom: 24, background: '#f0f5ff', border: '1px solid #adc6ff' }}
+              style={{ marginBottom: 24 }}
             >
               {/* 章节列表分页配置 */}
               {currentStep === 1 && (
@@ -1416,7 +1416,7 @@ function ConfigWizard() {
           onCancel={() => setEditingProcess(null)}
         />
       </Card>
-    </div>
+    </Box>
   )
 }
 
