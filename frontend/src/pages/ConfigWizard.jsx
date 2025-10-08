@@ -9,7 +9,7 @@ import {
   IconArrowLeft, IconArrowRight, IconDeviceFloppy,
   IconBolt, IconEye, IconCopy,
   IconCircleCheck, IconPlus, IconTrash,
-  IconFlask, IconEdit, IconCode
+  IconFlask, IconEdit, IconCode, IconClick
 } from '@tabler/icons-react'
 import axios from 'axios'
 import { notifications } from '@mantine/notifications'
@@ -20,6 +20,7 @@ import URLTemplateForm from './ConfigWizard/URLTemplateForm'
 import RecognizedFieldsList from './ConfigWizard/RecognizedFieldsList'
 import ConfigPreview from './ConfigWizard/ConfigPreview'
 import StepIndicator from './ConfigWizard/StepIndicator'
+import VisualXPathSelector from '../components/VisualXPathSelector'
 
 
 
@@ -134,6 +135,9 @@ function ConfigWizard() {
   const [chapterContentFields, setChapterContentFields] = useState({}) // 章节内容
   
   const [editingProcess, setEditingProcess] = useState(null) // 编辑清洗规则的字段
+  
+  // V5: 可视化选择器状态
+  const [visualSelectorVisible, setVisualSelectorVisible] = useState(false)
   const [editingField, setEditingField] = useState(null) // 编辑xpath的字段
   
   
@@ -341,6 +345,69 @@ function ConfigWizard() {
       // 滚动到输入区域
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
+  }
+
+  // V5: 处理可视化选择器的字段确认
+  const handleVisualFieldConfirm = (field) => {
+    console.log('📥 收到可视化选择器的字段:', field)
+    
+    // 1. 设置选中的XPath
+    setSelectedXpath(field.xpath)
+    setManualXpath(field.xpath) // 同步到手动输入框
+    
+    // 2. 智能设置属性提取方式
+    const tag = field.tagName?.toLowerCase()
+    const fieldType = field.type || ''
+    
+    if (fieldType === 'link' || tag === 'a' || selectedFieldType === 'url' || selectedFieldType === 'next_page') {
+      // 链接字段，自动设置为提取href属性
+      if (!field.xpath.includes('@href')) {
+        setAttributeType('custom')
+        setCustomAttribute('href')
+      }
+    } else if (tag === 'img' || selectedFieldType === 'cover_url') {
+      // 图片字段，自动设置为提取src属性
+      if (!field.xpath.includes('@src')) {
+        setAttributeType('custom')
+        setCustomAttribute('src')
+      }
+    } else {
+      // 其他字段，使用自动模式
+      setAttributeType('auto')
+      setCustomAttribute('')
+    }
+    
+    // 3. 尝试智能匹配字段类型
+    if (field.name) {
+      const pageType = getCurrentPageType()
+      const fieldTypes = FIELD_TYPES[pageType]
+      
+      // 检查字段名是否匹配
+      if (fieldTypes && fieldTypes[field.name]) {
+        setSelectedFieldType(field.name)
+      } else {
+        // 尝试模糊匹配
+        for (const key in fieldTypes) {
+          if (field.name.toLowerCase().includes(key.toLowerCase())) {
+            setSelectedFieldType(key)
+            break
+          }
+        }
+      }
+    }
+    
+    // 4. 显示提示
+    notifications.show({
+      title: '✅ 已导入XPath',
+      message: `${field.name || '字段'}: ${field.xpath.substring(0, 60)}...`,
+      color: 'green',
+      autoClose: 3000
+    })
+    
+    // 5. 滚动到字段配置区域
+    setTimeout(() => {
+      window.scrollTo({ top: 600, behavior: 'smooth' })
+    }, 300)
   }
 
   // 更新字段的清洗规则
@@ -786,18 +853,45 @@ function ConfigWizard() {
                     color="green"
                     style={{ marginBottom: 16, marginTop: 16 }}
                   />
-                  <div style={{
-                    border: '1px solid #d9d9d9',
-                    borderRadius: 8,
-                    overflow: 'auto',
-                    maxHeight: 600
-                  }}>
-                    <Image
-                      src={pageData.screenshot}
-                      alt="页面截图"
-                      style={{ width: '100%' }}
-                    />
-                  </div>
+                  
+                  {/* V5: 可视化选择器入口 */}
+                  <Button
+                    size="lg"
+                    leftSection={<IconClick size={20} />}
+                    onClick={() => setVisualSelectorVisible(true)}
+                    fullWidth
+                    variant="gradient"
+                    gradient={{ from: 'blue', to: 'cyan' }}
+                    style={{ marginBottom: 16 }}
+                  >
+                    🎯 打开可视化元素选择器（推荐）
+                  </Button>
+                  
+                  {/* 保留截图预览，折叠显示 */}
+                  <Accordion variant="contained">
+                    <Accordion.Item value="screenshot">
+                      <Accordion.Control>
+                        <Text size="sm">查看页面截图（传统方式）</Text>
+                      </Accordion.Control>
+                      <Accordion.Panel>
+                        <div style={{
+                          border: '1px solid #d9d9d9',
+                          borderRadius: 8,
+                          overflow: 'auto',
+                          maxHeight: 600
+                        }}>
+                          <Image
+                            src={pageData.screenshot}
+                            alt="页面截图"
+                            style={{ width: '100%' }}
+                          />
+                        </div>
+                        <Alert color="blue" mt="sm">
+                          您也可以继续使用传统方式：在下方输入CSS选择器或元素文本，生成XPath建议。
+                        </Alert>
+                      </Accordion.Panel>
+                    </Accordion.Item>
+                  </Accordion>
                 </div>
               )}
               
@@ -1414,6 +1508,16 @@ function ConfigWizard() {
           processRules={editingProcess && getCurrentFields()[editingProcess]?.process || []}
           onSave={(newProcess) => handleUpdateProcess(editingProcess, newProcess)}
           onCancel={() => setEditingProcess(null)}
+        />
+
+        {/* V5: 可视化XPath选择器 */}
+        <VisualXPathSelector
+          visible={visualSelectorVisible}
+          onClose={() => setVisualSelectorVisible(false)}
+          url={targetUrl}
+          currentFieldType={selectedFieldType}
+          pageType={getCurrentPageType()}
+          onFieldConfirm={handleVisualFieldConfirm}
         />
       </Card>
     </Box>

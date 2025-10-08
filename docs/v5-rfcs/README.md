@@ -122,7 +122,7 @@
 | Phase 1 | RFC2 | 1-1.5天 | ✅ 已完成 |
 | Phase 1 | RFC3 | 0.5-1天 | ✅ 已完成 |
 | Phase 2 | RFC4 | 1-1.5天 | ✅ 已完成 |
-| Phase 2 | RFC5 | 0.5-1天 | ⏳ 待开始 |
+| Phase 2 | RFC5 | 0.5-1天 | ✅ 已完成 |
 | Phase 3 | RFC6 | 1-1.5天 | ⏳ 待开始 |
 | **总计** | | **5-7.5天** | |
 
@@ -213,7 +213,7 @@
 - [x] `frontend/src/utils/enhanced-xpath-generator.js`
 - [x] `backend/routes/crawler_v5.py`
 - [x] `frontend/src/components/VisualXPathSelector/`
-- [ ] `frontend/src/pages/ConfigWizard.jsx` (修改)
+- [x] `frontend/src/pages/ConfigWizard.jsx` (修改)
 
 ### 测试文件
 - [ ] 单元测试
