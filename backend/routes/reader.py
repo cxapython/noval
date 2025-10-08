@@ -6,6 +6,9 @@
 import sys
 from pathlib import Path
 from flask import Blueprint, request, jsonify
+import requests
+import base64
+from io import BytesIO
 
 # 添加项目根目录到路径
 project_root = Path(__file__).parent.parent.parent
@@ -14,8 +17,12 @@ sys.path.insert(0, str(project_root))
 # 导入数据库模块
 from backend.models.database import NovelDatabase
 from shared.utils.config import DB_CONFIG
+from shared.utils.proxy_utils import ProxyUtils
 
 reader_bp = Blueprint('reader', __name__)
+
+# 初始化代理工具
+proxy_util = ProxyUtils()
 
 
 def get_db():
@@ -530,3 +537,55 @@ def replace_text(novel_id):
             'error': str(e)
         }), 500
 
+
+@reader_bp.route('/proxy-image', methods=['POST'])
+def proxy_image():
+    """
+    代理下载图片并转成base64
+    使用代理绕过跨域限制
+    """
+    try:
+        data = request.get_json()
+        image_url = data.get('url')
+        
+        if not image_url:
+            return jsonify({
+                'success': False,
+                'error': '缺少URL参数'
+            }), 400
+        
+        # 获取代理
+        proxies = proxy_util.get_proxy()
+        
+        # 下载图片
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+        
+        try:
+            if proxies:
+                response = requests.get(image_url, headers=headers, proxies=proxies, timeout=10)
+            else:
+                response = requests.get(image_url, headers=headers, timeout=10)
+            response.raise_for_status()
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'error': f'下载图片失败: {str(e)}'
+            }), 500
+        
+        # 转换为base64
+        img_base64 = base64.b64encode(response.content).decode()
+        content_type = response.headers.get('Content-Type', 'image/jpeg')
+        
+        return jsonify({
+            'success': True,
+            'data_url': f'data:{content_type};base64,{img_base64}',
+            'size': len(response.content)
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'处理失败: {str(e)}'
+        }), 500

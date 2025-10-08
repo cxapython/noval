@@ -150,10 +150,40 @@ class CoverCache {
         await this.saveToCache(url, dataUrl)
         return dataUrl
       } catch (canvasError) {
-        // Canvas 也失败了，但图片可能能直接显示，抛出错误让调用者使用原始URL
-        throw new Error('无法缓存图片')
+        // Canvas 也失败了，尝试通过后端代理下载
+        try {
+          console.log('🔄 尝试使用后端代理下载...')
+          const dataUrl = await this.downloadViaProxy(url)
+          await this.saveToCache(url, dataUrl)
+          console.log('✅ 通过后端代理缓存成功')
+          return dataUrl
+        } catch (proxyError) {
+          // 所有方法都失败了
+          throw new Error('无法缓存图片')
+        }
       }
     }
+  }
+
+  /**
+   * 通过后端代理下载图片
+   */
+  async downloadViaProxy(url) {
+    const response = await fetch('/api/reader/proxy-image', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ url })
+    })
+    
+    const result = await response.json()
+    
+    if (!result.success) {
+      throw new Error(result.error || '代理下载失败')
+    }
+    
+    return result.data_url
   }
 
   /**
