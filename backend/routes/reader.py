@@ -9,6 +9,8 @@ from flask import Blueprint, request, jsonify
 import requests
 import base64
 from io import BytesIO
+from redis import Redis
+import re
 
 # 添加项目根目录到路径
 project_root = Path(__file__).parent.parent.parent
@@ -21,8 +23,10 @@ from shared.utils.proxy_utils import ProxyUtils
 
 reader_bp = Blueprint('reader', __name__)
 
-# 初始化代理工具
+# 初始化代理工具和Redis
 proxy_util = ProxyUtils()
+REDIS_URL = "redis://@localhost:6379"
+redis_cli = Redis.from_url(REDIS_URL)
 
 
 def get_db():
@@ -163,15 +167,69 @@ def update_novel(novel_id):
         }), 500
 
 
+def extract_site_and_book_id(source_url):
+    """从source_url提取site_name和book_id"""
+    if not source_url:
+        return None, None
+    
+    # 提取域名作为site_name
+    match = re.search(r'https?://(?:www\.)?([^/]+)', source_url)
+    if match:
+        site_name = match.group(1).replace('.', '_')
+    else:
+        return None, None
+    
+    # 提取book_id（通常是URL路径中的数字）
+    # 例如: https://www.djks5.com/44/44920/ -> book_id=44920
+    match = re.search(r'/(\d+)/?$', source_url.rstrip('/'))
+    if match:
+        book_id = match.group(1)
+    else:
+        # 尝试其他模式
+        match = re.search(r'/(\d+)/', source_url)
+        if match:
+            book_id = match.group(1)
+        else:
+            return site_name, None
+    
+    return site_name, book_id
+
+
 @reader_bp.route('/novel/<int:novel_id>', methods=['DELETE'])
 def delete_novel(novel_id):
-    """删除小说"""
+    """删除小说（同时清理Redis缓存）"""
     try:
         db = get_db()
+        
+        # 先获取小说信息，用于清理Redis
+        novel_info = db.get_novel_by_id(novel_id)
+        
+        # 删除数据库记录
         success = db.delete_novel(novel_id)
         db.close()
         
         if success:
+            # 清理Redis缓存
+            if novel_info and novel_info.get('source_url'):
+                source_url = novel_info['source_url']
+                site_name, book_id = extract_site_and_book_id(source_url)
+                
+                if site_name and book_id:
+                    # 删除Redis中的下载记录
+                    success_key = f"novel:success:{site_name}:{book_id}"
+                    failed_key = f"novel:failed:{site_name}:{book_id}"
+                    
+                    deleted_keys = 0
+                    if redis_cli.exists(success_key):
+                        redis_cli.delete(success_key)
+                        deleted_keys += 1
+                    if redis_cli.exists(failed_key):
+                        redis_cli.delete(failed_key)
+                        deleted_keys += 1
+                    
+                    if deleted_keys > 0:
+                        print(f"✅ 已清理Redis缓存: {success_key}, {failed_key}")
+            
             return jsonify({
                 'success': True,
                 'message': '删除成功'
