@@ -146,23 +146,6 @@ function CodeEditor({
             />
           )}
         </div>
-
-        <div style={{ 
-          padding: 12, 
-          background: '#f5f5f5', 
-          borderRadius: 4 
-        }}>
-          <Stack gap="xs">
-            <Text size="sm" fw={600}>📝 使用说明：</Text>
-            <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13 }}>
-              <li>在编辑器中修改代码，支持完整的Python语法高亮</li>
-              <li>使用快捷键提高编辑效率（Ctrl+Space 触发代码补全）</li>
-              <li>点击"保存到文件"将代码保存到项目根目录</li>
-              <li>保存后可以直接在项目中运行爬虫</li>
-            </ul>
-          </Stack>
-        </div>
-
         {/* 底部按钮 */}
         <Group justify="flex-end">
           <Button 
