@@ -952,53 +952,12 @@ class {site_name.capitalize()}Crawler:
 
 
 def main():
-    """命令行入口"""
-#     import argparse
-#     
-#     parser = argparse.ArgumentParser(
-#         description=f'{site_name} 小说爬虫',
-#         formatter_class=argparse.RawDescriptionHelpFormatter,
-#         epilog="""
-# 使用示例:
-#   # 基本用法
-#   python {site_name}_crawler.py 12345
-#   
-#   # 使用代理
-#   python {site_name}_crawler.py 12345 --proxy
-#   
-#   # 指定并发数
-#   python {site_name}_crawler.py 12345 --workers 10
-#   
-#   # 组合使用
-#   python {site_name}_crawler.py 12345 --proxy --workers 10
-#         """
-#     )
-#     
-#     parser.add_argument(
-#         'book_id',
-#         help='书籍ID（从网站URL中获取）'
-#     )
-#     
-#     parser.add_argument(
-#         '-w', '--workers',
-#         type=int,
-#         default=5,
-#         help='并发线程数（默认: 5）'
-#     )
-#     
-#     parser.add_argument(
-#         '-p', '--proxy',
-#         action='store_true',
-#         help='使用代理'
-#     )
-#     
-#     args = parser.parse_args()
     book_id = ""
     workers=5
     # 创建并运行爬虫
     try:
         crawler = {site_name.capitalize()}Crawler(
-            book_id=book_id
+            book_id=book_id,
             max_workers=workers,
             use_proxy=True
         )
