@@ -953,7 +953,7 @@ class {site_name.capitalize()}Crawler:
 
 def main():
     book_id = ""
-    workers=5
+    workers= 5
     # 创建并运行爬虫
     try:
         crawler = {site_name.capitalize()}Crawler(
