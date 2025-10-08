@@ -1253,22 +1253,17 @@ function NovelReader() {
                   <Text size="sm" c="dimmed" mb="xs">
                     封面预览：
                   </Text>
-                  <img 
-                    src={editNovelForm.cover_url} 
-                    alt="封面预览" 
+                  <CoverImage
+                    url={editNovelForm.cover_url}
+                    alt="封面预览"
                     style={{ 
                       maxWidth: '100%', 
                       maxHeight: 300,
                       borderRadius: 4
                     }}
-                    onError={(e) => {
-                      e.target.style.display = 'none'
-                      notifications.show({
-                        title: '错误',
-                        message: '封面图片加载失败',
-                        color: 'red'
-                      })
-                    }}
+                    fallback={
+                      <Text c="dimmed" size="sm">预览加载失败</Text>
+                    }
                   />
                 </Paper>
               )}
