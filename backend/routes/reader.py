@@ -220,9 +220,17 @@ def delete_novel(novel_id):
         
         if success:
             # 清理Redis缓存
-            if novel_info and novel_info.get('source_url'):
-                source_url = novel_info['source_url']
-                site_name, book_id = extract_site_and_book_id(source_url)
+            if novel_info:
+                # 优先使用数据库中记录的site_name，确保与爬虫创建的Redis键一致
+                site_name = novel_info.get('site_name')
+                source_url = novel_info.get('source_url')
+                
+                # 如果site_name不存在（旧数据），则从URL提取
+                if not site_name and source_url:
+                    site_name, book_id = extract_site_and_book_id(source_url)
+                else:
+                    # 从URL提取book_id
+                    _, book_id = extract_site_and_book_id(source_url) if source_url else (None, None)
                 
                 if site_name and book_id:
                     # 删除Redis中的下载记录

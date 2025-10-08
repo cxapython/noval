@@ -17,6 +17,7 @@ class Novel(Base):
     author = Column(String(100), nullable=True, comment='作者')
     cover_url = Column(Text, nullable=True, comment='封面URL')
     source_url = Column(Text, nullable=True, comment='来源URL')
+    site_name = Column(String(100), nullable=True, index=True, comment='网站标识(用于Redis键)')
     total_chapters = Column(Integer, default=0, comment='总章节数')
     total_words = Column(Integer, default=0, comment='总字数')
     created_at = Column(DateTime, default=datetime.now, comment='创建时间')
@@ -38,6 +39,7 @@ class Novel(Base):
             'author': self.author,
             'cover_url': self.cover_url,
             'source_url': self.source_url,
+            'site_name': self.site_name,
             'total_chapters': self.total_chapters,
             'total_words': self.total_words,
             'created_at': self.created_at.isoformat() if self.created_at else None,

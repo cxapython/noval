@@ -472,7 +472,7 @@ class GenericNovelCrawler:
 
         # 初始化最大页数（默认使用手动配置的值）
         max_pages = max_pages_manual
-
+        duplicate_page_count = 0  # 记录内容重复数
         while current_url and page_num <= max_pages:
             html = self.fetcher.get_page(current_url,
                                          max_retries=self.config_manager.get_max_retries())
@@ -489,7 +489,20 @@ class GenericNovelCrawler:
             if content:
                 if isinstance(content, list):
                     content = '\n'.join([str(c).strip() for c in content if str(c).strip()])
-                all_content.append(content)
+                
+                # 检测连续重复内容（与上一页比较）
+                if all_content and content == all_content[-1]:
+                    duplicate_page_count += 1
+                    logger.info(f"ℹ️  第{page_num}页内容与上一页重复 (连续{duplicate_page_count}次)")
+                    if duplicate_page_count >= 3:
+                        logger.info(f"⚠️  连续3页内容重复，停止翻页")
+                        break
+                else:
+                    # 内容不重复，重置计数并添加
+                    if duplicate_page_count > 0:
+                        logger.info(f"✅ 第{page_num}页内容正常，重置重复计数")
+                    duplicate_page_count = 0
+                    all_content.append(content)
 
             # 检查是否有下一页
             if next_page_config and next_page_config.get('enabled', False):
@@ -641,7 +654,8 @@ class GenericNovelCrawler:
                 self.novel_info.get('title'),
                 self.novel_info.get('author', '未知'),
                 self.start_url,
-                cover_url=self.novel_info.get('cover_url', '')
+                cover_url=self.novel_info.get('cover_url', ''),
+                site_name=self.site_name
             )
             if not self.novel_id:
                 logger.error("❌ 保存小说信息失败")

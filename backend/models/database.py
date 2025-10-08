@@ -107,14 +107,15 @@ class NovelDatabase:
             novel = session.query(Novel).filter(Novel.source_url == source_url).first()
             return novel.to_dict() if novel else None
     
-    def create_novel(self, title, author=None, cover_url=None, source_url=None):
+    def create_novel(self, title, author=None, cover_url=None, source_url=None, site_name=None):
         """创建小说"""
         with self.get_session() as session:
             novel = Novel(
                 title=title,
                 author=author,
                 cover_url=cover_url,
-                source_url=source_url
+                source_url=source_url,
+                site_name=site_name
             )
             session.add(novel)
             session.flush()
@@ -146,9 +147,9 @@ class NovelDatabase:
                 return True
             return False
     
-    def insert_novel(self, title, author=None, source_url=None, cover_url=None):
+    def insert_novel(self, title, author=None, source_url=None, cover_url=None, site_name=None):
         """插入小说（兼容旧接口）"""
-        return self.create_novel(title, author, cover_url, source_url)
+        return self.create_novel(title, author, cover_url, source_url, site_name)
     
     def update_novel_stats(self, novel_id):
         """更新小说统计信息（总章节数、总字数）"""
