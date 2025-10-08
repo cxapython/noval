@@ -228,7 +228,6 @@ const VisualXPathSelector = ({
     setSelectedFields(prev => [...prev, field]);
     
     // 清空当前选择，准备选择下一个元素
-    // 不清除高亮，让用户看到已选择的元素
     setCurrentSelection(null);
     setSelectedXPathIndex(0);
     setFieldTypeSelection('');
@@ -491,7 +490,6 @@ const VisualXPathSelector = ({
             color="gray"
             onClick={() => {
               setCurrentSelection(null);
-              setFieldName('');
               setFieldTypeSelection('');
             }}
           >
@@ -590,18 +588,26 @@ const VisualXPathSelector = ({
   
   // 生成代理URL或使用缓存HTML
   const [blobUrl, setBlobUrl] = useState('');
+  const blobUrlRef = useRef(''); // 使用ref追踪当前的blob URL
+  const iframeKeyRef = useRef(iframeKey); // 追踪iframeKey的当前值
+  
+  // 更新iframeKey ref
+  useEffect(() => {
+    iframeKeyRef.current = iframeKey;
+  }, [iframeKey]);
   
   // 如果有缓存HTML，处理注入脚本后生成blob URL
   useEffect(() => {
-    if (visible && cachedHtml && !blobUrl) {
-      // 有缓存HTML，发送到后端注入脚本
-      console.log('✅ 使用已渲染的HTML，无需重新请求网络');
+    // 只在可见、有缓存HTML、且还没创建blob URL时执行
+    if (visible && cachedHtml && !blobUrlRef.current) {
       notifications.show({
         title: '⚡ 使用缓存',
         message: '复用已渲染的HTML，加载更快',
         color: 'blue',
         autoClose: 2000
       });
+      
+      const currentIframeKey = iframeKeyRef.current;
       
       fetch('http://localhost:5001/api/crawler/v5/inject-html', {
         method: 'POST',
@@ -612,8 +618,9 @@ const VisualXPathSelector = ({
       .then(injectedHtml => {
         // 创建blob URL
         const blob = new Blob([injectedHtml], { type: 'text/html' });
-        const url = URL.createObjectURL(blob);
-        setBlobUrl(url);
+        const newBlobUrl = URL.createObjectURL(blob);
+        blobUrlRef.current = newBlobUrl;
+        setBlobUrl(newBlobUrl);
         setPageLoading(false);
         setPageLoaded(true);
       })
@@ -625,15 +632,19 @@ const VisualXPathSelector = ({
           color: 'red'
         });
       });
+      
+      // 返回清理函数：只在iframeKey实际变化时清理
+      return () => {
+        const newIframeKey = iframeKeyRef.current;
+        // 只有当iframeKey真的变化了才清理（手动刷新）
+        if (newIframeKey !== currentIframeKey && blobUrlRef.current) {
+          URL.revokeObjectURL(blobUrlRef.current);
+          blobUrlRef.current = '';
+          setBlobUrl('');
+        }
+      };
     }
-    
-    // 清理blob URL
-    return () => {
-      if (blobUrl) {
-        URL.revokeObjectURL(blobUrl);
-      }
-    };
-  }, [visible, cachedHtml, iframeKey]);
+  }, [visible, cachedHtml, url]);
   
   // 优先使用blob URL（缓存HTML），否则使用代理URL
   const proxyUrl = blobUrl || (url ? `http://localhost:5001/api/crawler/v5/proxy-page?url=${encodeURIComponent(url)}&wait_time=2&_t=${iframeKey}` : '');
@@ -681,7 +692,12 @@ const VisualXPathSelector = ({
                 
                 <Divider />
                 
-                <div style={{ flex: 1, position: 'relative' }}>
+                <div style={{ 
+                  flex: 1, 
+                  position: 'relative',
+                  minHeight: '600px',
+                  overflow: 'hidden'
+                }}>
                   {pageLoading && (
                     <div style={{
                       position: 'absolute',
@@ -704,9 +720,11 @@ const VisualXPathSelector = ({
                     style={{
                       width: '100%',
                       height: '100%',
+                      minHeight: '600px',
                       border: '1px solid #e0e0e0',
                       borderRadius: '4px',
-                      backgroundColor: 'white'
+                      backgroundColor: 'white',
+                      display: 'block'
                     }}
                     title="页面预览"
                   />

@@ -357,6 +357,7 @@ function ConfigWizard() {
     const pageType = getCurrentPageType();
     const fieldTypes = FIELD_TYPES[pageType];
     const currentFields = getCurrentFields();
+    const newFields = { ...currentFields }; // 创建新对象，避免直接修改状态
     const addedFields = [];
     const skippedFields = [];
     
@@ -391,7 +392,7 @@ function ConfigWizard() {
       }
       
       // 检查字段是否已存在
-      if (currentFields[matchedFieldType]) {
+      if (newFields[matchedFieldType]) {
         skippedFields.push(`${fieldTypes[matchedFieldType].label} (已存在)`);
         return;
       }
@@ -432,14 +433,14 @@ function ConfigWizard() {
         fieldConfig.attribute = customAttribute;
       }
       
-      // 4. 添加到当前字段配置
-      currentFields[matchedFieldType] = fieldConfig;
+      // 4. 添加到新字段对象
+      newFields[matchedFieldType] = fieldConfig;
       addedFields.push(fieldInfo.label || matchedFieldType);
     });
     
-    // 更新字段配置
+    // 更新字段配置（使用新对象）
     if (addedFields.length > 0) {
-      setCurrentFields(currentFields);
+      setCurrentFields(newFields);
     }
     
     // 5. 显示结果提示
