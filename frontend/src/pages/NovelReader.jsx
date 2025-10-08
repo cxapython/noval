@@ -790,6 +790,12 @@ function NovelReader() {
           message: '更新成功',
           color: 'green'
         })
+        
+        // 如果有新的封面URL，自动下载并缓存
+        if (editNovelForm.cover_url && editNovelForm.cover_url !== editingNovel.cover_url) {
+          preCacheCover(editNovelForm.cover_url)
+        }
+        
         setEditNovelVisible(false)
         setEditingNovel(null)
         loadNovels() // 刷新列表
@@ -808,6 +814,24 @@ function NovelReader() {
       })
     } finally {
       setEditNovelLoading(false)
+    }
+  }
+
+  // 预缓存封面
+  const preCacheCover = async (url) => {
+    if (!url) return
+    
+    // 跳过已经是base64的图片
+    if (url.startsWith('data:')) {
+      return
+    }
+    
+    try {
+      // 在后台异步缓存，不阻塞UI
+      await coverCache.getCover(url)
+      console.log('✅ 封面已缓存:', url)
+    } catch (error) {
+      console.log('⚠️ 封面缓存失败（将使用原始URL）:', error.message)
     }
   }
 
