@@ -5,7 +5,7 @@ import {
   Modal, TextInput, Textarea, Badge, Grid, Drawer, Radio,
   Slider, Select, Tooltip, Divider, Checkbox, Title, Text,
   Paper, Center, ActionIcon, Box, Progress as MantineProgress,
-  FileButton
+  FileButton, Indicator
 } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { modals } from '@mantine/modals'
@@ -1343,14 +1343,19 @@ function NovelReader() {
                 </ActionIcon>
               </Tooltip>
               <Tooltip label="书签">
-                <Badge content={bookmarks.length} max={99}>
+                <Indicator 
+                  label={bookmarks.length} 
+                  size={16} 
+                  disabled={bookmarks.length === 0}
+                  color="blue"
+                >
                   <ActionIcon 
                     variant="default"
                     onClick={() => setBookmarkVisible(true)}
                   >
                     <IconBookmarks size={18} />
                   </ActionIcon>
-                </Badge>
+                </Indicator>
               </Tooltip>
               <Tooltip label="设置">
                 <ActionIcon 
@@ -1361,7 +1366,7 @@ function NovelReader() {
                 </ActionIcon>
               </Tooltip>
               <Button 
-                variant="default"
+                variant="subtle"
                 leftSection={<IconArrowLeft size={18} />}
                 disabled={currentChapter === 0}
                 onClick={handlePrevChapter}
