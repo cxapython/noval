@@ -302,7 +302,7 @@ class GenericNovelCrawler:
         from urllib.parse import urlparse
         parsed_url = urlparse(chapter_url)
         url_path = parsed_url.path  # 例如: /novel/41934/123.html 或 /book/41934/123.html
-        
+
         # 从路径中提取所有数字序列
         numbers = re.findall(r'\d+', url_path)
 
@@ -489,7 +489,7 @@ class GenericNovelCrawler:
             if content:
                 if isinstance(content, list):
                     content = '\n'.join([str(c).strip() for c in content if str(c).strip()])
-                
+
                 # 检测连续重复内容（与上一页比较）
                 if all_content and content == all_content[-1]:
                     duplicate_page_count += 1
@@ -510,7 +510,7 @@ class GenericNovelCrawler:
                 next_url = self._build_content_next_page_url(
                     chapter_url, page_num + 1, next_page_config
                 )
-                
+
                 if next_url and next_url != current_url:
                     current_url = next_url
                     page_num += 1
@@ -673,7 +673,7 @@ class GenericNovelCrawler:
         self.skipped_count = 0
         start_time = time.time()
 
-        with ThreadPoolExecutor(max_workers=1) as executor:
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             futures = {executor.submit(self.download_and_save_chapter, i): i
                        for i in range(len(self.chapters))}
 
