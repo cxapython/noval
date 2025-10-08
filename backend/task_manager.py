@@ -53,6 +53,8 @@ class CrawlerTask:
         self.completed_chapters = 0
         self.failed_chapters = 0
         self.current_chapter = ""
+        self.stage = "pending"  # 当前阶段: pending, parsing_list, downloading, completed
+        self.detail = ""  # 详细信息，如"正在解析第3/10页"
         
         # 小说信息
         self.novel_title = ""
@@ -90,13 +92,17 @@ class CrawlerTask:
             self.logs.pop(0)
     
     def update_progress(self, total: int = None, completed: int = None, 
-                       failed: int = None, current: str = None):
+                       failed: int = None, current: str = None,
+                       stage: str = None, detail: str = None, **kwargs):
         """
         更新进度信息
         :param total: 总章节数
         :param completed: 已完成章节数
         :param failed: 失败章节数
         :param current: 当前章节
+        :param stage: 当前阶段 (parsing_list, downloading, completed)
+        :param detail: 详细信息（如"正在解析第3/10页"）
+        :param kwargs: 其他参数（兼容扩展）
         """
         if total is not None:
             self.total_chapters = total
@@ -106,6 +112,10 @@ class CrawlerTask:
             self.failed_chapters = failed
         if current is not None:
             self.current_chapter = current
+        if stage is not None:
+            self.stage = stage
+        if detail is not None:
+            self.detail = detail
     
     def get_progress_percent(self) -> float:
         """获取进度百分比"""
@@ -129,6 +139,8 @@ class CrawlerTask:
             'completed_chapters': self.completed_chapters,
             'failed_chapters': self.failed_chapters,
             'current_chapter': self.current_chapter,
+            'stage': self.stage,  # 新增：当前阶段
+            'detail': self.detail,  # 新增：详细信息
             'progress_percent': self.get_progress_percent(),
             'novel_title': self.novel_title,
             'novel_author': self.novel_author,

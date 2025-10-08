@@ -96,6 +96,7 @@ class GenericNovelCrawler:
         self.progress_lock = Lock()
         self.completed_count = 0
         self.skipped_count = 0
+        self.failed_count = 0  # 内存中维护失败计数，避免频繁查Redis
 
         # Redis配置
         self.redis_cli = redis_cli
@@ -123,11 +124,27 @@ class GenericNovelCrawler:
             except Exception as e:
                 logger.error(f"日志回调失败: {e}")
 
-    def _update_progress(self, **kwargs):
-        """更新进度"""
+    def _update_progress(self, stage='downloading', detail='', **kwargs):
+        """
+        更新进度
+        :param stage: 阶段 'parsing_list'(解析章节列表) | 'downloading'(下载章节) | 'completed'(完成)
+        :param detail: 详细信息（如"第3/10页"）
+        :param kwargs: 其他参数（total, completed, failed, current等）
+        """
         if self.progress_callback:
             try:
-                self.progress_callback(**kwargs)
+                # 补充默认参数
+                progress_data = {
+                    'stage': stage,
+                    'detail': detail,
+                    'total': kwargs.get('total', len(self.chapters) if self.chapters else 0),
+                    'completed': kwargs.get('completed', self.completed_count),
+                    'failed': kwargs.get('failed', self.failed_count),
+                    'current': kwargs.get('current', ''),
+                }
+                # 合并其他自定义参数
+                progress_data.update(kwargs)
+                self.progress_callback(**progress_data)
             except Exception as e:
                 logger.error(f"进度回调失败: {e}")
 
@@ -146,7 +163,10 @@ class GenericNovelCrawler:
             return False
 
     def mark_chapter_success(self, chapter_url: str):
-        """标记章节下载成功"""
+        """
+        标记章节下载成功
+        注意：调用此方法时应该已经在progress_lock内
+        """
         try:
             self.redis_cli.sadd(self.redis_success_key, chapter_url)
             self.redis_cli.srem(self.redis_failed_key, chapter_url)
@@ -155,10 +175,15 @@ class GenericNovelCrawler:
             logger.warning(f"⚠️  Redis记录成功失败: {e}")
 
     def mark_chapter_failed(self, chapter_url: str):
-        """标记章节下载失败"""
+        """
+        标记章节下载失败
+        注意：调用此方法时应该已经在progress_lock内
+        """
         try:
             self.redis_cli.sadd(self.redis_failed_key, chapter_url)
             self.redis_cli.expire(self.redis_failed_key, 7 * 24 * 3600)
+            # 更新内存中的失败计数
+            self.failed_count += 1
         except Exception as e:
             logger.warning(f"⚠️  Redis记录失败失败: {e}")
 
@@ -179,6 +204,9 @@ class GenericNovelCrawler:
             if count > 0:
                 self.redis_cli.delete(self.redis_failed_key)
                 logger.info(f"🗑️  已清除 {count} 条失败记录")
+                # 重置内存中的失败计数
+                with self.progress_lock:
+                    self.failed_count = 0
         except Exception as e:
             logger.warning(f"⚠️  清除失败记录失败: {e}")
 
@@ -240,6 +268,15 @@ class GenericNovelCrawler:
             logger.info(f"📄 共 {max_page} 页章节列表")
 
             for page in range(1, max_page + 1):
+                # 更新解析进度
+                self._update_progress(
+                    stage='parsing_list',
+                    detail=f'正在解析第 {page}/{max_page} 页章节列表',
+                    current=f'章节列表第 {page}/{max_page} 页',
+                    total=0,  # 此时还不知道总章节数
+                    completed=len(self.chapters)
+                )
+
                 if page == 1:
                     page_html = html
                 else:
@@ -258,10 +295,25 @@ class GenericNovelCrawler:
                 logger.info(f"   ✓ 本页获取 {len(chapters)} 章，累计 {len(self.chapters)} 章")
         else:
             # 无分页
+            self._update_progress(
+                stage='parsing_list',
+                detail='正在解析章节列表',
+                current='解析章节列表',
+                total=0,
+                completed=0
+            )
             chapters = self._parse_chapters_from_page(html, chapter_list_config)
             self.chapters.extend(chapters)
 
+        # 解析完成，更新最终进度
         logger.info(f"\n✅ 章节列表获取完成，共 {len(self.chapters)} 章\n")
+        self._update_progress(
+            stage='parsing_list',
+            detail=f'章节列表解析完成，共 {len(self.chapters)} 章',
+            current='章节列表解析完成',
+            total=len(self.chapters),
+            completed=0
+        )
         return True
 
     def _get_max_page(self, html: str, pagination_config: Dict) -> int:
@@ -448,10 +500,11 @@ class GenericNovelCrawler:
 
         return max_pages_manual
 
-    def download_chapter_content(self, chapter_url: str) -> str:
+    def download_chapter_content(self, chapter_url: str, chapter_title: str = '') -> str:
         """
         下载章节内容（支持多页）
         :param chapter_url: 章节URL
+        :param chapter_title: 章节标题（用于进度显示）
         :return: 完整内容
         """
         all_content = []
@@ -473,6 +526,16 @@ class GenericNovelCrawler:
         max_pages = max_pages_manual
         duplicate_page_count = 0  # 记录内容重复数
         while current_url and page_num <= max_pages:
+            # 更新章节内容翻页进度
+            if max_pages > 1 and page_num > 1:
+                detail_msg = f'正在下载第 {page_num}/{max_pages} 页'
+                logger.info(f"📄 {chapter_title or '章节内容'} - {detail_msg}")
+                self._update_progress(
+                    stage='downloading',
+                    detail=detail_msg,
+                    current=f'{chapter_title or "章节"} (第 {page_num}/{max_pages} 页)'
+                )
+
             html = self.fetcher.get_page(current_url,
                                          max_retries=self.config_manager.get_max_retries())
             if not html:
@@ -482,6 +545,8 @@ class GenericNovelCrawler:
             # 第一页时尝试从页面提取最大页数
             if page_num == 1:
                 max_pages = self._extract_max_pages_from_html(html, max_page_xpath_config, max_pages_manual)
+                if max_pages > 1:
+                    logger.info(f"📄 该章节共 {max_pages} 页内容")
 
             # 解析内容
             content = self.parser.parse_with_config(html, content_config)
@@ -549,28 +614,32 @@ class GenericNovelCrawler:
                 self._log('INFO', msg)
                 # 更新进度
                 self._update_progress(
+                    stage='downloading',
+                    detail='',
                     total=len(self.chapters),
                     completed=self.completed_count,
-                    failed=len(self.redis_cli.smembers(self.redis_failed_key)) if self.redis_cli else 0,
+                    failed=self.failed_count,
                     current=chapter_title
                 )
             return True
 
-        # 下载内容
-        content = self.download_chapter_content(chapter_url)
+        # 下载内容（传递章节标题用于进度显示）
+        content = self.download_chapter_content(chapter_url, chapter_title)
         chapter['content'] = content
 
         # 检查内容是否为空
         if not content or len(content.strip()) == 0:
             self._log('ERROR', f"❌ {chapter_title} 内容为空")
-            self.mark_chapter_failed(chapter_url)
+            self.mark_chapter_failed(chapter_url)  # 这里会自动增加failed_count
             with self.progress_lock:
                 self.completed_count += 1
                 # 更新进度
                 self._update_progress(
+                    stage='downloading',
+                    detail='',
                     total=len(self.chapters),
                     completed=self.completed_count,
-                    failed=len(self.redis_cli.smembers(self.redis_failed_key)) if self.redis_cli else 0,
+                    failed=self.failed_count,
                     current=chapter_title
                 )
             return False
@@ -594,16 +663,15 @@ class GenericNovelCrawler:
                 db.close()
                 download_success = False
 
-        # 更新Redis记录
-        if download_success:
-            self.mark_chapter_success(chapter_url)
-            status_icon = "✅"
-        else:
-            self.mark_chapter_failed(chapter_url)
-            status_icon = "❌"
-
-        # 更新进度
+        # 更新Redis记录和进度
         with self.progress_lock:
+            if download_success:
+                self.mark_chapter_success(chapter_url)
+                status_icon = "✅"
+            else:
+                self.mark_chapter_failed(chapter_url)  # 这里会自动增加failed_count
+                status_icon = "❌"
+
             self.completed_count += 1
             progress = (self.completed_count / len(self.chapters)) * 100
             msg = f"{status_icon} [{self.completed_count}/{len(self.chapters)}] {chapter_title} ({len(content)} 字) - 进度: {progress:.1f}%"
@@ -611,9 +679,11 @@ class GenericNovelCrawler:
 
             # 调用进度回调
             self._update_progress(
+                stage='downloading',
+                detail='',
                 total=len(self.chapters),
                 completed=self.completed_count,
-                failed=len(self.redis_cli.smembers(self.redis_failed_key)) if self.redis_cli else 0,
+                failed=self.failed_count,
                 current=chapter_title
             )
 
@@ -630,12 +700,17 @@ class GenericNovelCrawler:
         :return: 是否成功
         """
         # 显示统计
-        success_count, failed_count = self.get_download_stats()
-        logger.info(f"📊 Redis统计: 已成功 {success_count} 章，失败 {failed_count} 章")
+        success_count, failed_count_redis = self.get_download_stats()
+        logger.info(f"📊 Redis统计: 已成功 {success_count} 章，失败 {failed_count_redis} 章")
 
-        if retry_failed and failed_count > 0:
-            logger.info(f"🔄 准备重试 {failed_count} 个失败的章节")
-            self.clear_failed_records()
+        if retry_failed and failed_count_redis > 0:
+            logger.info(f"🔄 准备重试 {failed_count_redis} 个失败的章节")
+            self.clear_failed_records()  # 这里会重置self.failed_count
+
+        # 重置本次运行的计数器
+        self.completed_count = 0
+        self.skipped_count = 0
+        self.failed_count = 0
 
         # 连接数据库
         if not self.db.connect():
@@ -668,8 +743,6 @@ class GenericNovelCrawler:
         logger.info(f"🚀 开始并发下载章节内容 (线程数: {self.max_workers})")
         logger.info("=" * 60)
 
-        self.completed_count = 0
-        self.skipped_count = 0
         start_time = time.time()
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
@@ -690,7 +763,7 @@ class GenericNovelCrawler:
             self.db.update_novel_stats(self.novel_id)
             self.db.close()
 
-        final_success, final_failed = self.get_download_stats()
+        final_success, final_failed_redis = self.get_download_stats()
         new_downloads = self.completed_count - self.skipped_count
 
         logger.info("\n" + "=" * 60)
@@ -699,9 +772,20 @@ class GenericNovelCrawler:
         logger.info(f"   总章节: {len(self.chapters)}")
         logger.info(f"   新下载: {new_downloads} 章")
         logger.info(f"   跳过(已下载): {self.skipped_count} 章")
-        logger.info(f"   成功: {final_success} 章")
-        logger.info(f"   失败: {final_failed} 章")
+        logger.info(f"   本次失败: {self.failed_count} 章")
+        logger.info(f"   累计成功: {final_success} 章")
+        logger.info(f"   累计失败: {final_failed_redis} 章")
         logger.info("=" * 60)
+        
+        # 最终进度更新
+        self._update_progress(
+            stage='completed',
+            detail='下载完成',
+            total=len(self.chapters),
+            completed=self.completed_count,
+            failed=self.failed_count,
+            current='已完成'
+        )
 
         return True
 
@@ -756,9 +840,10 @@ class GenericNovelCrawler:
             # 清除失败记录
             self.clear_failed_records()
 
-            # 多线程重试
+            # 重置计数器
             self.completed_count = 0
             self.skipped_count = 0
+            self.failed_count = 0
             start_time = time.time()
 
             with ThreadPoolExecutor(max_workers=self.max_workers) as executor:

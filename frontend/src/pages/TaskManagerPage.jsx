@@ -589,6 +589,12 @@ function TaskManagerPage() {
                           失败: {task.failed_chapters} 章
                         </Text>
                       )}
+                      {/* 显示详细进度信息 */}
+                      {task.detail && (
+                        <Text size="xs" c="blue" mt={5} lineClamp={1}>
+                          {task.detail}
+                        </Text>
+                      )}
                       {task.current_chapter && (
                         <Text size="xs" c="dimmed" mt={5} lineClamp={1}>
                           当前: {task.current_chapter}
@@ -774,6 +780,13 @@ function TaskManagerPage() {
                   </Paper>
                 </Grid.Col>
               </Grid>
+              {/* 显示详细进度信息 */}
+              {selectedTask.detail && (
+                <Box mt="md">
+                  <Text size="xs" c="dimmed">详细进度</Text>
+                  <Text size="sm" c="blue" fw={500}>{selectedTask.detail}</Text>
+                </Box>
+              )}
               {selectedTask.current_chapter && (
                 <Box mt="md">
                   <Text size="xs" c="dimmed">当前章节</Text>
