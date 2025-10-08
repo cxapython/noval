@@ -15,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from threading import Lock
 from typing import Dict, List
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 from loguru import logger
 from redis import Redis
@@ -299,7 +299,6 @@ class GenericNovelCrawler:
         """
         # 从chapter_url中提取book_id和chapter_id
         # 先去除协议和域名，只提取路径中的数字（避免提取域名中的数字如djks5.com中的5）
-        from urllib.parse import urlparse
         parsed_url = urlparse(chapter_url)
         url_path = parsed_url.path  # 例如: /novel/41934/123.html 或 /book/41934/123.html
 
