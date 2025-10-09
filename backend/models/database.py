@@ -507,10 +507,10 @@ _db_instance = None
 
 
 def get_database(host='localhost', user='root', password='', database='novel_db', 
-                pool_size=20, silent=False):
+                port=3306, pool_size=20, silent=False):
     """获取数据库实例（单例）"""
     global _db_instance
     if _db_instance is None:
-        _db_instance = NovelDatabase(host, user, password, database, pool_size, silent)
+        _db_instance = NovelDatabase(host, user, password, database, port, pool_size, silent)
     return _db_instance
 

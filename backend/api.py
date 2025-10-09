@@ -7,6 +7,7 @@
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
+import traceback
 
 import json
 import os
@@ -17,7 +18,9 @@ from loguru import logger
 from backend.routes.crawler import crawler_bp
 from backend.routes.reader import reader_bp
 from backend.routes.crawler_v5 import crawler_v5_bp
-
+from shared.models.models import Base
+from backend.models.database import get_database
+from shared.utils.config import DB_CONFIG
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'novel-crawler-secret-key'
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -93,11 +96,41 @@ def health():
     })
 
 
+def init_database():
+    """初始化数据库表结构"""
+    try:
+        logger.info("🗃️  正在初始化数据库...")
+       
+        
+        # 获取数据库实例
+        db = get_database(**DB_CONFIG, silent=True)
+        
+        # 测试连接
+        if not db.connect():
+            logger.error("❌ 数据库连接失败！请检查数据库配置和服务状态")
+            return False
+        
+        # 创建所有表（如果不存在）
+        Base.metadata.create_all(db.engine)
+        logger.info("✅ 数据库表初始化完成")
+        
+        return True
+    except Exception as e:
+        logger.error(f"❌ 数据库初始化失败: {e}")
+        logger.error(traceback.format_exc())
+        return False
+
+
 def main():
     """启动统一API服务"""
     logger.info("=" * 60)
     logger.info("小说爬虫管理系统 - 统一API v2.0.0")
     logger.info("=" * 60)
+    
+    # 初始化数据库
+    if not init_database():
+        logger.warning("⚠️  数据库初始化失败，但服务仍会启动")
+    
     logger.info("🌐 HTTP服务: http://localhost:5001")
     logger.info("🔌 WebSocket服务: ws://localhost:5001")
     logger.info("📋 API文档: http://localhost:5001/")
