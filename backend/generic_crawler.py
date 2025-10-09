@@ -25,14 +25,15 @@ from scrapy import Selector
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from shared.utils.config import DB_CONFIG
+from shared.utils.config import DB_CONFIG, REDIS_CONFIG
 from backend.models.database import NovelDatabase
 from shared.utils.proxy_utils import ProxyUtils
 from backend.config_manager import ConfigManager
 from backend.parser import HtmlParser
 from backend.content_fetcher import ContentFetcher
 
-REDIS_URL = "redis://@localhost:6379"
+# 从配置读取Redis连接信息（支持Docker环境变量）
+REDIS_URL = f"redis://{REDIS_CONFIG['host']}:{REDIS_CONFIG['port']}/{REDIS_CONFIG['db']}"
 redis_cli = Redis.from_url(REDIS_URL)
 
 

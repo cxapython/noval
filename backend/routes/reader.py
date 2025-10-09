@@ -18,14 +18,15 @@ sys.path.insert(0, str(project_root))
 
 # 导入数据库模块
 from backend.models.database import NovelDatabase
-from shared.utils.config import DB_CONFIG
+from shared.utils.config import DB_CONFIG, REDIS_CONFIG
 from shared.utils.proxy_utils import ProxyUtils
 
 reader_bp = Blueprint('reader', __name__)
 
 # 初始化代理工具和Redis
 proxy_util = ProxyUtils()
-REDIS_URL = "redis://@localhost:6379"
+# 从配置读取Redis连接信息（支持Docker环境变量）
+REDIS_URL = f"redis://{REDIS_CONFIG['host']}:{REDIS_CONFIG['port']}/{REDIS_CONFIG['db']}"
 redis_cli = Redis.from_url(REDIS_URL)
 
 

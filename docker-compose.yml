@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # MySQL 数据库（保持不变，如需暴露宿主机端口可保留）
+  # MySQL 数据库（核心修改：移除宿主机端口映射，避免占用3306）
   mysql:
     image: mysql:8.0
     container_name: noval-mysql
@@ -12,8 +12,7 @@ services:
       MYSQL_USER: ${MYSQL_USER:-novel_user}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-novel_pass123}
       TZ: Asia/Shanghai
-    ports:
-      - "${MYSQL_PORT:-3306}:3306"  # 如需隐藏可删除此行
+    # 关键：删除 ports 配置，不暴露宿主机3306端口，仅容器内可用
     volumes:
       - mysql_data:/var/lib/mysql
       - ./scripts/init_reader_tables.py:/docker-entrypoint-initdb.d/init.py:ro
@@ -26,12 +25,11 @@ services:
       timeout: 5s
       retries: 5
 
-  # Redis 缓存（核心修改：移除宿主机端口映射，仅容器内使用6379）
+  # Redis 缓存（已移除宿主机端口，保持不变）
   redis:
     image: redis:7-alpine
     container_name: noval-redis
     restart: always
-    # 移除 ports 配置，避免占用宿主机6379端口
     volumes:
       - redis_data:/data
     networks:
@@ -42,7 +40,7 @@ services:
       timeout: 3s
       retries: 5
 
-  # 后端应用（保持不变，内部仍用6379连接Redis）
+  # 后端应用（保持不变，内部通过容器名+3306连接MySQL）
   backend:
     build:
       context: .
@@ -52,13 +50,13 @@ services:
     ports:
       - "${BACKEND_PORT:-5001}:5001"
     environment:
-      # 数据库配置
+      # 数据库配置：仍用3306端口，通过容器名"mysql"通信（无需改代码）
       DB_HOST: mysql
       DB_PORT: 3306
       DB_USER: ${MYSQL_USER:-novel_user}
       DB_PASSWORD: ${MYSQL_PASSWORD:-novel_pass123}
       DB_NAME: ${MYSQL_DATABASE:-novel_db}
-      # Redis配置（保持6379端口，通过容器名通信）
+      # Redis配置（不变）
       REDIS_HOST: redis
       REDIS_PORT: 6379
       # Flask配置
@@ -89,7 +87,7 @@ services:
     container_name: noval-nginx
     restart: always
     ports:
-      - "${FRONTEND_PORT:-80}:80"
+      - "${FRONTEND_PORT:-8080}:80"
     volumes:
       - ./frontend/dist:/usr/share/nginx/html:ro
       - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
