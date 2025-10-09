@@ -10,6 +10,9 @@ from urllib3 import disable_warnings
 
 disable_warnings()
 
+DEFAULT_HEADERS = {
+    'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36'
+}
 
 class ContentFetcher:
     """HTTP内容获取器"""
@@ -23,7 +26,7 @@ class ContentFetcher:
         :param encoding: 编码
         :param proxy_utils: 代理工具
         """
-        self.headers = headers or {}
+        self.headers = headers or DEFAULT_HEADERS
         self.timeout = timeout
         self.encoding = encoding
         self.proxy_utils = proxy_utils
