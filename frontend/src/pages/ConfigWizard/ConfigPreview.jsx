@@ -4,8 +4,9 @@ import { IconCode, IconCopy, IconDeviceFloppy, IconArrowLeft, IconCircleCheck, I
 import { notifications } from '@mantine/notifications'
 import axios from 'axios'
 import CodeEditor from '../../components/CodeEditor'
+import { API_BASE_URL } from '../../config'
 
-const API_BASE = 'http://localhost:5001/api/crawler'
+const API_BASE = `${API_BASE_URL}/api/crawler`
 
 /**
  * 配置预览组件

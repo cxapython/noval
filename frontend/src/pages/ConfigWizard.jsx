@@ -21,10 +21,9 @@ import RecognizedFieldsList from './ConfigWizard/RecognizedFieldsList'
 import ConfigPreview from './ConfigWizard/ConfigPreview'
 import StepIndicator from './ConfigWizard/StepIndicator'
 import VisualXPathSelector from '../components/VisualXPathSelector'
+import { API_BASE_URL } from '../config'
 
-
-
-const API_BASE = 'http://localhost:5001/api/crawler'
+const API_BASE = `${API_BASE_URL}/api/crawler`
 
 // 字段类型定义（仅包含数据库支持的字段）
 const FIELD_TYPES = {

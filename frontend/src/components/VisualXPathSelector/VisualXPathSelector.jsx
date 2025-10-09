@@ -38,6 +38,7 @@ import {
   IconAlertCircle
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
+import { API_BASE_URL } from '../../config';
 import './VisualXPathSelector.css';
 
 // 字段类型选项配置
@@ -609,7 +610,7 @@ const VisualXPathSelector = ({
       
       const currentIframeKey = iframeKeyRef.current;
       
-      fetch('http://localhost:5001/api/crawler/v5/inject-html', {
+      fetch(`${API_BASE_URL}/api/crawler/v5/inject-html`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ html: cachedHtml, url: url })
@@ -647,7 +648,7 @@ const VisualXPathSelector = ({
   }, [visible, cachedHtml, url]);
   
   // 优先使用blob URL（缓存HTML），否则使用代理URL
-  const proxyUrl = blobUrl || (url ? `http://localhost:5001/api/crawler/v5/proxy-page?url=${encodeURIComponent(url)}&wait_time=2&_t=${iframeKey}` : '');
+  const proxyUrl = blobUrl || (url ? `${API_BASE_URL}/api/crawler/v5/proxy-page?url=${encodeURIComponent(url)}&wait_time=2&_t=${iframeKey}` : '');
   
   return (
     <Modal

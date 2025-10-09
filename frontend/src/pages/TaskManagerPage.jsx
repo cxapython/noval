@@ -14,9 +14,9 @@ import { notifications } from '@mantine/notifications';
 import { modals } from '@mantine/modals';
 import { useForm } from '@mantine/form';
 import io from 'socket.io-client';
+import { API_BASE_URL, SOCKET_CONFIG } from '../config';
 
-// API基础URL
-const API_BASE_URL = 'http://localhost:5001';
+// API基础URL (从配置文件导入)
 
 function TaskManagerPage() {
   const [tasks, setTasks] = useState([]);
@@ -44,8 +44,9 @@ function TaskManagerPage() {
   // 初始化WebSocket连接
   useEffect(() => {
     // 连接WebSocket
-    const socket = io(API_BASE_URL, {
-      transports: ['websocket', 'polling']
+    const socket = io(SOCKET_CONFIG.url || window.location.origin, {
+      path: SOCKET_CONFIG.path,
+      transports: SOCKET_CONFIG.transports
     });
 
     socket.on('connect', () => {
