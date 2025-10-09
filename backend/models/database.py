@@ -19,20 +19,21 @@ class NovelDatabase:
     """SQLAlchemy 数据库管理类"""
     
     def __init__(self, host='localhost', user='root', password='', database='novel_db', 
-                 pool_size=20, silent=False):
+                 port=3306, pool_size=20, silent=False):
         """
         初始化数据库连接
         :param host: 数据库主机
         :param user: 用户名
         :param password: 密码
         :param database: 数据库名
+        :param port: 数据库端口
         :param pool_size: 连接池大小
         :param silent: 是否静默模式
         """
         self.silent = silent
         
         # 构建数据库URL (使用pymysql驱动)
-        db_url = f"mysql+pymysql://{user}:{password}@{host}/{database}?charset=utf8mb4"
+        db_url = f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}?charset=utf8mb4"
         
         # 创建引擎
         self.engine = create_engine(
