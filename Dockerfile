@@ -1,5 +1,5 @@
 # 小说爬虫管理系统 - Docker多阶段构建
-# Python 3.8.2 | Node 18.10.0
+# Python 3.8.18 | Node 18.10.0 (基于 Debian Bullseye 长期支持版本)
 
 # ============================================
 # 阶段1: 构建前端
@@ -26,14 +26,17 @@ RUN npm run build
 # ============================================
 # 阶段2: 最终运行镜像
 # ============================================
-FROM python:3.8.2-slim
+# 升级为基于 Debian Bullseye 的 Python 3.8 版本（仍受支持）
+FROM python:3.8.18-slim-bullseye
 
 # 设置工作目录
 WORKDIR /app
 
-# 配置apt使用国内镜像源（阿里云）加速
+# 配置apt使用国内镜像源（阿里云）加速（适配Bullseye版本）
 RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list && \
-    sed -i 's/security.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list
+    sed -i 's/security.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list && \
+    # 添加非自由软件源（部分依赖可能需要）
+    sed -i '/main/ s/$/ contrib non-free/' /etc/apt/sources.list
 
 # 安装系统依赖
 RUN apt-get update && apt-get install -y \
@@ -73,4 +76,3 @@ ENV FLASK_ENV=production
 
 # 启动命令
 CMD ["python3", "backend/api.py"]
-
