@@ -44,6 +44,9 @@ shared/utils/proxy_utils.py
 # Data
 data/
 *.json
+# 但保留package.json
+!package.json
+!**/package.json
 
 # Backups
 *.bak
