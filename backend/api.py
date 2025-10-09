@@ -7,9 +7,7 @@
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
-import traceback
 
-import json
 import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -18,9 +16,9 @@ from loguru import logger
 from backend.routes.crawler import crawler_bp
 from backend.routes.reader import reader_bp
 from backend.routes.crawler_v5 import crawler_v5_bp
-from shared.models.models import Base
-from backend.models.database import get_database
-from shared.utils.config import DB_CONFIG
+
+# 导入数据库初始化函数
+from scripts.init_reader_tables import init_database_tables
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'novel-crawler-secret-key'
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -32,6 +30,30 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 app.register_blueprint(crawler_bp, url_prefix='/api/crawler')
 app.register_blueprint(reader_bp, url_prefix='/api/reader')
 app.register_blueprint(crawler_v5_bp)  # V5路由已包含url_prefix
+
+
+# ==================== 数据库初始化 ====================
+# 在模块级别进行数据库初始化（确保 Gunicorn 启动时也会执行）
+def _init_db_on_startup():
+    """应用启动时初始化数据库"""
+    try:
+        # 只在主进程或第一个worker中初始化（避免多进程重复初始化）
+        if os.getenv('WERKZEUG_RUN_MAIN') != 'true' or True:  # Gunicorn 环境总是执行
+            logger.info("=" * 60)
+            logger.info("小说爬虫管理系统 - 数据库初始化")
+            logger.info("=" * 60)
+            
+            # 调用复用的数据库初始化函数（带重试机制，最多30次，每次等待2秒）
+            if not init_database_tables(verbose=True, max_retries=30, retry_delay=2):
+                logger.warning("⚠️  数据库初始化失败，但服务仍会启动")
+            
+            logger.info("=" * 60)
+    except Exception as e:
+        logger.error(f"❌ 启动时数据库初始化出错: {e}")
+
+# 执行数据库初始化
+_init_db_on_startup()
+
 
 # WebSocket 事件
 @socketio.on('connect')
@@ -96,40 +118,13 @@ def health():
     })
 
 
-def init_database():
-    """初始化数据库表结构"""
-    try:
-        logger.info("🗃️  正在初始化数据库...")
-       
-        
-        # 获取数据库实例
-        db = get_database(**DB_CONFIG, silent=True)
-        
-        # 测试连接
-        if not db.connect():
-            logger.error("❌ 数据库连接失败！请检查数据库配置和服务状态")
-            return False
-        
-        # 创建所有表（如果不存在）
-        Base.metadata.create_all(db.engine)
-        logger.info("✅ 数据库表初始化完成")
-        
-        return True
-    except Exception as e:
-        logger.error(f"❌ 数据库初始化失败: {e}")
-        logger.error(traceback.format_exc())
-        return False
-
-
 def main():
     """启动统一API服务（开发模式）"""
     logger.info("=" * 60)
     logger.info("小说爬虫管理系统 - 统一API v2.0.0 (开发模式)")
     logger.info("=" * 60)
     
-    # 初始化数据库
-    if not init_database():
-        logger.warning("⚠️  数据库初始化失败，但服务仍会启动")
+    # 数据库已在模块级别初始化，无需再次调用
     
     logger.info("🌐 HTTP服务: http://localhost:5001")
     logger.info("🔌 WebSocket服务: ws://localhost:5001")

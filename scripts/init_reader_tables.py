@@ -84,72 +84,101 @@ def show_table_info(db):
             logger.info(f"    ... 还有 {len(columns) - 5} 个字段")
 
 
+def init_database_tables(verbose=True, max_retries=30, retry_delay=2):
+    """
+    初始化数据库表（可复用的函数）
+    :param verbose: 是否显示详细信息
+    :param max_retries: 最大重试次数
+    :param retry_delay: 重试间隔（秒）
+    :return: True if successful, False otherwise
+    """
+    import time
+    
+    if verbose:
+        logger.info("🗃️  正在初始化数据库表...")
+    
+    for attempt in range(1, max_retries + 1):
+        try:
+            # 连接数据库
+            if verbose and attempt == 1:
+                logger.info(f"📡 连接数据库...")
+                logger.info(f"  Host: {DB_CONFIG.get('host', 'localhost')}")
+                logger.info(f"  Port: {DB_CONFIG.get('port', 3306)}")
+                logger.info(f"  Database: {DB_CONFIG.get('database', 'novel_db')}")
+            
+            db = NovelDatabase(**DB_CONFIG, silent=not verbose)
+            
+            # 测试连接
+            if not db.connect():
+                raise Exception("数据库连接测试失败")
+            
+            if verbose and attempt == 1:
+                logger.info("✅ 数据库连接成功")
+            
+            # 创建表
+            create_tables(db)
+            
+            # 验证表
+            if not verify_tables(db):
+                raise Exception("表验证失败")
+            
+            if verbose:
+                logger.info("✅ 数据库表初始化完成")
+            
+            db.close()
+            return True
+            
+        except Exception as e:
+            if attempt < max_retries:
+                logger.warning(f"⏳ 数据库初始化失败 (尝试 {attempt}/{max_retries}): {e}")
+                logger.info(f"   等待 {retry_delay} 秒后重试...")
+                time.sleep(retry_delay)
+            else:
+                logger.error(f"❌ 数据库初始化失败: {e}")
+                if verbose:
+                    logger.exception("详细错误信息：")
+                return False
+    
+    return False
+
+
 def main():
-    """主函数"""
+    """主函数（命令行模式）"""
     logger.info("=" * 80)
     logger.info("🚀 数据库表初始化脚本")
     logger.info("=" * 80)
     
-    # 连接数据库
-    logger.info(f"\n📡 连接数据库...")
-    logger.info(f"  Host: {DB_CONFIG.get('host', 'localhost')}")
-    logger.info(f"  Port: {DB_CONFIG.get('port', 3306)}")
-    logger.info(f"  Database: {DB_CONFIG.get('database', 'novel_db')}")
-    
-    db = NovelDatabase(**DB_CONFIG)
-    
     try:
-        # 测试连接
-        if not db.connect():
-            logger.error("❌ 数据库连接失败！")
-            logger.error("请检查：")
+        # 使用详细模式初始化
+        success = init_database_tables(verbose=True, max_retries=5, retry_delay=2)
+        
+        if success:
+            # 显示额外信息（仅命令行模式）
+            db = NovelDatabase(**DB_CONFIG)
+            show_table_info(db)
+            db.close()
+            
+            logger.info("\n" + "=" * 80)
+            logger.info("🎉 数据库初始化完成！")
+            logger.info("=" * 80)
+            
+            logger.info("\n📌 下一步：")
+            logger.info("  1. 启动应用: ./start.sh")
+            logger.info("  2. 访问前端: http://localhost:3000")
+            logger.info("  3. 开始爬取小说")
+        else:
+            logger.error("\n" + "=" * 80)
+            logger.error("❌ 数据库初始化失败！")
+            logger.error("=" * 80)
+            logger.error("\n请检查：")
             logger.error("  1. MySQL服务是否启动")
             logger.error("  2. 数据库配置是否正确 (shared/utils/config.py)")
             logger.error("  3. 数据库用户权限是否足够")
-            return
-        
-        logger.info("✅ 数据库连接成功\n")
-        
-        # 显示已存在的表
-        existing_tables = get_existing_tables(db)
-        if existing_tables:
-            logger.info(f"📦 当前已存在 {len(existing_tables)} 张表: {', '.join(existing_tables)}\n")
-        else:
-            logger.info("📦 当前数据库为空，没有任何表\n")
-        
-        # 创建表
-        create_tables(db)
-        
-        # 验证表
-        logger.info("")
-        if verify_tables(db):
-            logger.info("\n" + "=" * 80)
-            logger.info("✅ 所有表创建成功！")
-            logger.info("=" * 80)
-        else:
-            logger.error("\n" + "=" * 80)
-            logger.error("❌ 部分表创建失败！")
-            logger.error("=" * 80)
-            return
-        
-        # 显示表信息
-        show_table_info(db)
-        
-        logger.info("\n" + "=" * 80)
-        logger.info("🎉 数据库初始化完成！")
-        logger.info("=" * 80)
-        
-        logger.info("\n📌 下一步：")
-        logger.info("  1. 启动应用: ./start.sh")
-        logger.info("  2. 访问前端: http://localhost:3000")
-        logger.info("  3. 开始爬取小说")
-        
+            
     except Exception as e:
         logger.error(f"\n❌ 初始化失败: {e}")
         logger.exception("详细错误信息：")
         raise
-    finally:
-        db.close()
 
 
 if __name__ == '__main__':
