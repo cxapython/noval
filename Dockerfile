@@ -64,8 +64,14 @@ COPY scripts/ ./scripts/
 # 从前端构建阶段复制构建好的静态文件
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
+# 复制启动脚本
+COPY docker-entrypoint.sh /app/
+
 # 创建必要的目录
 RUN mkdir -p logs data
+
+# 设置启动脚本执行权限
+RUN chmod +x /app/docker-entrypoint.sh
 
 # 暴露端口
 EXPOSE 5001
@@ -74,5 +80,5 @@ EXPOSE 5001
 ENV PYTHONUNBUFFERED=1
 ENV FLASK_ENV=production
 
-# 启动命令
-CMD ["python3", "backend/api.py"]
+# 启动命令（使用生产级WSGI服务器）
+CMD ["/app/docker-entrypoint.sh"]

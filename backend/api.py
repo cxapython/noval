@@ -122,9 +122,9 @@ def init_database():
 
 
 def main():
-    """启动统一API服务"""
+    """启动统一API服务（开发模式）"""
     logger.info("=" * 60)
-    logger.info("小说爬虫管理系统 - 统一API v2.0.0")
+    logger.info("小说爬虫管理系统 - 统一API v2.0.0 (开发模式)")
     logger.info("=" * 60)
     
     # 初始化数据库
@@ -139,6 +139,8 @@ def main():
     socketio.run(app, host='0.0.0.0', port=5001, debug=True, allow_unsafe_werkzeug=True)
 
 
+# 生产环境启动（供Gunicorn使用）
+# Gunicorn会直接导入app对象，不需要调用main()
 if __name__ == '__main__':
     main()
 
