@@ -858,6 +858,12 @@ class GenericNovelCrawler:
                         logger.error(f"❌ 章节 {index + 1} 重试失败: {e}")
 
             elapsed_time = time.time() - start_time
+            
+            # 更新统计
+            if self.db.connect():
+                self.db.update_novel_stats(self.novel_id)
+                self.db.close()
+            
             final_success, final_failed = self.get_download_stats()
 
             logger.info("\n" + "=" * 60)
