@@ -8,6 +8,9 @@ FROM node:18.10.0-alpine AS frontend-builder
 
 WORKDIR /app/frontend
 
+# 配置npm使用国内镜像源（淘宝）
+RUN npm config set registry https://registry.npmmirror.com
+
 # 复制前端依赖文件
 COPY frontend/package*.json ./
 
@@ -27,6 +30,10 @@ FROM python:3.8.2-slim
 
 # 设置工作目录
 WORKDIR /app
+
+# 配置apt使用国内镜像源（阿里云）加速
+RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list && \
+    sed -i 's/security.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list
 
 # 安装系统依赖
 RUN apt-get update && apt-get install -y \

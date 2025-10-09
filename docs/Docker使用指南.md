@@ -310,7 +310,70 @@ docker-compose exec nginx cat /etc/nginx/conf.d/default.conf
 docker-compose restart backend nginx
 ```
 
-### 问题4：磁盘空间不足
+### 问题4：镜像构建失败（apt-get 错误）
+
+**错误信息：**
+```
+failed to solve: process "/bin/sh -c apt-get update && apt-get install..." 
+did not complete successfully: exit code: 100
+```
+
+**原因：** 网络问题或apt源连接失败
+
+**解决方案：**
+
+#### 方案1：使用修复脚本（推荐）⭐
+
+```bash
+cd /opt/noval
+./docker-fix.sh
+
+# 选择选项1：清理缓存并重新构建
+```
+
+#### 方案2：手动清理并重建
+
+```bash
+# 清理Docker缓存
+docker system prune -f
+
+# 删除旧镜像
+docker rmi noval-backend 2>/dev/null || true
+
+# 重新构建（无缓存，Dockerfile已配置国内镜像源）
+docker-compose build --no-cache
+```
+
+**Dockerfile已优化配置：**
+- ✅ apt源: 阿里云镜像
+- ✅ npm源: 淘宝镜像  
+- ✅ pip源: 清华镜像
+
+#### 方案3：配置Docker代理（可选）
+
+```bash
+# 创建代理配置
+sudo mkdir -p /etc/systemd/system/docker.service.d
+sudo vi /etc/systemd/system/docker.service.d/http-proxy.conf
+
+# 添加内容：
+[Service]
+Environment="HTTP_PROXY=http://proxy.example.com:8080"
+Environment="HTTPS_PROXY=http://proxy.example.com:8080"
+
+# 重启Docker
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+```
+
+#### 方案4：查看详细日志
+
+```bash
+# 查看详细构建过程
+docker-compose build --no-cache --progress=plain backend 2>&1 | tee build.log
+```
+
+### 问题5：磁盘空间不足
 
 **错误信息：**
 ```
@@ -331,7 +394,7 @@ docker-compose down -v
 docker rmi noval-backend:latest
 ```
 
-### 问题5：容器健康检查失败
+### 问题6：容器健康检查失败
 
 **症状：** 容器状态显示 `unhealthy`
 
