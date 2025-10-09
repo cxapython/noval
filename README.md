@@ -76,7 +76,43 @@
 
 ## 🚀 快速开始
 
-### 环境要求
+### 方式1：Docker 部署（推荐）⭐ 🐳
+
+**优势**：无需安装Python、Node.js、MySQL等依赖，3-5分钟快速部署
+
+#### 前置要求
+- Docker 20.10+
+- Docker Compose 2.0+
+
+#### 快速启动
+
+```bash
+# 1. 克隆项目
+git clone git@github.com:cxapython/noval.git
+cd noval
+
+# 2. 配置环境变量（可选）
+cp env.example .env
+# 编辑 .env 修改数据库密码等配置
+
+# 3. 一键启动
+./docker-start.sh
+
+# 访问地址
+# 前端: http://localhost
+# 后端: http://localhost:5001
+
+# 4. 停止服务
+./docker-stop.sh
+```
+
+**详细文档**: 查看 [Docker使用指南](docs/Docker使用指南.md)
+
+---
+
+### 方式2：传统部署
+
+#### 环境要求
 
 | 软件 | 版本 | 说明 |
 |-----|------|-----|
@@ -86,7 +122,7 @@
 | **MySQL** | 5.7+ | 数据库（可选） |
 | **Redis** | 最新 | 任务缓存（可选） |
 
-### 一键启动（推荐）⭐
+#### 一键启动
 
 ```bash
 # 1. 克隆项目
@@ -109,26 +145,23 @@ cd frontend && npm install && cd ..
 ./stop.sh
 ```
 
-### 手动启动（调试用）
+#### 手动启动（调试用）
 
 ```bash
-# 终端1 - 启动后端
-python3 backend/api.py
-
-# 终端2 - 启动前端
-cd frontend && npm install && cd ..
-
-# 4. 配置数据库
+# 1. 配置数据库
 # 编辑 shared/utils/config.py 修改数据库密码
 
-# 5. 初始化数据库（仅首次）
+# 2. 初始化数据库（仅首次）
 python3.8 scripts/init_reader_tables.py
 
-# 6. 一键启动所有服务
-./start.sh
+# 3. 终端1 - 启动后端
+python3 backend/api.py
+
+# 4. 终端2 - 启动前端
+cd frontend && npm run dev
 ```
 
-### 访问应用
+#### 访问应用
 
 - **前端界面**: http://localhost:3000
 - **后端API**: http://localhost:5001
