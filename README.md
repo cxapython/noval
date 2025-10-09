@@ -126,6 +126,8 @@ cp env.example .env
 
 #### 一键启动
 
+**Linux / macOS 用户：**
+
 ```bash
 # 1. 克隆项目
 git clone git@github.com:cxapython/noval.git
@@ -146,6 +148,33 @@ cd frontend && npm install && cd ..
 # 4. 停止服务
 ./stop.sh
 ```
+
+**Windows 用户：**
+
+```batch
+# 1. 克隆项目
+git clone git@github.com:cxapython/noval.git
+cd noval
+
+# 2. 安装依赖
+pip install -r requirements.txt
+cd frontend && npm install && cd ..
+
+# 3. 一键启动所有服务
+start.bat
+
+# 访问地址（根据命令行输出）
+# 前端: http://localhost:3010
+# 后端: http://localhost:5001
+# Demo: http://localhost:3010/demo
+
+# 4. 停止服务
+stop.bat
+```
+
+**注意**：
+- Windows 需要先安装 uv：`powershell -c "irm https://astral.sh/uv/install.ps1 | iex"`
+- Linux/macOS 需要先安装 uv：`curl -LsSf https://astral.sh/uv/install.sh | sh`
 
 #### 手动启动（调试用）
 
@@ -363,8 +392,10 @@ noval/
 ├── data/                  # 数据文件
 ├── logs/                  # 日志文件
 │
-├── start.sh              # 启动脚本
-├── stop.sh               # 停止脚本
+├── start.sh              # 启动脚本 (Linux/macOS)
+├── stop.sh               # 停止脚本 (Linux/macOS)
+├── start.bat             # 启动脚本 (Windows)
+├── stop.bat              # 停止脚本 (Windows)
 ├── requirements.txt      # Python依赖
 └── README.md             # 本文件
 ```
@@ -476,6 +507,8 @@ python3.8 ikbook8_crawler.py --help
 
 ### 服务管理
 
+**Linux / macOS：**
+
 ```bash
 # 启动所有服务
 ./start.sh
@@ -488,6 +521,22 @@ tail -f logs/backend.log
 
 # 查看前端日志
 tail -f logs/frontend.log
+```
+
+**Windows：**
+
+```batch
+# 启动所有服务
+start.bat
+
+# 停止所有服务
+stop.bat
+
+# 查看后端日志
+type logs\backend.log
+
+# 查看前端日志
+type logs\frontend.log
 ```
 
 ### 数据库管理

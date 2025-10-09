@@ -2,6 +2,7 @@
 # 小说爬虫管理系统 - 统一启动脚本
 # V5 版本 - 支持可视化XPath选择器
 # Python 3.8.2 | Node 18.10.0 | npm 8.19.2
+# 使用 uv 管理虚拟环境
 
 set -e  # 遇到错误立即退出
 
@@ -12,10 +13,44 @@ echo "📚 小说爬虫管理系统 v5.0"
 echo "🎯 新功能：可视化元素选择器"
 echo "=================================="
 echo ""
+
+# 检查 uv 是否安装
+if ! command -v uv &> /dev/null; then
+    echo "❌ uv 未安装！"
+    echo "请先安装 uv："
+    echo "  curl -LsSf https://astral.sh/uv/install.sh | sh"
+    echo "或访问: https://github.com/astral-sh/uv"
+    exit 1
+fi
+
 echo "🔧 环境信息："
-echo "  Python: $(python3 --version 2>&1 | cut -d' ' -f2)"
+echo "  uv: $(uv --version)"
 echo "  Node: $(node --version)"
 echo "  npm: $(npm --version)"
+echo "=================================="
+
+# 检查并创建虚拟环境
+if [ ! -d ".venv" ]; then
+    echo ""
+    echo "🔨 创建虚拟环境..."
+    uv venv .venv
+    echo "  ✓ 虚拟环境创建成功"
+fi
+
+# 激活虚拟环境并安装依赖
+echo ""
+echo "📦 安装依赖包..."
+if [ -f "requirements.txt" ]; then
+    uv pip install -r requirements.txt
+    echo "  ✓ 依赖安装完成"
+else
+    echo "  ⚠️  未找到 requirements.txt"
+fi
+
+# 设置 Python 路径为虚拟环境中的 Python
+PYTHON_BIN=".venv/bin/python"
+echo ""
+echo "  Python: $($PYTHON_BIN --version)"
 echo "=================================="
 
 # 创建日志目录
@@ -39,7 +74,7 @@ echo ""
 
 # 启动统一后端API (端口: 5001)
 echo "📡 启动后端API (端口: 5001)..."
-python3 backend/api.py > logs/backend.log 2>&1 &
+$PYTHON_BIN backend/api.py > logs/backend.log 2>&1 &
 BACKEND_PID=$!
 echo $BACKEND_PID >> .pids
 echo "  ✓ 后端PID: $BACKEND_PID"

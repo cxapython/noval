@@ -11,7 +11,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from sqlalchemy import text
-from backend.models.database_sqlalchemy import NovelDatabase
+from backend.models.database import NovelDatabase
 from shared.utils.config import DB_CONFIG
 from loguru import logger
 
