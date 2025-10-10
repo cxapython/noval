@@ -381,42 +381,63 @@ class TaskManager:
     
     def stop_task(self, task_id: str) -> bool:
         """
-        停止任务
+        停止任务（支持停止僵尸任务）
         :param task_id: 任务ID
         :return: 是否成功停止
         """
-        # 只能停止内存中的运行任务
-        task = self.get_task(task_id)
-        if not task:
-            logger.error(f"❌ 任务不存在或未在运行: {task_id}")
-            return False
-        
-        if task.status != TaskStatus.RUNNING:
-            logger.warning(f"⚠️  任务状态为 {task.status.value}，无法停止")
-            return False
-        
-        # 设置停止标志
-        task.stop_flag.set()
-        task.add_log('WARNING', '⚠️  收到停止请求')
-        
-        logger.info(f"🛑 停止任务: {task_id}")
-        return True
-    
-    def delete_task(self, task_id: str) -> bool:
-        """
-        删除任务
-        :param task_id: 任务ID
-        :return: 是否成功删除
-        """
-        # 先从内存获取任务（删除不查数据库，只操作内存中的）
+        # 先从内存查找
         task = self.get_task(task_id, include_db=False)
         
-        # 如果任务正在运行，先停止
+        if task:
+            # 内存中有任务，正常停止
+            if task.status != TaskStatus.RUNNING:
+                logger.warning(f"⚠️  任务状态为 {task.status.value}，无法停止")
+                return False
+            
+            # 设置停止标志
+            task.stop_flag.set()
+            task.add_log('WARNING', '⚠️  收到停止请求')
+            logger.info(f"🛑 停止任务: {task_id}")
+            return True
+        else:
+            # 内存中没有，可能是僵尸任务，直接更新数据库状态
+            if self.db_enabled:
+                try:
+                    from datetime import datetime
+                    updated = self.db.update_task(
+                        task_id,
+                        status='stopped',
+                        end_time=datetime.now(),
+                        detail='任务已强制停止（僵尸任务清理）'
+                    )
+                    if updated:
+                        logger.warning(f"⚠️  清理僵尸任务: {task_id} - 已标记为停止")
+                        return True
+                except Exception as e:
+                    logger.error(f"❌ 更新僵尸任务状态失败: {e}")
+            
+            logger.error(f"❌ 任务不存在: {task_id}")
+            return False
+    
+    def delete_task(self, task_id: str, force: bool = True) -> bool:
+        """
+        删除任务（支持强制删除）
+        :param task_id: 任务ID
+        :param force: 是否强制删除（默认True，直接删除不管状态）
+        :return: 是否成功删除
+        """
+        # 先从内存获取任务
+        task = self.get_task(task_id, include_db=False)
+        
+        # 如果任务在内存中且正在运行，尝试停止
         if task and task.status == TaskStatus.RUNNING:
-            self.stop_task(task_id)
-            # 等待线程结束（最多5秒）
-            if task.thread:
-                task.thread.join(timeout=5)
+            try:
+                self.stop_task(task_id)
+                # 等待线程结束（最多2秒，不要太久）
+                if task.thread:
+                    task.thread.join(timeout=2)
+            except Exception as e:
+                logger.warning(f"⚠️  停止任务失败，继续删除: {e}")
         
         # 从内存中删除
         deleted_from_memory = False
@@ -424,20 +445,24 @@ class TaskManager:
             if task_id in self.tasks:
                 del self.tasks[task_id]
                 deleted_from_memory = True
+                logger.info(f"🗑️  从内存删除任务: {task_id}")
         
-        # 从数据库中删除（如果启用）
+        # 从数据库中强制删除（同时清理失败章节）
         deleted_from_db = False
+        cleaned_chapters = 0
         if self.db_enabled:
             try:
-                deleted_from_db = self.db.delete_task(task_id)
+                deleted_from_db, cleaned_chapters = self.db.delete_task(task_id, clean_failed_chapters=True)
                 if deleted_from_db:
-                    logger.info(f"🗑️  删除任务: {task_id} - 已从数据库删除")
+                    logger.info(f"🗑️  从数据库删除任务: {task_id}")
+                    if cleaned_chapters > 0:
+                        logger.info(f"🧹 同时清理了 {cleaned_chapters} 个失败/未完成章节")
             except Exception as e:
                 logger.error(f"❌ 从数据库删除任务失败: {e}")
         
         # 只要从内存或数据库删除成功就返回True
         if deleted_from_memory or deleted_from_db:
-            logger.info(f"🗑️  删除任务成功: {task_id}")
+            logger.success(f"✅ 任务已删除: {task_id}")
             return True
         else:
             logger.warning(f"⚠️  任务不存在: {task_id}")

@@ -8,6 +8,7 @@ from sqlalchemy import create_engine, or_, func
 from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.pool import QueuePool
 from sqlalchemy.exc import OperationalError
+from loguru import logger
 
 import sys
 from pathlib import Path
@@ -584,14 +585,38 @@ class NovelDatabase:
             
             return True
     
-    def delete_task(self, task_id):
-        """删除任务"""
+    def delete_task(self, task_id, clean_failed_chapters=True):
+        """
+        删除任务
+        :param task_id: 任务ID
+        :param clean_failed_chapters: 是否同时清理失败/未完成的章节记录
+        :return: (是否删除成功, 清理的章节数)
+        """
         with self.get_session() as session:
             task = session.query(CrawlerTask).filter(CrawlerTask.task_id == task_id).first()
-            if task:
-                session.delete(task)
-                return True
-            return False
+            if not task:
+                return False, 0
+            
+            cleaned_chapters = 0
+            # 如果需要清理章节记录
+            if clean_failed_chapters and task.book_id:
+                try:
+                    # 查找该书籍的小说记录
+                    novel = session.query(Novel).filter(Novel.book_id == task.book_id).first()
+                    if novel:
+                        # 删除失败和未完成的章节（保留已下载的）
+                        deleted = session.query(Chapter).filter(
+                            Chapter.novel_id == novel.id,
+                            Chapter.download_status.in_(['failed', 'pending'])
+                        ).delete()
+                        cleaned_chapters = deleted
+                        logger.info(f"🧹 清理书籍 {task.book_id} 的失败/未完成章节: {deleted} 个")
+                except Exception as e:
+                    logger.error(f"❌ 清理章节记录失败: {e}")
+            
+            # 删除任务
+            session.delete(task)
+            return True, cleaned_chapters
     
     def clear_completed_tasks(self):
         """清理已完成/失败/停止的任务"""
