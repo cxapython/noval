@@ -33,25 +33,42 @@ app.register_blueprint(crawler_v5_bp)  # V5路由已包含url_prefix
 
 
 # ==================== 数据库初始化 ====================
-# 在模块级别进行数据库初始化（确保 Gunicorn 启动时也会执行）
+# 初始化状态标记（避免重复初始化）
+_db_initialized = False
+_db_init_lock = __import__('threading').Lock()
+
 def _init_db_on_startup():
-    """应用启动时初始化数据库"""
-    try:
-        # 只在主进程或第一个worker中初始化（避免多进程重复初始化）
-        if os.getenv('WERKZEUG_RUN_MAIN') != 'true' or True:  # Gunicorn 环境总是执行
+    """应用启动时初始化数据库（仅执行一次）"""
+    global _db_initialized
+    
+    # 快速检查：如果已初始化，直接返回
+    if _db_initialized:
+        return
+    
+    # 加锁防止并发初始化
+    with _db_init_lock:
+        # 双重检查
+        if _db_initialized:
+            return
+        
+        try:
             logger.info("=" * 60)
             logger.info("小说爬虫管理系统 - 数据库初始化")
             logger.info("=" * 60)
             
-            # 调用复用的数据库初始化函数（带重试机制，最多30次，每次等待2秒）
-            if not init_database_tables(verbose=True, max_retries=30, retry_delay=2):
+            # 优化：减少重试次数和延迟，避免启动过慢
+            # Docker环境下MySQL通常很快就绪，3次重试足够（最多6秒）
+            if not init_database_tables(verbose=False, max_retries=3, retry_delay=2):
                 logger.warning("⚠️  数据库初始化失败，但服务仍会启动")
+            else:
+                _db_initialized = True
+                logger.success("✅ 数据库初始化完成")
             
             logger.info("=" * 60)
-    except Exception as e:
-        logger.error(f"❌ 启动时数据库初始化出错: {e}")
+        except Exception as e:
+            logger.error(f"❌ 启动时数据库初始化出错: {e}")
 
-# 执行数据库初始化
+# 仅在首次导入时执行数据库初始化（优化启动速度）
 _init_db_on_startup()
 
 

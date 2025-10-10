@@ -189,8 +189,19 @@ class TaskManager:
             self.tasks: Dict[str, CrawlerTask] = {}  # 内存中保存运行中的任务
             self.lock = threading.Lock()
             self.db = get_database(**DB_CONFIG, silent=True)  # 数据库实例
+            self.db_enabled = False  # 数据库功能是否可用
+            
+            # 检查并初始化数据库表
+            try:
+                from shared.models.models import CrawlerTask as CrawlerTaskModel
+                CrawlerTaskModel.__table__.create(self.db.engine, checkfirst=True)
+                self.db_enabled = True
+                logger.info("✅ 任务管理器初始化完成（支持数据库持久化）")
+            except Exception as e:
+                logger.warning(f"⚠️  任务管理器数据库功能未启用: {e}")
+                logger.info("✅ 任务管理器初始化完成（仅内存模式）")
+            
             self.initialized = True
-            logger.info("✅ 任务管理器初始化完成（支持数据库持久化）")
     
     def create_task(self, config_filename: str, book_id: str, 
                    max_workers: int = 5, use_proxy: bool = False) -> str:
@@ -208,21 +219,47 @@ class TaskManager:
         with self.lock:
             self.tasks[task_id] = task
         
-        # 持久化到数据库
-        try:
-            self.db.create_task(task_id, config_filename, book_id, max_workers, use_proxy)
-            logger.info(f"📋 创建任务: {task_id} (Book ID: {book_id}) - 已保存到数据库")
-        except Exception as e:
-            logger.error(f"❌ 保存任务到数据库失败: {e}")
+        # 持久化到数据库（如果启用）
+        if self.db_enabled:
+            try:
+                self.db.create_task(task_id, config_filename, book_id, max_workers, use_proxy)
+                logger.info(f"📋 创建任务: {task_id} (Book ID: {book_id}) - 已保存到数据库")
+            except Exception as e:
+                logger.error(f"❌ 保存任务到数据库失败: {e}")
         
         return task_id
     
-    def get_task(self, task_id: str) -> Optional[CrawlerTask]:
-        """获取任务"""
-        return self.tasks.get(task_id)
+    def get_task(self, task_id: str, include_db: bool = False) -> Optional[CrawlerTask]:
+        """
+        获取任务
+        :param task_id: 任务ID
+        :param include_db: 是否从数据库查询（默认只查内存）
+        :return: 任务对象，如果不存在返回None
+        """
+        # 先查内存（运行中的任务）
+        task = self.tasks.get(task_id)
+        if task:
+            return task
+        
+        # 如果需要且数据库已启用，则查数据库
+        if include_db and self.db_enabled:
+            try:
+                task_data = self.db.get_task_by_id(task_id)
+                if task_data:
+                    # 从数据库数据恢复为CrawlerTask对象（只读）
+                    return self._dict_to_task(task_data)
+            except Exception as e:
+                logger.error(f"❌ 从数据库获取任务失败: {e}")
+        
+        return None
     
     def get_all_tasks(self) -> List[CrawlerTask]:
         """获取所有任务（从数据库读取 + 内存中的运行任务）"""
+        # 如果数据库未启用，直接返回内存中的任务
+        if not self.db_enabled:
+            with self.lock:
+                return list(self.tasks.values())
+        
         try:
             # 从数据库读取所有任务
             db_tasks = self.db.get_all_tasks(limit=100)
@@ -348,13 +385,14 @@ class TaskManager:
         :param task_id: 任务ID
         :return: 是否成功停止
         """
+        # 只能停止内存中的运行任务
         task = self.get_task(task_id)
         if not task:
-            logger.error(f"❌ 任务不存在: {task_id}")
+            logger.error(f"❌ 任务不存在或未在运行: {task_id}")
             return False
         
         if task.status != TaskStatus.RUNNING:
-            logger.warning(f"⚠️  任务未在运行: {task_id}")
+            logger.warning(f"⚠️  任务状态为 {task.status.value}，无法停止")
             return False
         
         # 设置停止标志
@@ -370,30 +408,40 @@ class TaskManager:
         :param task_id: 任务ID
         :return: 是否成功删除
         """
-        task = self.get_task(task_id)
-        if not task:
-            return False
+        # 先从内存获取任务（删除不查数据库，只操作内存中的）
+        task = self.get_task(task_id, include_db=False)
         
         # 如果任务正在运行，先停止
-        if task.status == TaskStatus.RUNNING:
+        if task and task.status == TaskStatus.RUNNING:
             self.stop_task(task_id)
             # 等待线程结束（最多5秒）
             if task.thread:
                 task.thread.join(timeout=5)
         
         # 从内存中删除
+        deleted_from_memory = False
         with self.lock:
             if task_id in self.tasks:
                 del self.tasks[task_id]
+                deleted_from_memory = True
         
-        # 从数据库中删除
-        try:
-            self.db.delete_task(task_id)
-            logger.info(f"🗑️  删除任务: {task_id} - 已从数据库删除")
-        except Exception as e:
-            logger.error(f"❌ 从数据库删除任务失败: {e}")
+        # 从数据库中删除（如果启用）
+        deleted_from_db = False
+        if self.db_enabled:
+            try:
+                deleted_from_db = self.db.delete_task(task_id)
+                if deleted_from_db:
+                    logger.info(f"🗑️  删除任务: {task_id} - 已从数据库删除")
+            except Exception as e:
+                logger.error(f"❌ 从数据库删除任务失败: {e}")
         
-        return True
+        # 只要从内存或数据库删除成功就返回True
+        if deleted_from_memory or deleted_from_db:
+            logger.info(f"🗑️  删除任务成功: {task_id}")
+            return True
+        else:
+            logger.warning(f"⚠️  任务不存在: {task_id}")
+            return False
     
     def get_task_logs(self, task_id: str, limit: int = 100) -> List[Dict]:
         """
@@ -402,7 +450,8 @@ class TaskManager:
         :param limit: 最多返回的日志数量
         :return: 日志列表
         """
-        task = self.get_task(task_id)
+        # 查询时包括数据库
+        task = self.get_task(task_id, include_db=True)
         if not task:
             return []
         
@@ -419,18 +468,24 @@ class TaskManager:
             for task_id in to_delete:
                 del self.tasks[task_id]
         
-        # 从数据库清理
+        # 从数据库清理（如果启用）
         db_deleted = 0
-        try:
-            db_deleted = self.db.clear_completed_tasks()
-            logger.info(f"🧹 清理了 {len(to_delete)} 个内存任务, {db_deleted} 个数据库任务")
-        except Exception as e:
-            logger.error(f"❌ 清理数据库任务失败: {e}")
+        if self.db_enabled:
+            try:
+                db_deleted = self.db.clear_completed_tasks()
+                logger.info(f"🧹 清理了 {len(to_delete)} 个内存任务, {db_deleted} 个数据库任务")
+            except Exception as e:
+                logger.error(f"❌ 清理数据库任务失败: {e}")
+        else:
+            logger.info(f"🧹 清理了 {len(to_delete)} 个内存任务")
         
         return max(len(to_delete), db_deleted)
     
     def _sync_task_to_db(self, task: CrawlerTask):
         """同步任务状态到数据库"""
+        if not self.db_enabled:
+            return
+        
         try:
             self.db.update_task(
                 task.task_id,

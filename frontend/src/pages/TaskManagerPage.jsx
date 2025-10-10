@@ -43,18 +43,36 @@ function TaskManagerPage() {
 
   // 初始化WebSocket连接
   useEffect(() => {
+    console.log('🔌 初始化 WebSocket 连接...');
+    console.log('配置:', SOCKET_CONFIG);
+    
     // 连接WebSocket
-    const socket = io(SOCKET_CONFIG.url || window.location.origin, {
+    const socket = io(SOCKET_CONFIG.url, {
       path: SOCKET_CONFIG.path,
-      transports: SOCKET_CONFIG.transports
+      transports: SOCKET_CONFIG.transports,
+      reconnection: SOCKET_CONFIG.reconnection,
+      reconnectionDelay: SOCKET_CONFIG.reconnectionDelay,
+      reconnectionAttempts: SOCKET_CONFIG.reconnectionAttempts,
+      timeout: SOCKET_CONFIG.timeout
     });
 
     socket.on('connect', () => {
       console.log('✅ WebSocket connected - 实时连接已建立');
+      console.log('   Socket ID:', socket.id);
+      console.log('   Transport:', socket.io.engine.transport.name);
     });
 
-    socket.on('disconnect', () => {
+    socket.on('disconnect', (reason) => {
       console.log('❌ WebSocket disconnected - 实时连接已断开');
+      console.log('   原因:', reason);
+    });
+    
+    socket.on('connect_error', (error) => {
+      console.error('❌ WebSocket 连接错误:', error.message);
+    });
+
+    socket.on('reconnect_attempt', () => {
+      console.log('🔄 尝试重新连接...');
     });
 
     // 监听任务进度更新
@@ -161,8 +179,8 @@ function TaskManagerPage() {
   useEffect(() => {
     fetchTasks();
     fetchConfigs();
-    // 每5秒刷新一次任务列表
-    const interval = setInterval(fetchTasks, 5000);
+    // 每3秒刷新一次任务列表（加快轮询频率，补偿WebSocket可能的断开）
+    const interval = setInterval(fetchTasks, 3000);
     return () => clearInterval(interval);
   }, []);
 

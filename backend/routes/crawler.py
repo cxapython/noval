@@ -1005,7 +1005,8 @@ def list_tasks():
 def get_task(task_id):
     """获取单个任务详情"""
     try:
-        task = task_manager.get_task(task_id)
+        # 查询时包括数据库（可以查看历史任务）
+        task = task_manager.get_task(task_id, include_db=True)
         if not task:
             return jsonify({'success': False, 'error': '任务不存在'}), 404
         
@@ -1071,7 +1072,8 @@ def create_task():
 def start_task(task_id):
     """启动任务"""
     try:
-        task = task_manager.get_task(task_id)
+        # 启动时查询数据库（可以重新启动历史任务）
+        task = task_manager.get_task(task_id, include_db=True)
         if not task:
             return jsonify({'success': False, 'error': '任务不存在'}), 404
         
