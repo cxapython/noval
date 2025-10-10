@@ -75,14 +75,16 @@ if [ "$SYNC_MODE" = "2" ]; then
     echo "✅ 使用完全同步模式"
     echo "   📌 同步所有源码、配置、数据文件"
     echo "   📌 使用checksum校验，确保内容完全一致"
-    echo "   📌 排除node_modules（服务器自己安装）"
+    echo "   📌 排除node_modules、.venv等（服务器自己安装）"
     RSYNC_OPTS="$RSYNC_OPTS --checksum"
     
     # 模式2：排除无需同步的文件
     EXCLUDE_ARGS="
       --exclude='node_modules/' \
+      --exclude='.venv/' \
       --exclude='__pycache__/' \
       --exclude='*.pyc' \
+      --exclude='*.pyo' \
       --exclude='.DS_Store' \
       --exclude='.vscode/' \
       --exclude='.idea/' \
@@ -92,14 +94,16 @@ if [ "$SYNC_MODE" = "2" ]; then
 else
     echo ""
     echo "✅ 使用快速同步模式"
-    echo "   📌 排除node_modules、日志等不必要文件"
+    echo "   📌 排除node_modules、.venv、日志等不必要文件"
     echo "   📌 根据修改时间和文件大小判断"
     
     # 模式1：排除大文件和临时文件
     EXCLUDE_ARGS="
       --exclude='node_modules/' \
+      --exclude='.venv/' \
       --exclude='__pycache__/' \
       --exclude='*.pyc' \
+      --exclude='*.pyo' \
       --exclude='.git/' \
       --exclude='*.log' \
       --exclude='logs/*.log' \

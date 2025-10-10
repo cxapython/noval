@@ -14,7 +14,7 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from shared.models.models import Base, Novel, Chapter, ReadingProgress, Bookmark, ReaderSetting
+from shared.models.models import Base, Novel, Chapter, ReadingProgress, Bookmark, ReaderSetting, CrawlerTask
 
 
 class NovelDatabase:
@@ -532,6 +532,74 @@ class NovelDatabase:
                 'affected_chapters': affected_chapters,
                 'total_replacements': total_replacements
             }
+    
+    # ==================== 任务管理 ====================
+    
+    def create_task(self, task_id, config_filename, book_id, max_workers=5, use_proxy=False):
+        """创建爬虫任务"""
+        with self.get_session() as session:
+            task = CrawlerTask(
+                task_id=task_id,
+                config_filename=config_filename,
+                book_id=book_id,
+                max_workers=max_workers,
+                use_proxy=1 if use_proxy else 0,
+                status='pending'
+            )
+            session.add(task)
+            session.flush()
+            return task.to_dict()
+    
+    def get_task_by_id(self, task_id):
+        """根据task_id获取任务"""
+        with self.get_session() as session:
+            task = session.query(CrawlerTask).filter(CrawlerTask.task_id == task_id).first()
+            return task.to_dict() if task else None
+    
+    def get_all_tasks(self, limit=100):
+        """获取所有任务列表"""
+        with self.get_session() as session:
+            tasks = session.query(CrawlerTask).order_by(
+                CrawlerTask.create_time.desc()
+            ).limit(limit).all()
+            return [task.to_dict() for task in tasks]
+    
+    def update_task(self, task_id, **kwargs):
+        """更新任务信息"""
+        with self.get_session() as session:
+            task = session.query(CrawlerTask).filter(CrawlerTask.task_id == task_id).first()
+            if not task:
+                return False
+            
+            # 允许更新的字段
+            allowed_fields = [
+                'status', 'start_time', 'end_time', 'total_chapters', 
+                'completed_chapters', 'failed_chapters', 'current_chapter',
+                'stage', 'detail', 'novel_title', 'novel_author', 'error_message'
+            ]
+            
+            for field, value in kwargs.items():
+                if field in allowed_fields and hasattr(task, field):
+                    setattr(task, field, value)
+            
+            return True
+    
+    def delete_task(self, task_id):
+        """删除任务"""
+        with self.get_session() as session:
+            task = session.query(CrawlerTask).filter(CrawlerTask.task_id == task_id).first()
+            if task:
+                session.delete(task)
+                return True
+            return False
+    
+    def clear_completed_tasks(self):
+        """清理已完成/失败/停止的任务"""
+        with self.get_session() as session:
+            deleted = session.query(CrawlerTask).filter(
+                CrawlerTask.status.in_(['completed', 'failed', 'stopped'])
+            ).delete()
+            return deleted
 
 
 # 全局数据库实例（单例模式）

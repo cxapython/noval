@@ -43,7 +43,8 @@ def verify_tables(db):
         'chapters', 
         'reading_progress',
         'bookmarks',
-        'reader_settings'
+        'reader_settings',
+        'crawler_tasks'
     ]
     
     existing_tables = get_existing_tables(db)

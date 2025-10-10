@@ -175,3 +175,71 @@ class ReaderSetting(Base):
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
 
+
+class CrawlerTask(Base):
+    """爬虫任务模型"""
+    __tablename__ = 'crawler_tasks'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    task_id = Column(String(100), nullable=False, unique=True, index=True, comment='任务UUID')
+    config_filename = Column(String(255), nullable=False, comment='配置文件名')
+    book_id = Column(String(100), nullable=False, comment='书籍ID')
+    max_workers = Column(Integer, default=5, comment='并发线程数')
+    use_proxy = Column(Integer, default=0, comment='是否使用代理(0否1是)')
+    
+    # 任务状态
+    status = Column(String(50), default='pending', comment='任务状态: pending/running/completed/failed/stopped')
+    create_time = Column(DateTime, default=datetime.now, comment='创建时间')
+    start_time = Column(DateTime, nullable=True, comment='开始时间')
+    end_time = Column(DateTime, nullable=True, comment='结束时间')
+    
+    # 进度信息
+    total_chapters = Column(Integer, default=0, comment='总章节数')
+    completed_chapters = Column(Integer, default=0, comment='已完成章节数')
+    failed_chapters = Column(Integer, default=0, comment='失败章节数')
+    current_chapter = Column(String(500), nullable=True, comment='当前章节')
+    stage = Column(String(50), default='pending', comment='当前阶段')
+    detail = Column(Text, nullable=True, comment='详细信息')
+    
+    # 小说信息
+    novel_title = Column(String(500), nullable=True, comment='小说标题')
+    novel_author = Column(String(200), nullable=True, comment='作者')
+    
+    # 错误信息
+    error_message = Column(Text, nullable=True, comment='错误信息')
+    
+    # 索引
+    __table_args__ = (
+        Index('idx_task_status', 'status'),
+        Index('idx_task_create_time', 'create_time'),
+    )
+    
+    def __repr__(self):
+        return f"<CrawlerTask(id={self.id}, task_id='{self.task_id}', status='{self.status}')>"
+    
+    def to_dict(self):
+        """转换为字典"""
+        return {
+            'id': self.id,
+            'task_id': self.task_id,
+            'config_filename': self.config_filename,
+            'book_id': self.book_id,
+            'max_workers': self.max_workers,
+            'use_proxy': bool(self.use_proxy),
+            'status': self.status,
+            'create_time': self.create_time.isoformat() if self.create_time else None,
+            'start_time': self.start_time.isoformat() if self.start_time else None,
+            'end_time': self.end_time.isoformat() if self.end_time else None,
+            'total_chapters': self.total_chapters,
+            'completed_chapters': self.completed_chapters,
+            'failed_chapters': self.failed_chapters,
+            'current_chapter': self.current_chapter,
+            'stage': self.stage,
+            'detail': self.detail,
+            'progress_percent': round((self.completed_chapters / self.total_chapters * 100), 2) if self.total_chapters > 0 else 0.0,
+            'novel_title': self.novel_title,
+            'novel_author': self.novel_author,
+            'error_message': self.error_message,
+            'log_count': 0  # 日志单独存储
+        }
+

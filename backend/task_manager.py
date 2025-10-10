@@ -3,7 +3,12 @@
 """
 任务管理器 - 用于管理爬虫任务的生命周期
 支持任务创建、启动、停止、状态查询等
+支持数据库持久化
 """
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 import time
 import uuid
 import threading
@@ -11,6 +16,9 @@ from typing import Dict, List, Optional, Callable
 from datetime import datetime
 from enum import Enum
 from loguru import logger
+
+from shared.utils.config import DB_CONFIG
+from backend.models.database import get_database
 
 
 class TaskStatus(Enum):
@@ -93,7 +101,8 @@ class CrawlerTask:
     
     def update_progress(self, total: int = None, completed: int = None, 
                        failed: int = None, current: str = None,
-                       stage: str = None, detail: str = None, **kwargs):
+                       stage: str = None, detail: str = None, 
+                       sync_to_db: bool = True, task_manager=None, **kwargs):
         """
         更新进度信息
         :param total: 总章节数
@@ -102,6 +111,8 @@ class CrawlerTask:
         :param current: 当前章节
         :param stage: 当前阶段 (parsing_list, downloading, completed)
         :param detail: 详细信息（如"正在解析第3/10页"）
+        :param sync_to_db: 是否同步到数据库
+        :param task_manager: 任务管理器实例（用于同步数据库）
         :param kwargs: 其他参数（兼容扩展）
         """
         if total is not None:
@@ -116,6 +127,17 @@ class CrawlerTask:
             self.stage = stage
         if detail is not None:
             self.detail = detail
+        
+        # 同步到数据库（避免过于频繁，仅每10个章节或阶段变化时同步）
+        if sync_to_db and task_manager and (
+            stage is not None or 
+            (completed is not None and completed % 10 == 0) or
+            total is not None
+        ):
+            try:
+                task_manager._sync_task_to_db(self)
+            except Exception:
+                pass  # 静默失败，不影响爬虫运行
     
     def get_progress_percent(self) -> float:
         """获取进度百分比"""
@@ -164,10 +186,11 @@ class TaskManager:
     
     def __init__(self):
         if not hasattr(self, 'initialized'):
-            self.tasks: Dict[str, CrawlerTask] = {}
+            self.tasks: Dict[str, CrawlerTask] = {}  # 内存中保存运行中的任务
             self.lock = threading.Lock()
+            self.db = get_database(**DB_CONFIG, silent=True)  # 数据库实例
             self.initialized = True
-            logger.info("✅ 任务管理器初始化完成")
+            logger.info("✅ 任务管理器初始化完成（支持数据库持久化）")
     
     def create_task(self, config_filename: str, book_id: str, 
                    max_workers: int = 5, use_proxy: bool = False) -> str:
@@ -185,7 +208,13 @@ class TaskManager:
         with self.lock:
             self.tasks[task_id] = task
         
-        logger.info(f"📋 创建任务: {task_id} (Book ID: {book_id})")
+        # 持久化到数据库
+        try:
+            self.db.create_task(task_id, config_filename, book_id, max_workers, use_proxy)
+            logger.info(f"📋 创建任务: {task_id} (Book ID: {book_id}) - 已保存到数据库")
+        except Exception as e:
+            logger.error(f"❌ 保存任务到数据库失败: {e}")
+        
         return task_id
     
     def get_task(self, task_id: str) -> Optional[CrawlerTask]:
@@ -193,9 +222,53 @@ class TaskManager:
         return self.tasks.get(task_id)
     
     def get_all_tasks(self) -> List[CrawlerTask]:
-        """获取所有任务"""
-        with self.lock:
-            return list(self.tasks.values())
+        """获取所有任务（从数据库读取 + 内存中的运行任务）"""
+        try:
+            # 从数据库读取所有任务
+            db_tasks = self.db.get_all_tasks(limit=100)
+            
+            # 合并内存中的任务状态（运行中的任务优先使用内存数据）
+            task_dict = {}
+            for task_data in db_tasks:
+                task_id = task_data['task_id']
+                if task_id in self.tasks:
+                    # 如果内存中有，使用内存中的最新数据
+                    task_dict[task_id] = self.tasks[task_id]
+                else:
+                    # 从数据库数据恢复为CrawlerTask对象（只用于显示）
+                    task = self._dict_to_task(task_data)
+                    task_dict[task_id] = task
+            
+            return list(task_dict.values())
+        except Exception as e:
+            logger.error(f"❌ 获取任务列表失败: {e}")
+            # 降级：仅返回内存中的任务
+            with self.lock:
+                return list(self.tasks.values())
+    
+    def _dict_to_task(self, task_data: dict) -> CrawlerTask:
+        """从字典恢复CrawlerTask对象（用于显示）"""
+        task = CrawlerTask(
+            task_data['task_id'],
+            task_data['config_filename'],
+            task_data['book_id'],
+            task_data['max_workers'],
+            task_data['use_proxy']
+        )
+        task.status = TaskStatus(task_data['status'])
+        task.create_time = datetime.fromisoformat(task_data['create_time']) if task_data['create_time'] else datetime.now()
+        task.start_time = datetime.fromisoformat(task_data['start_time']) if task_data['start_time'] else None
+        task.end_time = datetime.fromisoformat(task_data['end_time']) if task_data['end_time'] else None
+        task.total_chapters = task_data['total_chapters']
+        task.completed_chapters = task_data['completed_chapters']
+        task.failed_chapters = task_data['failed_chapters']
+        task.current_chapter = task_data['current_chapter'] or ""
+        task.stage = task_data['stage']
+        task.detail = task_data['detail'] or ""
+        task.novel_title = task_data['novel_title'] or ""
+        task.novel_author = task_data['novel_author'] or ""
+        task.error_message = task_data['error_message'] or ""
+        return task
     
     def start_task(self, task_id: str, crawler_factory: Callable) -> bool:
         """
@@ -222,6 +295,12 @@ class TaskManager:
                 task.status = TaskStatus.RUNNING
                 task.start_time = datetime.now()
                 task.add_log('INFO', f"🚀 任务启动: {task.config_filename}")
+                
+                # 同步启动状态到数据库
+                try:
+                    self._sync_task_to_db(task)
+                except Exception as e:
+                    logger.error(f"❌ 同步任务启动状态失败: {e}")
                 
                 # 调用爬虫工厂创建爬虫实例
                 crawler = crawler_factory(task)
@@ -250,6 +329,12 @@ class TaskManager:
             finally:
                 task.end_time = datetime.now()
                 task.crawler = None
+                
+                # 同步最终状态到数据库
+                try:
+                    self._sync_task_to_db(task)
+                except Exception as e:
+                    logger.error(f"❌ 同步任务状态到数据库失败: {e}")
         
         task.thread = threading.Thread(target=run_task, daemon=True)
         task.thread.start()
@@ -296,10 +381,18 @@ class TaskManager:
             if task.thread:
                 task.thread.join(timeout=5)
         
+        # 从内存中删除
         with self.lock:
-            del self.tasks[task_id]
+            if task_id in self.tasks:
+                del self.tasks[task_id]
         
-        logger.info(f"🗑️  删除任务: {task_id}")
+        # 从数据库中删除
+        try:
+            self.db.delete_task(task_id)
+            logger.info(f"🗑️  删除任务: {task_id} - 已从数据库删除")
+        except Exception as e:
+            logger.error(f"❌ 从数据库删除任务失败: {e}")
+        
         return True
     
     def get_task_logs(self, task_id: str, limit: int = 100) -> List[Dict]:
@@ -317,6 +410,7 @@ class TaskManager:
     
     def clear_completed_tasks(self):
         """清理已完成的任务"""
+        # 从内存清理
         with self.lock:
             to_delete = [
                 task_id for task_id, task in self.tasks.items()
@@ -325,8 +419,36 @@ class TaskManager:
             for task_id in to_delete:
                 del self.tasks[task_id]
         
-        logger.info(f"🧹 清理了 {len(to_delete)} 个已完成任务")
-        return len(to_delete)
+        # 从数据库清理
+        db_deleted = 0
+        try:
+            db_deleted = self.db.clear_completed_tasks()
+            logger.info(f"🧹 清理了 {len(to_delete)} 个内存任务, {db_deleted} 个数据库任务")
+        except Exception as e:
+            logger.error(f"❌ 清理数据库任务失败: {e}")
+        
+        return max(len(to_delete), db_deleted)
+    
+    def _sync_task_to_db(self, task: CrawlerTask):
+        """同步任务状态到数据库"""
+        try:
+            self.db.update_task(
+                task.task_id,
+                status=task.status.value,
+                start_time=task.start_time,
+                end_time=task.end_time,
+                total_chapters=task.total_chapters,
+                completed_chapters=task.completed_chapters,
+                failed_chapters=task.failed_chapters,
+                current_chapter=task.current_chapter,
+                stage=task.stage,
+                detail=task.detail,
+                novel_title=task.novel_title,
+                novel_author=task.novel_author,
+                error_message=task.error_message
+            )
+        except Exception as e:
+            logger.error(f"❌ 同步任务到数据库失败: {e}")
 
 
 # 全局任务管理器实例
