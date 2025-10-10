@@ -30,9 +30,23 @@ echo "  npm: $(npm --version)"
 echo "=================================="
 
 # 检查并创建虚拟环境
+VENV_VALID=true
 if [ ! -d ".venv" ]; then
+    VENV_VALID=false
+else
+    # 检查虚拟环境中的 Python 符号链接是否有效
+    if [ ! -e ".venv/bin/python3" ] && [ ! -e ".venv/bin/python" ]; then
+        echo ""
+        echo "⚠️  检测到损坏的虚拟环境（符号链接失效）"
+        echo "🔨 正在删除旧的虚拟环境..."
+        rm -rf .venv
+        VENV_VALID=false
+    fi
+fi
+
+if [ "$VENV_VALID" = false ]; then
     echo ""
-    echo "🔨 创建虚拟环境..."
+    echo "🔨 创建新的虚拟环境..."
     uv venv .venv
     echo "  ✓ 虚拟环境创建成功"
 fi
