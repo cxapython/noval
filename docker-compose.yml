@@ -7,10 +7,8 @@ services:
     container_name: noval-mysql
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123456}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-Aa!+1234}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-novel_db}
-      MYSQL_USER: ${MYSQL_USER:-novel_user}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-novel_pass123}
       TZ: Asia/Shanghai
     # 关键：删除 ports 配置，不暴露宿主机3306端口，仅容器内可用
     volumes:
@@ -20,7 +18,7 @@ services:
     networks:
       - noval-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-root123456}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-Aa!+1234}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -53,9 +51,9 @@ services:
       # 数据库配置：仍用3306端口，通过容器名"mysql"通信（无需改代码）
       DB_HOST: mysql
       DB_PORT: 3306
-      DB_USER: ${MYSQL_USER:-novel_user}
-      DB_PASSWORD: ${MYSQL_PASSWORD:-novel_pass123}
-      DB_NAME: ${MYSQL_DATABASE:-novel_db}
+      DB_USER: root
+      DB_PASSWORD: "Aa!+1234"
+      DB_NAME: novel_db
       # Redis配置（不变）
       REDIS_HOST: redis
       REDIS_PORT: 6379
