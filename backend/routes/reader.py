@@ -29,15 +29,26 @@ proxy_util = ProxyUtils()
 REDIS_URL = f"redis://{REDIS_CONFIG['host']}:{REDIS_CONFIG['port']}/{REDIS_CONFIG['db']}"
 redis_cli = Redis.from_url(REDIS_URL)
 
+# 全局数据库实例（单例模式，避免重复创建连接池）
+_db_instance = None
+
 
 def get_db():
-    """获取数据库连接"""
+    """获取数据库连接（单例模式）"""
+    global _db_instance
+    
     if NovelDatabase is None:
         raise Exception("数据库模块未安装，请先配置数据库")
-    db = NovelDatabase(**DB_CONFIG)
-    if not db.connect():
-        raise Exception("数据库连接失败")
-    return db
+    
+    # 如果实例不存在，创建并连接
+    if _db_instance is None:
+        _db_instance = NovelDatabase(**DB_CONFIG, silent=True)
+        # 尝试连接（最多重试5次，每次等待3秒）
+        if not _db_instance.connect(max_retries=5, retry_delay=3):
+            _db_instance = None
+            raise Exception("数据库连接失败，请检查MySQL服务是否正常运行")
+    
+    return _db_instance
 
 
 @reader_bp.route('/novels', methods=['GET'])

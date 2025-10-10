@@ -2,10 +2,12 @@
 SQLAlchemy 数据库管理模块
 """
 import re
+import time
 from contextlib import contextmanager
 from sqlalchemy import create_engine, or_, func
 from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.pool import QueuePool
+from sqlalchemy.exc import OperationalError
 
 import sys
 from pathlib import Path
@@ -32,17 +34,26 @@ class NovelDatabase:
         """
         self.silent = silent
         
-        # 构建数据库URL (使用pymysql驱动)
-        db_url = f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}?charset=utf8mb4"
+        # 构建数据库URL (使用pymysql驱动，增加连接超时参数)
+        db_url = f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}?charset=utf8mb4&connect_timeout=60"
         
-        # 创建引擎
+        # 创建引擎（优化Docker环境的连接稳定性）
         self.engine = create_engine(
             db_url,
             poolclass=QueuePool,
             pool_size=pool_size,
-            pool_pre_ping=True,  # 连接前检查
-            pool_recycle=3600,   # 1小时回收连接
-            echo=False           # 不输出SQL日志
+            max_overflow=10,      # 额外连接数
+            pool_timeout=30,      # 获取连接超时
+            pool_pre_ping=True,   # 连接前检查（关键：防止使用失效连接）
+            pool_recycle=1800,    # 30分钟回收连接（避免MySQL超时）
+            echo=False,           # 不输出SQL日志
+            connect_args={
+                'connect_timeout': 60,        # 连接超时60秒（Docker DNS可能较慢）
+                'read_timeout': 30,           # 读取超时
+                'write_timeout': 30,          # 写入超时
+                'charset': 'utf8mb4',
+                'autocommit': False
+            }
         )
         
         # 创建会话工厂
@@ -70,17 +81,38 @@ class NovelDatabase:
         finally:
             session.close()
     
-    def connect(self):
-        """连接测试（兼容旧接口）"""
-        try:
-            with self.engine.connect() as conn:
+    def connect(self, max_retries=5, retry_delay=2):
+        """
+        连接测试（兼容旧接口）
+        :param max_retries: 最大重试次数（Docker环境下MySQL可能需要时间启动）
+        :param retry_delay: 重试延迟（秒）
+        """
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                with self.engine.connect() as conn:
+                    if not self.silent:
+                        if attempt > 0:
+                            print(f"✅ 数据库连接成功 (第{attempt + 1}次尝试)")
+                        else:
+                            print("✅ 数据库连接测试成功")
+                    return True
+            except OperationalError as e:
+                last_error = e
+                if not self.silent and attempt < max_retries - 1:
+                    print(f"⚠️ 数据库连接失败 (第{attempt + 1}次尝试)，{retry_delay}秒后重试...")
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay)
+            except Exception as e:
+                last_error = e
                 if not self.silent:
-                    print("✅ 数据库连接测试成功")
-                return True
-        except Exception as e:
-            if not self.silent:
-                print(f"❌ 数据库连接失败: {e}")
-            return False
+                    print(f"❌ 数据库连接失败: {e}")
+                return False
+        
+        # 所有重试都失败
+        if not self.silent:
+            print(f"❌ 数据库连接失败 (已重试{max_retries}次): {last_error}")
+        return False
     
     def close(self):
         """关闭连接（兼容旧接口）"""

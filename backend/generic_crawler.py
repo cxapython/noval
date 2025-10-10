@@ -91,7 +91,9 @@ class GenericNovelCrawler:
         self.chapters = []
         self.novel_info = {}
         self.novel_id = None
-        self.db = NovelDatabase(**DB_CONFIG)
+        # 使用单例模式获取数据库连接
+        from backend.models.database import get_database
+        self.db = get_database(**DB_CONFIG, silent=True)
 
         # 并发配置
         self.progress_lock = Lock()
@@ -645,10 +647,11 @@ class GenericNovelCrawler:
                 )
             return False
 
-        # 保存到数据库
+        # 保存到数据库（使用单例）
         download_success = False
-        db = NovelDatabase(**DB_CONFIG, silent=True)
-        if db.connect():
+        from backend.models.database import get_database
+        db = get_database(**DB_CONFIG, silent=True)
+        if db.connect(max_retries=3, retry_delay=2):
             try:
                 db.insert_chapter(
                     self.novel_id,
