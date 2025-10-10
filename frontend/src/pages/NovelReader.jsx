@@ -7,6 +7,7 @@ import {
   Paper, Center, ActionIcon, Box, Progress as MantineProgress,
   FileButton, Indicator
 } from '@mantine/core'
+import { useMediaQuery } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
 import { modals } from '@mantine/modals'
 import { 
@@ -92,6 +93,10 @@ function CoverImage({ url, alt, style, fallback }) {
 function NovelReader() {
   const { novelId } = useParams()
   const navigate = useNavigate()
+  
+  // 响应式断点
+  const isMobile = useMediaQuery('(max-width: 48em)')
+  const isTablet = useMediaQuery('(max-width: 62em)')
   
   // 基础状态
   const [novels, setNovels] = useState([])
@@ -939,12 +944,12 @@ function NovelReader() {
               <Text c="dimmed">暂无小说，请先运行爬虫采集数据</Text>
             </Center>
           ) : viewMode === 'grid' ? (
-            <Grid gutter="md">
+            <Grid gutter={isMobile ? 'xs' : 'md'}>
               {novels.map((novel) => (
-                <Grid.Col key={novel.id} span={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                <Grid.Col key={novel.id} span={{ xs: 6, sm: 4, md: 3, lg: 2.4 }}>
                   <Card
                     shadow="sm"
-                    padding="lg"
+                    padding={isMobile ? 'sm' : 'lg'}
                     style={{ cursor: 'pointer', position: 'relative' }}
                     onClick={() => navigate(`/reader/${novel.id}`)}
                   >
@@ -961,80 +966,84 @@ function NovelReader() {
                         <CoverImage
                           url={novel.cover_url}
                           alt={novel.title}
-                          style={{ height: 240, objectFit: 'cover', width: '100%' }}
+                          style={{ height: isMobile ? 180 : 240, objectFit: 'cover', width: '100%' }}
                           fallback={
                             <div style={{ 
-                              height: 240, 
+                              height: isMobile ? 180 : 240, 
                               display: 'flex', 
                               alignItems: 'center', 
                               justifyContent: 'center',
                               flexDirection: 'column',
                               background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                               color: '#fff',
-                              gap: 12
+                              gap: isMobile ? 6 : 12
                             }}>
-                              <IconBook size={80} stroke={1.5} />
-                              <Text size="xl" fw={700} style={{ letterSpacing: 1 }}>
-                                {novel.title.substring(0, 4)}
+                              <IconBook size={isMobile ? 48 : 80} stroke={1.5} />
+                              <Text size={isMobile ? 'md' : 'xl'} fw={700} style={{ letterSpacing: 1 }}>
+                                {novel.title.substring(0, isMobile ? 2 : 4)}
                               </Text>
                             </div>
                           }
                         />
                       ) : (
                         <div style={{ 
-                          height: 240, 
+                          height: isMobile ? 180 : 240, 
                           display: 'flex', 
                           alignItems: 'center', 
                           justifyContent: 'center',
                           flexDirection: 'column',
                           background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                           color: '#fff',
-                          gap: 12
+                          gap: isMobile ? 6 : 12
                         }}>
-                          <IconBook size={80} stroke={1.5} />
-                          <Text size="xl" fw={700} style={{ letterSpacing: 1 }}>
-                            {novel.title.substring(0, 4)}
+                          <IconBook size={isMobile ? 48 : 80} stroke={1.5} />
+                          <Text size={isMobile ? 'md' : 'xl'} fw={700} style={{ letterSpacing: 1 }}>
+                            {novel.title.substring(0, isMobile ? 2 : 4)}
                           </Text>
                         </div>
                       )}
                     </Card.Section>
 
                     <Group justify="space-between" mt="md" mb="xs">
-                      <Text fw={600} lineClamp={1}>{novel.title}</Text>
+                      <Text fw={600} lineClamp={isMobile ? 2 : 1} size={isMobile ? 'sm' : 'md'}>{novel.title}</Text>
                     </Group>
 
-                    <Stack gap="xs">
-                      <Text size="sm" c="dimmed">👤 {novel.author || '未知作者'}</Text>
-                      <Text size="sm" c="dimmed">
-                        📖 {novel.total_chapters || 0} 章 | 📝 {Math.floor((novel.total_words || 0) / 10000)} 万字
-                      </Text>
+                    <Stack gap={isMobile ? 4 : 'xs'}>
+                      <Text size={isMobile ? 'xs' : 'sm'} c="dimmed">👤 {novel.author || '未知'}</Text>
+                      {!isMobile && (
+                        <Text size="sm" c="dimmed">
+                          📖 {novel.total_chapters || 0} 章 | 📝 {Math.floor((novel.total_words || 0) / 10000)} 万字
+                        </Text>
+                      )}
                     </Stack>
 
-                    <Group justify="center" mt="md">
-                      <Tooltip label="编辑">
-                        <ActionIcon
-                          variant="subtle"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleEditNovel(novel)
-                          }}
-                        >
-                          <IconEdit size={18} />
-                        </ActionIcon>
-                      </Tooltip>
-                      <Tooltip label="删除">
-                        <ActionIcon
-                          variant="subtle"
-                          color="red"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleDeleteNovel(novel)
-                          }}
-                        >
-                          <IconTrash size={18} />
-                        </ActionIcon>
-                      </Tooltip>
-                    </Group>
+                    {!isMobile && (
+                      <Group justify="center" mt="md">
+                        <Tooltip label="编辑">
+                          <ActionIcon
+                            variant="subtle"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleEditNovel(novel)
+                            }}
+                          >
+                            <IconEdit size={18} />
+                          </ActionIcon>
+                        </Tooltip>
+                        <Tooltip label="删除">
+                          <ActionIcon
+                            variant="subtle"
+                            color="red"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeleteNovel(novel)
+                            }}
+                          >
+                            <IconTrash size={18} />
+                          </ActionIcon>
+                        </Tooltip>
+                      </Group>
+                    )}
                   </Card>
                 </Grid.Col>
               ))}
@@ -1307,82 +1316,111 @@ function NovelReader() {
 
   // 渲染阅读界面
   return (
-    <div className="novel-reader fade-in" style={{ ...currentTheme, minHeight: '100vh', padding: '24px' }}>
-      <Stack gap="md">
+    <div className="novel-reader fade-in" style={{ ...currentTheme, minHeight: '100vh', padding: isMobile ? '12px' : '24px' }}>
+      <Stack gap={isMobile ? 'xs' : 'md'}>
         {/* 顶部导航栏 */}
         <Card style={{ background: currentTheme.background, borderColor: currentTheme.color + '20' }}>
-          <Group justify="space-between" wrap="wrap">
-            <Button variant="default" onClick={() => navigate('/reader')}>
-              ← 返回书架
-            </Button>
-            
-            <Group>
-              <Title order={5} style={{ margin: 0, color: currentTheme.color }}>
-                {novelInfo?.title}
-              </Title>
-              <Badge color="blue">
-                {currentChapter + 1} / {chapters.length}
-              </Badge>
-            </Group>
-
-            <Group gap="xs">
-              <Tooltip label="章节目录">
-                <ActionIcon 
-                  variant="default"
-                  onClick={() => setChapterListVisible(true)}
-                >
-                  <IconList size={18} />
-                </ActionIcon>
-              </Tooltip>
-              <Tooltip label="搜索">
-                <ActionIcon 
-                  variant="default"
-                  onClick={() => setSearchVisible(true)}
-                >
-                  <IconSearch size={18} />
-                </ActionIcon>
-              </Tooltip>
-              <Tooltip label="书签">
-                <Indicator 
-                  label={bookmarks.length} 
-                  size={16} 
-                  disabled={bookmarks.length === 0}
-                  color="blue"
-                >
-                  <ActionIcon 
-                    variant="default"
-                    onClick={() => setBookmarkVisible(true)}
-                  >
-                    <IconBookmarks size={18} />
-                  </ActionIcon>
-                </Indicator>
-              </Tooltip>
-              <Tooltip label="设置">
+          <Stack gap="xs">
+            {/* 第一行：返回按钮 + 标题 */}
+            <Group justify="space-between" wrap="nowrap">
+              <Button 
+                variant="default" 
+                onClick={() => navigate('/reader')}
+                size={isMobile ? 'xs' : 'sm'}
+                leftSection={!isMobile && '←'}
+              >
+                {isMobile ? '←' : '← 返回书架'}
+              </Button>
+              
+              <Group gap="xs" style={{ flex: 1, minWidth: 0, justifyContent: 'center' }}>
+                <Title order={isMobile ? 6 : 5} style={{ margin: 0, color: currentTheme.color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {novelInfo?.title}
+                </Title>
+                <Badge color="blue" size={isMobile ? 'sm' : 'md'}>
+                  {currentChapter + 1}/{chapters.length}
+                </Badge>
+              </Group>
+              
+              {/* 移动端：设置按钮 */}
+              {isMobile && (
                 <ActionIcon 
                   variant="default"
                   onClick={() => setSettingsVisible(true)}
+                  size="lg"
                 >
                   <IconSettings size={18} />
                 </ActionIcon>
-              </Tooltip>
-              <Button 
-                variant="default"
-                leftSection={<IconArrowLeft size={18} />}
-                disabled={currentChapter === 0}
-                onClick={handlePrevChapter}
-              >
-                上一章
-              </Button>
-              <Button 
-                variant="filled"
-                rightSection={<IconArrowRight size={18} />}
-                disabled={currentChapter === chapters.length - 1}
-                onClick={handleNextChapter}
-              >
-                下一章
-              </Button>
+              )}
             </Group>
-          </Group>
+
+            {/* 第二行：功能按钮 */}
+            <Group justify="space-between" wrap={isMobile ? 'wrap' : 'nowrap'} gap="xs">
+              {/* 左侧：工具按钮 */}
+              <Group gap="xs">
+                <ActionIcon 
+                  variant="default"
+                  onClick={() => setChapterListVisible(true)}
+                  size={isMobile ? 'md' : 'lg'}
+                >
+                  <IconList size={isMobile ? 16 : 18} />
+                </ActionIcon>
+                {!isMobile && (
+                  <>
+                    <ActionIcon 
+                      variant="default"
+                      onClick={() => setSearchVisible(true)}
+                      size="lg"
+                    >
+                      <IconSearch size={18} />
+                    </ActionIcon>
+                    <Indicator 
+                      label={bookmarks.length} 
+                      size={16} 
+                      disabled={bookmarks.length === 0}
+                      color="blue"
+                    >
+                      <ActionIcon 
+                        variant="default"
+                        onClick={() => setBookmarkVisible(true)}
+                        size="lg"
+                      >
+                        <IconBookmarks size={18} />
+                      </ActionIcon>
+                    </Indicator>
+                    <ActionIcon 
+                      variant="default"
+                      onClick={() => setSettingsVisible(true)}
+                      size="lg"
+                    >
+                      <IconSettings size={18} />
+                    </ActionIcon>
+                  </>
+                )}
+              </Group>
+              
+              {/* 右侧：翻页按钮 */}
+              <Group gap="xs">
+                <Button 
+                  variant="default"
+                  leftSection={<IconArrowLeft size={isMobile ? 14 : 18} />}
+                  disabled={currentChapter === 0}
+                  onClick={handlePrevChapter}
+                  size={isMobile ? 'xs' : 'sm'}
+                >
+                  {isMobile ? '' : '上一章'}
+                </Button>
+                <Button 
+                  variant="filled"
+                  rightSection={<IconArrowRight size={isMobile ? 14 : 18} />}
+                  disabled={currentChapter === chapters.length - 1}
+                  onClick={handleNextChapter}
+                  size={isMobile ? 'xs' : 'sm'}
+                >
+                  {isMobile ? '' : '下一章'}
+                </Button>
+              </Group>
+            </Group>
+          </Stack>
         </Card>
 
         {/* 章节内容 */}
@@ -1397,13 +1435,13 @@ function NovelReader() {
               }}
             >
               {chapterContent && (
-                <div style={{ maxWidth: 800, margin: '0 auto' }}>
-                  <Title order={3} style={{ textAlign: 'center', marginBottom: 32, color: currentTheme.color }}>
+                <div style={{ maxWidth: isMobile ? '100%' : 800, margin: '0 auto', padding: isMobile ? '0 8px' : '0' }}>
+                  <Title order={isMobile ? 5 : 3} style={{ textAlign: 'center', marginBottom: isMobile ? 16 : 32, color: currentTheme.color }}>
                     {chapterContent.title}
                   </Title>
                   
                   <div style={{ 
-                    fontSize: `${settings.fontSize}px`, 
+                    fontSize: isMobile ? `${Math.max(settings.fontSize - 2, 14)}px` : `${settings.fontSize}px`, 
                     lineHeight: settings.lineHeight, 
                     textAlign: 'justify',
                     color: currentTheme.color,
@@ -1417,7 +1455,7 @@ function NovelReader() {
                           component="p"
                           style={{ 
                             textIndent: '2em', 
-                            marginBottom: 24, 
+                            marginBottom: isMobile ? 16 : 24, 
                             color: currentTheme.color,
                             fontSize: 'inherit',
                             lineHeight: 'inherit',
@@ -1430,29 +1468,32 @@ function NovelReader() {
                     ))}
                   </div>
 
-                  <div style={{ 
-                    marginTop: 48, 
-                    paddingTop: 24,
-                    borderTop: `1px solid ${currentTheme.color}20`,
-                    display: 'flex',
-                    justifyContent: 'space-between'
-                  }}>
+                  <Group 
+                    justify="space-between"
+                    mt={isMobile ? 32 : 48}
+                    pt={isMobile ? 16 : 24}
+                    style={{ borderTop: `1px solid ${currentTheme.color}20` }}
+                  >
                     <Button 
-                      size="large"
+                      size={isMobile ? 'sm' : 'lg'}
                       disabled={currentChapter === 0}
                       onClick={handlePrevChapter}
+                      fullWidth={isMobile}
+                      style={{ flex: isMobile ? 1 : 'none' }}
                     >
                       ← 上一章
                     </Button>
                     <Button 
-                      size="large"
+                      size={isMobile ? 'sm' : 'lg'}
                       disabled={currentChapter === chapters.length - 1}
                       onClick={handleNextChapter}
-                      type="primary"
+                      variant="filled"
+                      fullWidth={isMobile}
+                      style={{ flex: isMobile ? 1 : 'none' }}
                     >
                       下一章 →
                     </Button>
-                  </div>
+                  </Group>
                 </div>
               )}
             </Card>
@@ -1466,16 +1507,16 @@ function NovelReader() {
                   style={{ 
                     background: currentTheme.background, 
                     borderColor: currentTheme.color + '20',
-                    marginBottom: idx < loadedChapters.length - 1 ? 24 : 0
+                    marginBottom: idx < loadedChapters.length - 1 ? (isMobile ? 12 : 24) : 0
                   }}
                 >
-                  <div style={{ maxWidth: 800, margin: '0 auto' }} data-chapter-index={idx}>
-                    <Title order={3} style={{ textAlign: 'center', marginBottom: 32, color: currentTheme.color }}>
+                  <div style={{ maxWidth: isMobile ? '100%' : 800, margin: '0 auto', padding: isMobile ? '0 8px' : '0' }} data-chapter-index={idx}>
+                    <Title order={isMobile ? 5 : 3} style={{ textAlign: 'center', marginBottom: isMobile ? 16 : 32, color: currentTheme.color }}>
                       {chapter.title}
                     </Title>
                     
                     <div style={{ 
-                      fontSize: `${settings.fontSize}px`, 
+                      fontSize: isMobile ? `${Math.max(settings.fontSize - 2, 14)}px` : `${settings.fontSize}px`, 
                       lineHeight: settings.lineHeight, 
                       textAlign: 'justify',
                       color: currentTheme.color,
@@ -1489,7 +1530,7 @@ function NovelReader() {
                             component="p"
                             style={{ 
                               textIndent: '2em', 
-                              marginBottom: 24, 
+                              marginBottom: isMobile ? 16 : 24, 
                               color: currentTheme.color,
                               fontSize: 'inherit',
                               lineHeight: 'inherit',

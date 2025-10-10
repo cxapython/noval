@@ -14,6 +14,24 @@ const mantineTheme = createTheme({
   
   defaultRadius: 'md',
   
+  // 响应式断点配置
+  breakpoints: {
+    xs: '36em',  // 576px - 手机端
+    sm: '48em',  // 768px - 平板竖屏
+    md: '62em',  // 992px - 平板横屏
+    lg: '75em',  // 1200px - 桌面端
+    xl: '88em',  // 1408px - 大屏
+  },
+  
+  // 间距配置（针对小屏幕优化）
+  spacing: {
+    xs: '0.625rem',  // 10px
+    sm: '0.75rem',   // 12px
+    md: '1rem',      // 16px
+    lg: '1.25rem',   // 20px
+    xl: '1.5rem',    // 24px
+  },
+  
   // 自定义颜色方案
   colors: {
     // 现代蓝色渐变
@@ -46,6 +64,15 @@ const mantineTheme = createTheme({
       defaultProps: {
         radius: 'md',
       },
+      styles: (theme) => ({
+        root: {
+          // 移动端增大点击区域
+          '@media (max-width: 48em)': {
+            minHeight: '44px',
+            fontSize: theme.fontSizes.sm,
+          },
+        },
+      }),
     },
     
     Card: {
@@ -96,6 +123,32 @@ const mantineTheme = createTheme({
     
     AppShell: {
       defaultProps: {},
+      styles: (theme) => ({
+        main: {
+          // 移动端调整内边距
+          '@media (max-width: 48em)': {
+            padding: '0.75rem !important',
+          },
+        },
+        header: {
+          '@media (max-width: 48em)': {
+            padding: '0 0.75rem',
+          },
+        },
+      }),
+    },
+    
+    ActionIcon: {
+      defaultProps: {},
+      styles: (theme) => ({
+        root: {
+          // 移动端增大点击区域
+          '@media (max-width: 48em)': {
+            minWidth: '44px',
+            minHeight: '44px',
+          },
+        },
+      }),
     },
     
     Tabs: {
@@ -136,6 +189,13 @@ const mantineTheme = createTheme({
   other: {
     pageBackground: '#f8f9fa',
     cardHoverShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
+    
+    // 移动端配置
+    mobileBreakpoint: '48em',
+    tabletBreakpoint: '62em',
+    
+    // 移动端最小点击区域
+    minTouchTarget: '44px',
   }
 });
 

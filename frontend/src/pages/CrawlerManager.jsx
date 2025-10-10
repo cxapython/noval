@@ -5,6 +5,7 @@ import {
   Modal, TextInput, NumberInput, Switch, Tabs,
   SimpleGrid, Text, Badge, ActionIcon, Title, Box
 } from '@mantine/core'
+import { useMediaQuery } from '@mantine/hooks'
 import { 
   IconPlus, IconTrash, 
   IconFileText, IconEdit,
@@ -22,6 +23,7 @@ const API_BASE = '/api/crawler'
 function CrawlerManager() {
   const navigate = useNavigate()
   const location = useLocation()
+  const isMobile = useMediaQuery('(max-width: 48em)')
   const [configs, setConfigs] = useState([])
   const [loading, setLoading] = useState(false)
   
@@ -231,26 +233,30 @@ function CrawlerManager() {
       
       <Card shadow="sm" padding="lg" radius="md" withBorder>
         <Stack gap="lg">
-          <Group justify="space-between">
-            <Group>
-              <IconApps size={24} />
-              <Title order={3}>爬虫配置管理</Title>
+          <Group justify="space-between" wrap={isMobile ? 'wrap' : 'nowrap'}>
+            <Group gap={isMobile ? 'xs' : 'sm'}>
+              <IconApps size={isMobile ? 20 : 24} />
+              <Title order={isMobile ? 5 : 3}>爬虫配置管理</Title>
             </Group>
-            <Group>
+            <Group gap="xs" style={{ flex: isMobile ? '1 1 100%' : 'none', justifyContent: isMobile ? 'stretch' : 'flex-start' }}>
               <Button 
-                size="md"
-                leftSection={<IconFlask size={18} />} 
+                size={isMobile ? 'xs' : 'md'}
+                leftSection={!isMobile && <IconFlask size={18} />} 
                 onClick={() => navigate('/crawler/wizard')}
                 variant="light"
+                fullWidth={isMobile}
+                style={{ flex: isMobile ? 1 : 'none' }}
               >
-                智能向导
+                {isMobile ? '向导' : '智能向导'}
               </Button>
               <Button 
-                size="md"
-                leftSection={<IconPlus size={18} />} 
+                size={isMobile ? 'xs' : 'md'}
+                leftSection={!isMobile && <IconPlus size={18} />} 
                 onClick={handleCreateNew}
+                fullWidth={isMobile}
+                style={{ flex: isMobile ? 1 : 'none' }}
               >
-                新建配置
+                {isMobile ? '新建' : '新建配置'}
               </Button>
             </Group>
           </Group>
@@ -310,33 +316,33 @@ function CrawlerManager() {
                   </Stack>
 
                   <Stack gap="xs" mt="md">
-                    <Group gap="xs">
+                    <Group gap="xs" wrap="nowrap">
                       <Button 
                         variant="light"
                         color="green"
-                        size="xs"
-                        leftSection={<IconPlayerPlay size={14} />}
+                        size={isMobile ? 'xs' : 'sm'}
+                        leftSection={<IconPlayerPlay size={isMobile ? 12 : 14} />}
                         onClick={() => handleRun(config)}
                         style={{ flex: 1 }}
                       >
-                        运行
+                        {isMobile ? '运行' : '运行'}
                       </Button>
                       <Button 
                         variant="light"
-                        size="xs"
-                        leftSection={<IconEdit size={14} />}
+                        size={isMobile ? 'xs' : 'sm'}
+                        leftSection={<IconEdit size={isMobile ? 12 : 14} />}
                         onClick={() => handleEdit(config.filename)}
                         style={{ flex: 1 }}
                       >
-                        编辑
+                        {isMobile ? '编辑' : '编辑'}
                       </Button>
                       <ActionIcon 
                         variant="light"
                         color="red"
-                        size="lg"
+                        size={isMobile ? 'md' : 'lg'}
                         onClick={() => handleDelete(config.filename)}
                       >
-                        <IconTrash size={16} />
+                        <IconTrash size={isMobile ? 14 : 16} />
                       </ActionIcon>
                     </Group>
                     <Button 

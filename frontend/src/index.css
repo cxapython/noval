@@ -149,3 +149,84 @@ a:hover {
   animation: fadeIn 0.3s ease-out;
 }
 
+/* 移动端优化 */
+@media (max-width: 48em) {
+  /* 移动端基础字体大小 */
+  body {
+    font-size: 14px;
+  }
+  
+  /* 移动端滚动条（更细） */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  
+  /* 移动端触摸优化 */
+  * {
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+    touch-action: manipulation;
+  }
+  
+  /* 移动端按钮最小触摸区域 */
+  button, a, [role="button"] {
+    min-height: 44px;
+  }
+  
+  /* 移动端表格优化 */
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* 移动端模态框全屏化 */
+  .mantine-Modal-content {
+    max-height: 100vh !important;
+  }
+  
+  /* 移动端抽屉优化 */
+  .mantine-Drawer-content {
+    max-width: 100vw !important;
+  }
+}
+
+/* 平板端优化 */
+@media (min-width: 48em) and (max-width: 62em) {
+  body {
+    font-size: 15px;
+  }
+}
+
+/* 横屏优化 */
+@media (max-height: 500px) and (orientation: landscape) {
+  /* 横屏时减少垂直内边距 */
+  .mantine-AppShell-header {
+    height: 48px !important;
+  }
+  
+  .mantine-AppShell-footer {
+    display: none !important;
+  }
+}
+
+/* 防止文本选择（在某些交互元素上） */
+.no-select {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* 移动端友好的 focus 状态 */
+@media (max-width: 48em) {
+  *:focus {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+  
+  *:focus:not(:focus-visible) {
+    outline: none;
+  }
+}
+

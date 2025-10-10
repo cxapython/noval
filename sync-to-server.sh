@@ -79,18 +79,7 @@ if [ "$SYNC_MODE" = "2" ]; then
     RSYNC_OPTS="$RSYNC_OPTS --checksum"
     
     # 模式2：排除无需同步的文件
-    EXCLUDE_ARGS="
-      --exclude='node_modules/' \
-      --exclude='.venv/' \
-      --exclude='__pycache__/' \
-      --exclude='*.pyc' \
-      --exclude='*.pyo' \
-      --exclude='.DS_Store' \
-      --exclude='.vscode/' \
-      --exclude='.idea/' \
-      --exclude='*.swp' \
-      --exclude='*.swo' \
-      --exclude='.git/'"
+    EXCLUDE_ARGS="--exclude=node_modules/ --exclude=frontend/node_modules/ --exclude=.venv/ --exclude=__pycache__/ --exclude=*.pyc --exclude=*.pyo --exclude=.DS_Store --exclude=.vscode/ --exclude=.idea/ --exclude=*.swp --exclude=*.swo --exclude=.git/"
 else
     echo ""
     echo "✅ 使用快速同步模式"
@@ -98,20 +87,7 @@ else
     echo "   📌 根据修改时间和文件大小判断"
     
     # 模式1：排除大文件和临时文件
-    EXCLUDE_ARGS="
-      --exclude='node_modules/' \
-      --exclude='.venv/' \
-      --exclude='__pycache__/' \
-      --exclude='*.pyc' \
-      --exclude='*.pyo' \
-      --exclude='.git/' \
-      --exclude='*.log' \
-      --exclude='logs/*.log' \
-      --exclude='data/novel_data.json' \
-      --exclude='.DS_Store' \
-      --exclude='.vscode/' \
-      --exclude='.idea/' \
-      --exclude='.env.local'"
+    EXCLUDE_ARGS="--exclude=node_modules/ --exclude=frontend/node_modules/ --exclude=.venv/ --exclude=__pycache__/ --exclude=*.pyc --exclude=*.pyo --exclude=.git/ --exclude=*.log --exclude=logs/*.log --exclude=data/novel_data.json --exclude=.DS_Store --exclude=.vscode/ --exclude=.idea/ --exclude=.env.local"
 fi
 
 echo ""

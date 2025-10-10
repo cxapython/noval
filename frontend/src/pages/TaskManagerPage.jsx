@@ -5,6 +5,7 @@ import {
   Tooltip, Drawer, Badge, ActionIcon, Select,
   Table as MantineTable, Paper, RingProgress, Center, Box
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import {
   IconPlayerPlay, IconPlayerStop, IconTrash, IconReload,
   IconPlus, IconEye, IconClock, IconCircleCheck,
@@ -19,6 +20,7 @@ import { API_BASE_URL, SOCKET_CONFIG } from '../config';
 // API基础URL (从配置文件导入)
 
 function TaskManagerPage() {
+  const isMobile = useMediaQuery('(max-width: 48em)');
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [createModalVisible, setCreateModalVisible] = useState(false);
@@ -423,61 +425,70 @@ function TaskManagerPage() {
         <Card shadow="sm" padding="lg" radius="md" withBorder>
           <Stack gap="lg">
             {/* 标题和操作栏 */}
-            <Group justify="space-between">
-            <Title order={2}>📋 任务管理</Title>
-            <Group>
-              <Button
-                leftSection={<IconReload size={18} />}
-                onClick={fetchTasks}
-                loading={loading}
-                variant="default"
-              >
-                刷新
-              </Button>
-              <Button
-                leftSection={<IconClearAll size={18} />}
-                onClick={handleClearCompleted}
-                variant="light"
-              >
-                清理已完成
-              </Button>
-              <Button
-                leftSection={<IconPlus size={18} />}
-                onClick={() => setCreateModalVisible(true)}
-              >
-                创建任务
-              </Button>
+            <Group justify="space-between" wrap={isMobile ? 'wrap' : 'nowrap'}>
+              <Title order={isMobile ? 4 : 2}>📋 任务管理</Title>
+              <Group gap="xs" style={{ flex: isMobile ? '1 1 100%' : 'none', justifyContent: isMobile ? 'stretch' : 'flex-start' }}>
+                <Button
+                  leftSection={!isMobile && <IconReload size={18} />}
+                  onClick={fetchTasks}
+                  loading={loading}
+                  variant="default"
+                  size={isMobile ? 'xs' : 'sm'}
+                  fullWidth={isMobile}
+                  style={{ flex: isMobile ? 1 : 'none' }}
+                >
+                  {isMobile ? '刷新' : '刷新'}
+                </Button>
+                {!isMobile && (
+                  <Button
+                    leftSection={<IconClearAll size={18} />}
+                    onClick={handleClearCompleted}
+                    variant="light"
+                    size="sm"
+                  >
+                    清理已完成
+                  </Button>
+                )}
+                <Button
+                  leftSection={!isMobile && <IconPlus size={18} />}
+                  onClick={() => setCreateModalVisible(true)}
+                  size={isMobile ? 'xs' : 'sm'}
+                  fullWidth={isMobile}
+                  style={{ flex: isMobile ? 1 : 'none' }}
+                >
+                  {isMobile ? '新建' : '创建任务'}
+                </Button>
+              </Group>
             </Group>
-          </Group>
 
           {/* 统计卡片 */}
-          <Grid>
-            <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-              <Paper shadow="xs" p="md" radius="md" withBorder>
+          <Grid gutter={isMobile ? 'xs' : 'md'}>
+            <Grid.Col span={{ base: 6, sm: 6, md: 3 }}>
+              <Paper shadow="xs" p={isMobile ? 'sm' : 'md'} radius="md" withBorder>
                 <Group gap="xs">
-                  <IconClock size={24} color="var(--mantine-color-gray-6)" />
+                  <IconClock size={isMobile ? 20 : 24} color="var(--mantine-color-gray-6)" />
                   <div>
-                    <Text size="xs" c="dimmed">总任务数</Text>
-                    <Text size="xl" fw={700}>{stats.total}</Text>
+                    <Text size="xs" c="dimmed">总任务</Text>
+                    <Text size={isMobile ? 'lg' : 'xl'} fw={700}>{stats.total}</Text>
                   </div>
                 </Group>
               </Paper>
             </Grid.Col>
-            <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-              <Paper shadow="xs" p="md" radius="md" withBorder>
+            <Grid.Col span={{ base: 6, sm: 6, md: 3 }}>
+              <Paper shadow="xs" p={isMobile ? 'sm' : 'md'} radius="md" withBorder>
                 <Group gap="xs">
-                  <IconPlayerPlay size={24} color="var(--mantine-color-blue-6)" />
+                  <IconPlayerPlay size={isMobile ? 20 : 24} color="var(--mantine-color-blue-6)" />
                   <div>
                     <Text size="xs" c="dimmed">运行中</Text>
-                    <Text size="xl" fw={700} c="blue">{stats.running}</Text>
+                    <Text size={isMobile ? 'lg' : 'xl'} fw={700} c="blue">{stats.running}</Text>
                   </div>
                 </Group>
               </Paper>
             </Grid.Col>
-            <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-              <Paper shadow="xs" p="md" radius="md" withBorder>
+            <Grid.Col span={{ base: 6, sm: 6, md: 3 }}>
+              <Paper shadow="xs" p={isMobile ? 'sm' : 'md'} radius="md" withBorder>
                 <Group gap="xs">
-                  <IconCircleCheck size={24} color="var(--mantine-color-green-6)" />
+                  <IconCircleCheck size={isMobile ? 20 : 24} color="var(--mantine-color-green-6)" />
                   <div>
                     <Text size="xs" c="dimmed">已完成</Text>
                     <Text size="xl" fw={700} c="green">{stats.completed}</Text>
