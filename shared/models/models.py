@@ -2,10 +2,35 @@
 SQLAlchemy ORM 模型定义
 """
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Index
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Index, Boolean
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
+
+
+class User(Base):
+    """用户模型"""
+    __tablename__ = 'users'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String(50), unique=True, nullable=False, index=True, comment='用户名')
+    password = Column(String(255), nullable=False, comment='密码哈希')
+    is_admin = Column(Boolean, default=False, comment='是否管理员')
+    created_at = Column(DateTime, default=datetime.now, comment='创建时间')
+    last_login = Column(DateTime, nullable=True, comment='最后登录时间')
+    
+    def __repr__(self):
+        return f"<User(id={self.id}, username='{self.username}', is_admin={self.is_admin})>"
+    
+    def to_dict(self):
+        """转换为字典（不包含密码）"""
+        return {
+            'id': self.id,
+            'username': self.username,
+            'is_admin': self.is_admin,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'last_login': self.last_login.isoformat() if self.last_login else None
+        }
 
 
 class Novel(Base):

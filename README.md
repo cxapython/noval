@@ -76,44 +76,6 @@
 
 ## 🚀 快速开始
 
-### 方式1：Docker 部署（推荐）⭐ 🐳
-
-**优势**：无需安装Python、Node.js、MySQL等依赖，3-5分钟快速部署
-
-#### 前置要求
-- Docker 20.10+
-- Docker Compose 2.0+
-
-#### 快速启动
-
-```bash
-# 1. 克隆项目
-git clone git@github.com:cxapython/noval.git
-cd noval
-
-# 2. 配置环境变量（可选）
-cp env.example .env
-# 编辑 .env 修改数据库密码等配置
-
-# 3. 一键启动
-./docker-start.sh
-
-# 访问地址
-# 前端: http://localhost
-# 后端: http://localhost:5001
-
-# 4. 停止服务
-./docker-stop.sh
-```
-
-**详细文档**: 
-- 📖 [Docker使用指南](docs/Docker使用指南.md)
-- 🖥️ [1Panel部署指南](docs/1Panel部署指南.md) - 适合使用1Panel面板的服务器
-
----
-
-### 方式2：传统部署
-
 #### 环境要求
 
 | 软件 | 版本 | 说明 |
@@ -124,7 +86,7 @@ cp env.example .env
 | **MySQL** | 5.7+ | 数据库（可选） |
 | **Redis** | 最新 | 任务缓存（可选） |
 
-#### 一键启动
+#### 一键启动（推荐）⭐
 
 **Linux / macOS 用户：**
 
@@ -133,19 +95,26 @@ cp env.example .env
 git clone git@github.com:cxapython/noval.git
 cd noval
 
-# 2. 安装依赖
+# 2. 配置数据库
+cp shared/utils/config.example.py shared/utils/config.py
+# 编辑 shared/utils/config.py 修改数据库密码等配置
+
+# 3. 安装依赖
 pip install -r requirements.txt
 cd frontend && npm install && cd ..
 
-# 3. 一键启动所有服务
+# 4. 初始化数据库（首次使用）
+python3 scripts/init_reader_tables.py
+python3 scripts/init_auth_tables.py
+
+# 5. 一键启动所有服务
 ./start.sh
 
 # 访问地址（根据终端输出）
 # 前端: http://localhost:3010
 # 后端: http://localhost:5001
-# Demo: http://localhost:3010/demo
 
-# 4. 停止服务
+# 6. 停止服务
 ./stop.sh
 ```
 
@@ -156,19 +125,26 @@ cd frontend && npm install && cd ..
 git clone git@github.com:cxapython/noval.git
 cd noval
 
-# 2. 安装依赖
+# 2. 配置数据库
+copy shared\utils\config.example.py shared\utils\config.py
+# 编辑 shared\utils\config.py 修改数据库密码等配置
+
+# 3. 安装依赖
 pip install -r requirements.txt
 cd frontend && npm install && cd ..
 
-# 3. 一键启动所有服务
+# 4. 初始化数据库（首次使用）
+python scripts\init_reader_tables.py
+python scripts\init_auth_tables.py
+
+# 5. 一键启动所有服务
 start.bat
 
 # 访问地址（根据命令行输出）
 # 前端: http://localhost:3010
 # 后端: http://localhost:5001
-# Demo: http://localhost:3010/demo
 
-# 4. 停止服务
+# 6. 停止服务
 stop.bat
 ```
 
@@ -176,20 +152,26 @@ stop.bat
 - Windows 需要先安装 uv：`powershell -c "irm https://astral.sh/uv/install.ps1 | iex"`
 - Linux/macOS 需要先安装 uv：`curl -LsSf https://astral.sh/uv/install.sh | sh`
 
-#### 手动启动（调试用）
+#### 手动启动（开发调试用）
 
 ```bash
 # 1. 配置数据库
+cp shared/utils/config.example.py shared/utils/config.py
 # 编辑 shared/utils/config.py 修改数据库密码
 
-# 2. 初始化数据库（仅首次）
-python3.8 scripts/init_reader_tables.py
+# 2. 初始化数据库（首次使用）
+python3 scripts/init_reader_tables.py
+python3 scripts/init_auth_tables.py
 
 # 3. 终端1 - 启动后端
 python3 backend/api.py
 
-# 4. 终端2 - 启动前端
+# 4. 终端2 - 启动前端（开发模式）
 cd frontend && npm run dev
+
+# 或者使用生产构建
+cd frontend && npm run build
+python3 -m http.server 3010 --directory dist
 ```
 
 #### 访问应用

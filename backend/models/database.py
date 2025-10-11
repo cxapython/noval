@@ -15,7 +15,7 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from shared.models.models import Base, Novel, Chapter, ReadingProgress, Bookmark, ReaderSetting, CrawlerTask
+from shared.models.models import Base, User, Novel, Chapter, ReadingProgress, Bookmark, ReaderSetting, CrawlerTask
 
 
 class NovelDatabase:
@@ -81,6 +81,22 @@ class NovelDatabase:
             raise
         finally:
             session.close()
+    
+    @contextmanager
+    def get_connection(self):
+        """获取原始数据库连接（用于执行原始SQL）"""
+        conn = self.engine.connect()
+        trans = conn.begin()
+        try:
+            yield conn
+            trans.commit()
+        except Exception as e:
+            trans.rollback()
+            if not self.silent:
+                print(f"❌ 数据库操作失败: {e}")
+            raise
+        finally:
+            conn.close()
     
     def connect(self, max_retries=5, retry_delay=2):
         """

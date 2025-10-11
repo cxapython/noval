@@ -16,6 +16,7 @@ from loguru import logger
 from backend.routes.crawler import crawler_bp
 from backend.routes.reader import reader_bp
 from backend.routes.crawler_v5 import crawler_v5_bp
+from backend.routes.auth import auth_bp
 
 # 导入数据库初始化函数
 from scripts.init_reader_tables import init_database_tables
@@ -30,6 +31,7 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 app.register_blueprint(crawler_bp, url_prefix='/api/crawler')
 app.register_blueprint(reader_bp, url_prefix='/api/reader')
 app.register_blueprint(crawler_v5_bp)  # V5路由已包含url_prefix
+app.register_blueprint(auth_bp, url_prefix='/api/auth')  # 认证路由
 
 
 # ==================== 数据库初始化 ====================

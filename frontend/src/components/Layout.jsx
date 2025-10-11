@@ -1,12 +1,14 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
-import { AppShell, Group, Title, ActionIcon, Tabs, Text, Menu, Tooltip, useMantineColorScheme, useComputedColorScheme, Burger, Drawer, Stack, NavLink, useMatches } from '@mantine/core'
+import { AppShell, Group, Title, ActionIcon, Tabs, Text, Menu, Tooltip, useMantineColorScheme, useComputedColorScheme, Burger, Drawer, Stack, NavLink, Avatar } from '@mantine/core'
 import { useDisclosure, useMediaQuery } from '@mantine/hooks'
-import { IconSettings, IconBook, IconBrandGithub, IconList, IconSun, IconMoon, IconSunMoon } from '@tabler/icons-react'
+import { IconSettings, IconBook, IconBrandGithub, IconList, IconSun, IconMoon, IconSunMoon, IconUser, IconLogout } from '@tabler/icons-react'
+import { useAuth } from '../contexts/AuthContext'
 
 function Layout({ children }) {
   const location = useLocation()
   const navigate = useNavigate()
+  const { user, logout } = useAuth()
   const { setColorScheme, colorScheme } = useMantineColorScheme()
   const computedColorScheme = useComputedColorScheme('light')
   const [mobileMenuOpened, { toggle: toggleMobileMenu, close: closeMobileMenu }] = useDisclosure()
@@ -14,6 +16,11 @@ function Layout({ children }) {
   // 响应式断点
   const isMobile = useMediaQuery('(max-width: 48em)')
   const isTablet = useMediaQuery('(max-width: 62em)')
+  
+  const handleLogout = () => {
+    logout()
+    navigate('/login')
+  }
 
   // 确定当前激活的标签
   const getActiveTab = () => {
@@ -114,66 +121,88 @@ function Layout({ children }) {
             )}
           </Group>
 
-          {/* 右侧：主题切换 + GitHub */}
+          {/* 右侧：主题切换 + 用户菜单 */}
           <Group gap="xs" wrap="nowrap">
             {/* 主题切换按钮 */}
-            <Menu shadow="md" width={180}>
-              <Menu.Target>
-                <Tooltip label="切换主题">
-                  <ActionIcon
-                    variant="light"
-                    size={isMobile ? 'md' : 'lg'}
-                    radius="md"
+            {!isMobile && (
+              <Menu shadow="md" width={180}>
+                <Menu.Target>
+                  <Tooltip label="切换主题">
+                    <ActionIcon
+                      variant="light"
+                      size="lg"
+                      radius="md"
+                    >
+                      {computedColorScheme === 'dark' ? (
+                        <IconMoon size={18} />
+                      ) : (
+                        <IconSun size={18} />
+                      )}
+                    </ActionIcon>
+                  </Tooltip>
+                </Menu.Target>
+
+                <Menu.Dropdown>
+                  <Menu.Label>选择主题</Menu.Label>
+                  <Menu.Item
+                    leftSection={<IconSun size={16} />}
+                    onClick={() => handleColorSchemeChange('light')}
+                    rightSection={colorScheme === 'light' && '✓'}
                   >
-                    {computedColorScheme === 'dark' ? (
-                      <IconMoon size={isMobile ? 16 : 18} />
-                    ) : (
-                      <IconSun size={isMobile ? 16 : 18} />
-                    )}
-                  </ActionIcon>
-                </Tooltip>
+                    浅色模式
+                  </Menu.Item>
+                  <Menu.Item
+                    leftSection={<IconMoon size={16} />}
+                    onClick={() => handleColorSchemeChange('dark')}
+                    rightSection={colorScheme === 'dark' && '✓'}
+                  >
+                    深色模式
+                  </Menu.Item>
+                  <Menu.Item
+                    leftSection={<IconSunMoon size={16} />}
+                    onClick={() => handleColorSchemeChange('auto')}
+                    rightSection={colorScheme === 'auto' && '✓'}
+                  >
+                    跟随系统
+                  </Menu.Item>
+                </Menu.Dropdown>
+              </Menu>
+            )}
+
+            {/* 用户菜单 */}
+            <Menu shadow="md" width={200}>
+              <Menu.Target>
+                <ActionIcon
+                  variant="light"
+                  size={isMobile ? 'md' : 'lg'}
+                  radius="md"
+                  style={{ 
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                  }}
+                >
+                  <IconUser size={isMobile ? 16 : 18} style={{ color: 'white' }} />
+                </ActionIcon>
               </Menu.Target>
 
               <Menu.Dropdown>
-                <Menu.Label>选择主题</Menu.Label>
+                <Menu.Label>
+                  <Group gap="xs">
+                    <Avatar size={24} radius="xl" color="blue">
+                      {user?.username?.[0]?.toUpperCase()}
+                    </Avatar>
+                    <Text size="sm" fw={600}>{user?.username}</Text>
+                  </Group>
+                </Menu.Label>
+                <Menu.Divider />
                 <Menu.Item
-                  leftSection={<IconSun size={16} />}
-                  onClick={() => handleColorSchemeChange('light')}
-                  rightSection={colorScheme === 'light' && '✓'}
+                  leftSection={<IconLogout size={16} />}
+                  onClick={handleLogout}
+                  color="red"
                 >
-                  浅色模式
-                </Menu.Item>
-                <Menu.Item
-                  leftSection={<IconMoon size={16} />}
-                  onClick={() => handleColorSchemeChange('dark')}
-                  rightSection={colorScheme === 'dark' && '✓'}
-                >
-                  深色模式
-                </Menu.Item>
-                <Menu.Item
-                  leftSection={<IconSunMoon size={16} />}
-                  onClick={() => handleColorSchemeChange('auto')}
-                  rightSection={colorScheme === 'auto' && '✓'}
-                >
-                  跟随系统
+                  登出
                 </Menu.Item>
               </Menu.Dropdown>
             </Menu>
-
-            {!isMobile && (
-              <ActionIcon
-                component="a"
-                href="https://github.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                variant="light"
-                color="gray"
-                size="lg"
-                radius="md"
-              >
-                <IconBrandGithub size={18} />
-              </ActionIcon>
-            )}
           </Group>
         </Group>
       </AppShell.Header>
@@ -214,9 +243,28 @@ function Layout({ children }) {
             variant="filled"
           />
           
-          <Text size="xs" c="dimmed" mt="xl" px="sm">
-            v4.0.0
-          </Text>
+          <Menu.Divider my="sm" />
+          
+          {/* 用户信息和登出 */}
+          <Group px="sm" py="xs">
+            <Avatar size={32} radius="xl" color="blue">
+              {user?.username?.[0]?.toUpperCase()}
+            </Avatar>
+            <div style={{ flex: 1 }}>
+              <Text size="sm" fw={600}>{user?.username}</Text>
+              <Text size="xs" c="dimmed">v4.0.0</Text>
+            </div>
+          </Group>
+          
+          <NavLink
+            label="登出"
+            leftSection={<IconLogout size={20} />}
+            onClick={() => {
+              closeMobileMenu()
+              handleLogout()
+            }}
+            color="red"
+          />
         </Stack>
       </Drawer>
 
