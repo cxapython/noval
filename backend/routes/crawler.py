@@ -416,8 +416,16 @@ def render_page():
         logger.info(f"📸 开始渲染页面: {url}")
         
         with sync_playwright() as p:
-            # 启动浏览器
-            browser = p.chromium.launch(headless=True)
+            # 启动浏览器（服务器环境配置）
+            browser = p.chromium.launch(
+                headless=True,
+                args=[
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu'
+                ]
+            )
             page = browser.new_page(
                 viewport={'width': 1280, 'height': 1024},
                 user_agent='Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15'
@@ -486,7 +494,15 @@ def generate_xpath():
         logger.info(f"🔍 生成XPath: URL={url}, Selector={selector}, Text={element_text}")
         
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            browser = p.chromium.launch(
+                headless=True,
+                args=[
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu'
+                ]
+            )
             page = browser.new_page()
             
             try:

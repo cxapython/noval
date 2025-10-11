@@ -414,7 +414,15 @@ def validate_xpath():
         logger.info(f"   目标URL: {url}")
         
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            browser = p.chromium.launch(
+                headless=True,
+                args=[
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu'
+                ]
+            )
             page = browser.new_page()
             
             try:

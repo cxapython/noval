@@ -76,17 +76,7 @@
 
 ## 🚀 快速开始
 
-#### 环境要求
-
-| 软件 | 版本 | 说明 |
-|-----|------|-----|
-| **Python** | 3.8.2 | 后端运行环境 |
-| **Node.js** | 18.10.0 | 前端构建环境 |
-| **npm** | 8.19.2 | 包管理工具 |
-| **MySQL** | 5.7+ | 数据库（可选） |
-| **Redis** | 最新 | 任务缓存（可选） |
-
-#### 一键启动（推荐）⭐
+### 💡 真·一键启动（全自动，强烈推荐！）⭐
 
 **Linux / macOS 用户：**
 
@@ -95,27 +85,37 @@
 git clone git@github.com:cxapython/noval.git
 cd noval
 
-# 2. 配置数据库
-cp shared/utils/config.example.py shared/utils/config.py
-# 编辑 shared/utils/config.py 修改数据库密码等配置
-
-# 3. 安装依赖
-pip install -r requirements.txt
-cd frontend && npm install && cd ..
-
-# 4. 初始化数据库（首次使用）
-python3 scripts/init_reader_tables.py
-python3 scripts/init_auth_tables.py
-
-# 5. 一键启动所有服务
+# 2. 一键启动（首次运行会自动安装所有依赖）
 ./start.sh
 
+# 就这么简单！脚本会自动完成：
+# ✅ 检测并安装 uv
+# ✅ 检测并安装 Node.js/npm
+# ✅ 创建目录结构
+# ✅ 创建配置文件
+# ✅ 创建 Python 虚拟环境
+# ✅ 安装 Python 依赖
+# ✅ 安装 Playwright 浏览器
+# ✅ 安装前端依赖
+# ✅ 初始化数据库
+# ✅ 启动所有服务
+
 # 访问地址（根据终端输出）
-# 前端: http://localhost:3010
+# 前端: http://localhost:3000
 # 后端: http://localhost:5001
 
-# 6. 停止服务
+# 停止服务
 ./stop.sh
+```
+
+**首次运行时间**: 5-10分钟（下载所有依赖）  
+**后续启动时间**: 5-10秒（仅启动服务）
+
+**配置数据库（可选）**:
+```bash
+# 如需自定义数据库配置
+vim shared/utils/config.py
+# 修改 DB_CONFIG 部分
 ```
 
 **Windows 用户：**
@@ -125,32 +125,49 @@ python3 scripts/init_auth_tables.py
 git clone git@github.com:cxapython/noval.git
 cd noval
 
-# 2. 配置数据库
-copy shared\utils\config.example.py shared\utils\config.py
-# 编辑 shared\utils\config.py 修改数据库密码等配置
+# 2. 安装 uv（仅首次）
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 
 # 3. 安装依赖
 pip install -r requirements.txt
 cd frontend && npm install && cd ..
 
-# 4. 初始化数据库（首次使用）
-python scripts\init_reader_tables.py
-python scripts\init_auth_tables.py
-
-# 5. 一键启动所有服务
+# 4. 一键启动所有服务
 start.bat
 
 # 访问地址（根据命令行输出）
-# 前端: http://localhost:3010
+# 前端: http://localhost:3000
 # 后端: http://localhost:5001
 
-# 6. 停止服务
+# 停止服务
 stop.bat
 ```
 
-**注意**：
-- Windows 需要先安装 uv：`powershell -c "irm https://astral.sh/uv/install.ps1 | iex"`
-- Linux/macOS 需要先安装 uv：`curl -LsSf https://astral.sh/uv/install.sh | sh`
+### 📋 系统要求
+
+| 软件 | 版本 | 说明 |
+|-----|------|-----|
+| **Python** | 3.8+ | 后端运行环境 |
+| **Node.js** | 16+ | 前端构建环境（自动安装） |
+| **npm** | 8+ | 包管理工具（自动安装） |
+| **uv** | 最新 | Python包管理（自动安装） |
+| **MySQL** | 5.7+ | 数据库（可选） |
+| **Redis** | 最新 | 任务缓存（可选） |
+
+### 🎯 新用户体验
+
+对于全新的 Linux/macOS 系统，只需要：
+
+1. **安装 Git**（通常已预装）
+2. **克隆项目并运行** `./start.sh`
+
+就是这样！所有其他依赖都会自动安装。
+
+### 📚 详细指南
+
+- **快速开始**: 查看 [docs/快速开始指南.md](docs/快速开始指南.md)
+- **功能说明**: 查看 [docs/功能说明.md](docs/功能说明.md)
+- **V5 使用**: 查看 [docs/V5_使用指南.md](docs/V5_使用指南.md)
 
 #### 手动启动（开发调试用）
 
