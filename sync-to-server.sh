@@ -31,12 +31,6 @@ echo "📍 目标服务器: $SERVER_USER@$SERVER_IP"
 echo "📁 目标路径: $SERVER_PATH"
 echo ""
 
-# 检查本地目录
-if [ ! -f "docker-compose.yml" ]; then
-    echo "❌ 错误：当前不在项目根目录！"
-    echo "请先执行: cd /Users/chennan/pythonproject/demo/noval"
-    exit 1
-fi
 
 # 构建排除参数
 EXCLUDE_ARGS=""

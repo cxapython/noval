@@ -8,9 +8,11 @@ import { useMediaQuery } from '@mantine/hooks'
 import { IconLock, IconUser, IconAlertCircle } from '@tabler/icons-react'
 import { notifications } from '@mantine/notifications'
 import axios from 'axios'
+import { useAuth } from '../contexts/AuthContext'
 
 function LoginPage({ onLoginSuccess }) {
   const navigate = useNavigate()
+  const { login } = useAuth()
   const isMobile = useMediaQuery('(max-width: 48em)')
   const [isLogin, setIsLogin] = useState(true)
   const [loading, setLoading] = useState(false)
@@ -47,9 +49,8 @@ function LoginPage({ onLoginSuccess }) {
       })
       
       if (response.data.success) {
-        // 保存 token
-        localStorage.setItem('auth_token', response.data.token)
-        localStorage.setItem('user', JSON.stringify(response.data.user))
+        // 使用 AuthContext 的 login 方法更新认证状态
+        login(response.data.user, response.data.token)
         
         notifications.show({
           title: '成功',
