@@ -39,6 +39,10 @@ Thumbs.db
 
 # Config (可能包含敏感信息)
 shared/utils/proxy_utils.py
+shared/utils/config.py
+.env
+.env.local
+.env.production
 
 # Data
 data/
@@ -61,5 +65,8 @@ htmlcov/
 tmp/
 temp/
 *.tmp
+
+# Docker (已废弃，仅本地保留)
+docker_old/
 
 .pids
