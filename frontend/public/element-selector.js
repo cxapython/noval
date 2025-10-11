@@ -99,7 +99,9 @@
   }
   
   function removeSelectedHighlight(element) {
-    element.classList.remove(CONFIG.selectedHighlightClass);
+    if (element && element.classList) {
+      element.classList.remove(CONFIG.selectedHighlightClass);
+    }
     state.selectedElements.delete(element);
   }
   
@@ -610,8 +612,15 @@
     
     event.preventDefault();
     event.stopPropagation();
+    event.stopImmediatePropagation(); // 阻止同一元素上的其他监听器
     
     const element = event.target;
+    
+    // 如果元素已经被选中过，跳过（避免重复选择已确认的元素）
+    if (state.selectedElements.has(element)) {
+      log('元素已被选中，跳过');
+      return;
+    }
     
     // 提取元素信息
     const elementInfo = extractElementInfo(element);
@@ -633,8 +642,11 @@
   }
   
   function handleDoubleClick(event) {
-    // 双击允许默认行为（打开链接）
-    log('双击事件，允许默认行为');
+    // 禁止双击的默认行为，避免跳转
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+    log('双击事件已阻止');
   }
   
   // ============ 通信机制 ============
@@ -712,6 +724,36 @@
     }
   }
   
+  // ============ 额外保护：拦截所有导航 ============
+  function preventNavigation(event) {
+    // 作为最后一道防线，拦截所有可能的导航行为
+    if (state.isActive) {
+      const target = event.target;
+      
+      // 检查是否是链接或链接的子元素
+      let element = target;
+      while (element && element !== document.body) {
+        if (element.tagName === 'A' && element.href) {
+          event.preventDefault();
+          event.stopPropagation();
+          event.stopImmediatePropagation();
+          log('🛑 已阻止链接跳转:', element.href);
+          return false;
+        }
+        element = element.parentElement;
+      }
+      
+      // 检查是否是表单提交
+      if (target.tagName === 'FORM' || (target.form && event.type === 'submit')) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        log('🛑 已阻止表单提交');
+        return false;
+      }
+    }
+  }
+  
   // ============ 初始化 ============
   function init() {
     log('正在初始化元素选择器...');
@@ -724,6 +766,10 @@
     document.addEventListener('mouseout', handleMouseOut, true);
     document.addEventListener('click', handleClick, true);
     document.addEventListener('dblclick', handleDoubleClick, true);
+    
+    // 额外保护：在捕获阶段拦截所有可能的导航
+    document.addEventListener('click', preventNavigation, true);
+    document.addEventListener('submit', preventNavigation, true);
     
     // 监听来自父窗口的消息
     window.addEventListener('message', handleMessageFromParent);
@@ -747,6 +793,8 @@
     document.removeEventListener('mouseout', handleMouseOut, true);
     document.removeEventListener('click', handleClick, true);
     document.removeEventListener('dblclick', handleDoubleClick, true);
+    document.removeEventListener('click', preventNavigation, true);
+    document.removeEventListener('submit', preventNavigation, true);
     window.removeEventListener('message', handleMessageFromParent);
     
     // 清除所有高亮

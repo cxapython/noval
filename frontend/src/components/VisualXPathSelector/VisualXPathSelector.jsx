@@ -228,16 +228,20 @@ const VisualXPathSelector = ({
     // 添加到已选字段列表
     setSelectedFields(prev => [...prev, field]);
     
-    // 清空当前选择，准备选择下一个元素
+    // 注意：不清除iframe中的高亮！
+    // 已选中的元素会保持蓝色高亮，防止用户误点导致页面跳转
+    // iframe中的handleClick会检查元素是否已选中，跳过已选元素
+    
+    // 清空右侧面板的当前选择状态，准备选择下一个元素
     setCurrentSelection(null);
     setSelectedXPathIndex(0);
     setFieldTypeSelection('');
     
     notifications.show({
       title: '✅ 字段已添加',
-      message: `${fieldLabel}: ${field.text}...`,
+      message: `${fieldLabel}: ${field.text}...  继续选择其他字段`,
       color: 'green',
-      autoClose: 2000
+      autoClose: 3000
     });
   };
   
