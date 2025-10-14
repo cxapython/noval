@@ -21,6 +21,16 @@ import CodeEditor from '../components/CodeEditor'
 
 const API_BASE = '/api/crawler'
 
+// 配置卡片渐变色方案
+const CARD_GRADIENTS = [
+  { from: '#667eea', to: '#764ba2', icon: '#667eea' }, // 蓝紫
+  { from: '#f093fb', to: '#f5576c', icon: '#f093fb' }, // 粉红
+  { from: '#4facfe', to: '#00f2fe', icon: '#4facfe' }, // 青蓝
+  { from: '#43e97b', to: '#38f9d7', icon: '#43e97b' }, // 绿青
+  { from: '#fa709a', to: '#fee140', icon: '#fa709a' }, // 粉黄
+  { from: '#30cfd0', to: '#330867', icon: '#30cfd0' }, // 青紫
+]
+
 function CrawlerManager() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -345,7 +355,9 @@ function CrawlerManager() {
               cols={{ base: 1, sm: 2, md: 2, lg: 3, xl: 4 }}
               spacing="md"
             >
-              {configs.map((config) => (
+              {configs.map((config, index) => {
+                const gradient = CARD_GRADIENTS[index % CARD_GRADIENTS.length]
+                return (
                 <Card
                   key={config.filename}
                   shadow="sm"
@@ -353,11 +365,21 @@ function CrawlerManager() {
                   radius="md"
                   withBorder
                   className="card-hover"
+                  style={{
+                    borderTop: `3px solid ${gradient.from}`,
+                  }}
                 >
-                  <Card.Section withBorder inheritPadding py="xs">
+                  <Card.Section 
+                    withBorder 
+                    inheritPadding 
+                    py="xs"
+                    style={{
+                      background: `linear-gradient(135deg, ${gradient.from}15 0%, ${gradient.to}15 100%)`,
+                    }}
+                  >
                     <Group justify="space-between">
                       <Group gap="xs">
-                        <IconFileText size={20} color="var(--mantine-color-blue-6)" />
+                        <IconFileText size={20} color={gradient.icon} />
                         <Text fw={600} size="sm">{config.name}</Text>
                       </Group>
                     </Group>
@@ -368,7 +390,10 @@ function CrawlerManager() {
                       {config.base_url}
                     </Text>
                     {config.description && (
-                      <Badge color="blue" variant="light">
+                      <Badge 
+                        variant="gradient"
+                        gradient={{ from: gradient.from, to: gradient.to, deg: 90 }}
+                      >
                         {config.description}
                       </Badge>
                     )}
@@ -426,7 +451,8 @@ function CrawlerManager() {
                     </Button>
                   </Stack>
                 </Card>
-              ))}
+                )
+              })}
             </SimpleGrid>
           )}
         </Stack>
