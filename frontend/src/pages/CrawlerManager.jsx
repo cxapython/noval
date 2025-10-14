@@ -243,17 +243,23 @@ function CrawlerManager() {
                 size={isMobile ? 'xs' : 'md'}
                 leftSection={!isMobile && <IconFlask size={18} />} 
                 onClick={() => navigate('/crawler/wizard')}
-                variant="light"
+                variant="gradient"
+                gradient={{ from: 'grape', to: 'violet', deg: 90 }}
                 fullWidth={isMobile}
-                style={{ flex: isMobile ? 1 : 'none' }}
+                style={{ 
+                  flex: isMobile ? 1 : 'none',
+                  boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+                }}
               >
-                {isMobile ? '向导' : '智能向导'}
+                {isMobile ? '🧙‍♂️ 向导' : '🧙‍♂️ 智能向导'}
               </Button>
               <Button 
                 size={isMobile ? 'xs' : 'md'}
                 leftSection={!isMobile && <IconPlus size={18} />} 
                 onClick={handleCreateNew}
                 fullWidth={isMobile}
+                variant="light"
+                color="grape"
                 style={{ flex: isMobile ? 1 : 'none' }}
               >
                 {isMobile ? '新建' : '新建配置'}
