@@ -772,19 +772,37 @@ function ConfigWizard() {
 
   return (
     <Box className="fade-in" px="xl" pb="xl">
-      <Card>
+      <Card
+        style={{
+          background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.1)',
+        }}
+      >
         <div style={{ marginBottom: 24 }}>
           <Group style={{ width: '100%', justifyContent: 'space-between' }}>
             <Button
-              icon={<IconArrowLeft />}
+              leftSection={<IconArrowLeft size={16} />}
               onClick={() => navigate('/crawler')}
+              variant="gradient"
+              gradient={{ from: 'grape', to: 'violet', deg: 90 }}
+              size="md"
             >
               返回列表
             </Button>
-            <h2 style={{ margin: 0, fontSize: 20 }}>
-              🧙 配置智能向导
-            </h2>
-            <div style={{ width: 80 }} />
+            <Title 
+              order={2}
+              style={{ 
+                margin: 0,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                fontSize: 24,
+                fontWeight: 700,
+              }}
+            >
+              🧙‍♂️ 配置智能向导
+            </Title>
+            <div style={{ width: 100 }} />
           </Group>
         </div>
 
@@ -818,9 +836,19 @@ function ConfigWizard() {
 
             {/* 内容类型选择（仅在第一步显示） */}
             {currentStep === 0 && (
-              <Card title="📋 选择内容类型" size="small" style={{ marginBottom: 24 }}>
+              <Card 
+                title="🎯 选择内容类型" 
+                size="small" 
+                style={{ 
+                  marginBottom: 24,
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white',
+                  boxShadow: '0 8px 32px 0 rgba(102, 126, 234, 0.37)',
+                  border: '1px solid rgba(255, 255, 255, 0.18)',
+                }}
+              >
                 <Stack>
-                  <Text size="sm" c="dimmed">
+                  <Text size="sm" style={{ color: 'rgba(255, 255, 255, 0.9)' }}>
                     选择要爬取的内容类型，系统会自动调整字段名称和配置选项
                   </Text>
                   <SegmentedControl
@@ -830,10 +858,34 @@ function ConfigWizard() {
                       value: type.value,
                       label: type.label
                     }))}
-                    size="md"
+                    size="lg"
                     fullWidth
+                    color="violet"
+                    styles={{
+                      root: {
+                        background: 'rgba(255, 255, 255, 0.2)',
+                        backdropFilter: 'blur(10px)',
+                      },
+                      label: {
+                        fontSize: '16px',
+                        fontWeight: 600,
+                      }
+                    }}
                   />
-                  <Alert color="blue" variant="light">
+                  <Alert 
+                    color="cyan" 
+                    variant="light"
+                    styles={{
+                      root: {
+                        background: 'rgba(255, 255, 255, 0.15)',
+                        backdropFilter: 'blur(10px)',
+                        border: '1px solid rgba(255, 255, 255, 0.3)',
+                      },
+                      message: {
+                        color: 'white',
+                      }
+                    }}
+                  >
                     {CONTENT_TYPES[contentType]?.description}
                   </Alert>
                 </Stack>

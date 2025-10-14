@@ -272,8 +272,25 @@ function Layout({ children }) {
         {children}
       </AppShell.Main>
 
-      <AppShell.Footer px={isMobile ? 'sm' : 'xl'} py={isMobile ? 'xs' : 'sm'}>
-        <Text ta="center" size={isMobile ? '10px' : 'xs'} c="dimmed" fw={500}>
+      <AppShell.Footer 
+        px={isMobile ? 'sm' : 'xl'} 
+        py={isMobile ? 'xs' : 'sm'}
+        style={{
+          background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)',
+          backdropFilter: 'blur(10px)',
+          borderTop: '1px solid rgba(102, 126, 234, 0.15)',
+        }}
+      >
+        <Text 
+          ta="center" 
+          size={isMobile ? '10px' : 'xs'} 
+          fw={500}
+          style={{
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+          }}
+        >
           {isMobile ? '通用爬虫 ©2025 🚀' : '通用爬虫管理系统 ©2025 | 基于配置驱动的智能爬虫框架 🚀'}
         </Text>
       </AppShell.Footer>

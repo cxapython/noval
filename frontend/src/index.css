@@ -70,6 +70,8 @@ body {
   line-height: 1.5715;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  background-attachment: fixed;
 }
 
 /* 滚动条样式 */
@@ -147,6 +149,55 @@ a:hover {
 
 .fade-in {
   animation: fadeIn 0.3s ease-out;
+}
+
+/* 渐变文字动画 */
+@keyframes gradientMove {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #667eea 100%);
+  background-size: 200% 200%;
+  animation: gradientMove 3s ease infinite;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* 浮动动画 */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.float-animation {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* 脉冲动画 */
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(102, 126, 234, 0);
+  }
+}
+
+.pulse-animation {
+  animation: pulse 2s ease-in-out infinite;
 }
 
 /* 移动端优化 */
