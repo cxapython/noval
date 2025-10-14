@@ -274,8 +274,13 @@ function CrawlerManager() {
                 <Text c="dimmed">暂无配置文件</Text>
                 <Button 
                   size="lg"
+                  variant="gradient"
+                  gradient={{ from: 'grape', to: 'violet', deg: 90 }}
                   leftSection={<IconPlus size={18} />} 
                   onClick={handleCreateNew}
+                  style={{
+                    boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+                  }}
                 >
                   创建第一个配置
                 </Button>
