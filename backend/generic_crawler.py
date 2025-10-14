@@ -14,7 +14,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from threading import Lock
-from typing import Dict, List
+from typing import Dict, List, Optional
 from urllib.parse import urljoin, urlparse
 
 from loguru import logger
@@ -67,7 +67,13 @@ class GenericNovelCrawler:
 
         self.site_name = site_info.get('name')
         self.base_url = site_info.get('base_url')
+        
+        # 尝试构建起始URL，如果未配置book_detail模板则使用base_url
         self.start_url = self.config_manager.build_url('book_detail', book_id=book_id)
+        if not self.start_url:
+            logger.warning(f"⚠️ URL模板 'book_detail' 未配置，使用 base_url 作为起始URL")
+            self.start_url = self.base_url
+        
         self.url_templates = self.config_manager.get_url_templates()
 
         # 初始化HTML解析器
@@ -285,6 +291,10 @@ class GenericNovelCrawler:
                 else:
                     # 使用 url_templates.chapter_list_page 构建URL
                     page_url = self._build_pagination_url(page)
+                    if not page_url:
+                        logger.info(f"ℹ️ URL模板 'chapter_list_page' 未配置，跳过翻页")
+                        break
+                    
                     logger.info(f"📄 获取第 {page} 页: {page_url}")
                     page_html = self.fetcher.get_page(page_url,
                                                       max_retries=self.config_manager.get_max_retries())
@@ -335,10 +345,11 @@ class GenericNovelCrawler:
         # 复用章节内容的提取逻辑
         return self._extract_max_pages_from_html(html, max_page_xpath_config, max_page_manual)
 
-    def _build_pagination_url(self, page: int = 2) -> str:
+    def _build_pagination_url(self, page: int = 2) -> Optional[str]:
         """
         构建章节列表分页URL（从第2页开始）
         使用 url_templates.chapter_list_page 配置
+        如果未配置该模板，返回None
         """
         return self.config_manager.build_url('chapter_list_page', book_id=self.book_id, page=page)
 

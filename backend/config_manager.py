@@ -137,31 +137,33 @@ class ConfigManager:
         """获取最大重试次数"""
         return self._safe_int(self.get_crawler_config().get('max_retries', 20), 20)
     
-    def build_url(self, url_type: str, **kwargs) -> str:
+    def build_url(self, url_type: str, **kwargs) -> Optional[str]:
         """
-        构建URL
+        构建URL（兼容URL模板不存在的情况）
         :param url_type: URL类型 (book_detail, chapter_list_page, chapter_content_page)
         :param kwargs: URL参数（命名参数，如 book_id, chapter_id, page）
-        :return: 完整URL
+        :return: 完整URL，如果URL模板未配置则返回None
         """
         url_templates = self.get_url_templates()
         
-        # 检查URL模板是否存在
+        # 检查URL模板是否存在（兼容模板可选的情况）
         if not url_templates or url_type not in url_templates:
-            raise ValueError(f"URL模板 '{url_type}' 未配置")
+            logger.debug(f"⚠️ URL模板 '{url_type}' 未配置，跳过")
+            return None
         
         pattern = url_templates[url_type]
         
         # 如果是comment字段，跳过
         if url_type.startswith('_comment'):
-            raise ValueError(f"URL模板 '{url_type}' 未配置")
+            logger.debug(f"⚠️ URL模板 '{url_type}' 是注释字段，跳过")
+            return None
         
         # 使用命名参数格式化URL
         try:
             url = pattern.format(**kwargs) if kwargs else pattern
         except KeyError as e:
             logger.error(f"URL模板格式化失败: {url_type}, pattern: {pattern}, kwargs: {kwargs}, error: {e}")
-            raise ValueError(f"URL模板 '{url_type}' 格式化失败，缺少参数: {e}")
+            return None
         
         # 如果不是完整URL，添加base_url
         if not url.startswith('http'):
