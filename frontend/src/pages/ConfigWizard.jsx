@@ -841,7 +841,8 @@ function ConfigWizard() {
                 size="small" 
                 style={{ 
                   marginBottom: 24,
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  background: 'var(--gradient-primary)',
+                  backdropFilter: 'blur(10px)',
                   color: 'white',
                   boxShadow: '0 8px 32px 0 rgba(102, 126, 234, 0.37)',
                   border: '1px solid rgba(255, 255, 255, 0.18)',
@@ -986,14 +987,20 @@ function ConfigWizard() {
                     )}
 
                     <Button
-                      type="primary"
                       size="lg"
                       leftSection={<IconBolt size={16} />}
                       onClick={handleRenderPage}
                       loading={renderLoading}
                       fullWidth
+                      variant="glass"
+                      style={{
+                        background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.8) 0%, rgba(118, 75, 162, 0.8) 100%)',
+                        backdropFilter: 'blur(10px)',
+                        color: 'white',
+                        fontWeight: 600,
+                      }}
                     >
-                      {renderLoading ? '渲染中...' : '开始渲染'}
+                      {renderLoading ? '⚡ 渲染中...' : '⚡ 开始渲染'}
                     </Button>
                   </>
                 )}
@@ -1145,8 +1152,15 @@ function ConfigWizard() {
                       loading={xpathLoading}
                       fullWidth
                       size="lg"
+                      variant="glass"
+                      style={{
+                        background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.8) 0%, rgba(118, 75, 162, 0.8) 100%)',
+                        backdropFilter: 'blur(10px)',
+                        color: 'white',
+                        fontWeight: 600,
+                      }}
                     >
-                      {xpathLoading ? '生成中...' : '生成XPath建议'}
+                      {xpathLoading ? '✨ 生成中...' : '✨ 生成XPath建议'}
                     </Button>
                   </>
                 ) : (

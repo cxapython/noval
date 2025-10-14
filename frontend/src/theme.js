@@ -66,6 +66,7 @@ const mantineTheme = createTheme({
       },
       styles: (theme) => ({
         root: {
+          transition: 'all 0.3s ease',
           // 移动端增大点击区域
           '@media (max-width: 48em)': {
             minHeight: '44px',
@@ -73,6 +74,49 @@ const mantineTheme = createTheme({
           },
         },
       }),
+      variants: {
+        // 新增：磨砂玻璃按钮变体
+        glass: (theme) => ({
+          root: {
+            background: theme.colorScheme === 'dark' 
+              ? 'rgba(255, 255, 255, 0.1)' 
+              : 'rgba(255, 255, 255, 0.7)',
+            backdropFilter: 'blur(10px)',
+            border: theme.colorScheme === 'dark'
+              ? '1px solid rgba(255, 255, 255, 0.2)'
+              : '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: theme.colorScheme === 'dark'
+              ? '0 8px 32px 0 rgba(0, 0, 0, 0.37)'
+              : '0 8px 32px 0 rgba(31, 38, 135, 0.15)',
+            color: theme.colorScheme === 'dark' ? '#fff' : '#333',
+            '&:hover': {
+              background: theme.colorScheme === 'dark'
+                ? 'rgba(255, 255, 255, 0.15)'
+                : 'rgba(255, 255, 255, 0.9)',
+              transform: 'translateY(-2px)',
+              boxShadow: theme.colorScheme === 'dark'
+                ? '0 12px 40px 0 rgba(0, 0, 0, 0.5)'
+                : '0 12px 40px 0 rgba(31, 38, 135, 0.25)',
+            },
+          },
+        }),
+        // 新增：新拟态按钮变体
+        neumorphic: (theme) => ({
+          root: {
+            background: theme.colorScheme === 'dark' ? '#2d2d2d' : '#e0e5ec',
+            boxShadow: theme.colorScheme === 'dark'
+              ? '8px 8px 16px #1a1a1a, -8px -8px 16px #404040'
+              : '8px 8px 16px #a3b1c6, -8px -8px 16px #ffffff',
+            border: 'none',
+            color: theme.colorScheme === 'dark' ? '#fff' : '#333',
+            '&:hover': {
+              boxShadow: theme.colorScheme === 'dark'
+                ? 'inset 8px 8px 16px #1a1a1a, inset -8px -8px 16px #404040'
+                : 'inset 8px 8px 16px #a3b1c6, inset -8px -8px 16px #ffffff',
+            },
+          },
+        }),
+      },
     },
     
     Card: {

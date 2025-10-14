@@ -1,0 +1,113 @@
+/**
+ * 玻璃态设计样式 (Glassmorphism)
+ * 适配亮色和暗色主题
+ */
+
+/* 玻璃态按钮 - 亮色模式 */
+.glass-button {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+  transition: all 0.3s ease;
+}
+
+.glass-button:hover {
+  background: rgba(255, 255, 255, 0.9);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.25);
+}
+
+/* 玻璃态按钮 - 暗色模式 */
+[data-mantine-color-scheme="dark"] .glass-button {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  color: #fff;
+}
+
+[data-mantine-color-scheme="dark"] .glass-button:hover {
+  background: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.5);
+}
+
+/* 玻璃态卡片 */
+.glass-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+  border-radius: 12px;
+}
+
+[data-mantine-color-scheme="dark"] .glass-card {
+  background: rgba(45, 45, 45, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+}
+
+/* 磨砂渐变按钮 - 主要 */
+.glass-gradient-primary {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.9) 0%, rgba(118, 75, 162, 0.9) 100%);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 8px 32px 0 rgba(102, 126, 234, 0.37);
+  color: white;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.glass-gradient-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px 0 rgba(102, 126, 234, 0.5);
+}
+
+[data-mantine-color-scheme="dark"] .glass-gradient-primary {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.6) 0%, rgba(118, 75, 162, 0.6) 100%);
+  box-shadow: 0 8px 32px 0 rgba(102, 126, 234, 0.3);
+}
+
+/* 磨砂渐变按钮 - 次要 */
+.glass-gradient-secondary {
+  background: linear-gradient(135deg, rgba(79, 172, 254, 0.9) 0%, rgba(0, 242, 254, 0.9) 100%);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 8px 32px 0 rgba(79, 172, 254, 0.37);
+  color: white;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.glass-gradient-secondary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px 0 rgba(79, 172, 254, 0.5);
+}
+
+[data-mantine-color-scheme="dark"] .glass-gradient-secondary {
+  background: linear-gradient(135deg, rgba(79, 172, 254, 0.6) 0%, rgba(0, 242, 254, 0.6) 100%);
+  box-shadow: 0 8px 32px 0 rgba(79, 172, 254, 0.3);
+}
+
+/* 新拟态按钮 - 亮色模式 */
+.neumorphic-button {
+  background: #e0e5ec;
+  box-shadow: 8px 8px 16px #a3b1c6, -8px -8px 16px #ffffff;
+  border: none;
+  transition: all 0.3s ease;
+}
+
+.neumorphic-button:hover {
+  box-shadow: inset 8px 8px 16px #a3b1c6, inset -8px -8px 16px #ffffff;
+}
+
+/* 新拟态按钮 - 暗色模式 */
+[data-mantine-color-scheme="dark"] .neumorphic-button {
+  background: #2d2d2d;
+  box-shadow: 8px 8px 16px #1a1a1a, -8px -8px 16px #404040;
+  color: #fff;
+}
+
+[data-mantine-color-scheme="dark"] .neumorphic-button:hover {
+  box-shadow: inset 8px 8px 16px #1a1a1a, inset -8px -8px 16px #404040;
+}
+
