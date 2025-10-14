@@ -1493,27 +1493,41 @@ function ConfigWizard() {
               >
                 清空选择
               </Button>
-              <Button
-                type="primary"
-                icon={<IconArrowRight />}
-                onClick={() => {
-                  console.log('点击按钮，当前步骤:', currentStep);
-                  if (currentStep === 2) {
-                    console.log('直接调用handleGenerateConfig');
-                    handleGenerateConfig();
-                  } else {
-                    console.log('调用handleNextStep');
-                    handleNextStep();
+              <Stack gap={4} style={{ alignItems: 'flex-end' }}>
+                <Button
+                  type="primary"
+                  icon={<IconArrowRight />}
+                  onClick={() => {
+                    console.log('点击按钮，当前步骤:', currentStep);
+                    console.log('网站名称:', siteName);
+                    console.log('网站URL:', baseUrl);
+                    if (currentStep === 2) {
+                      console.log('直接调用handleGenerateConfig');
+                      handleGenerateConfig();
+                    } else {
+                      console.log('调用handleNextStep');
+                      handleNextStep();
+                    }
+                  }}
+                  disabled={
+                    currentStep === 0 
+                      ? (!siteName || !baseUrl || siteName.trim() === '' || baseUrl.trim() === '') // 步骤0：验证网站信息（不能为空或只有空格）
+                      : Object.keys(getCurrentFields()).length === 0 // 步骤1和2：验证字段
                   }
-                }}
-                disabled={
-                  currentStep === 0 
-                    ? (!siteName || !baseUrl) // 步骤0：验证网站信息
-                    : Object.keys(getCurrentFields()).length === 0 // 步骤1和2：验证字段
-                }
-              >
-                {currentStep === 2 ? '生成配置' : '下一步'}
-              </Button>
+                >
+                  {currentStep === 2 ? '生成配置' : '下一步'}
+                </Button>
+                {currentStep === 0 && (!siteName || !baseUrl || siteName.trim() === '' || baseUrl.trim() === '') && (
+                  <Text size="xs" c="dimmed">
+                    请先填写完整的网站信息
+                  </Text>
+                )}
+                {currentStep !== 0 && Object.keys(getCurrentFields()).length === 0 && (
+                  <Text size="xs" c="dimmed">
+                    请至少配置一个字段
+                  </Text>
+                )}
+              </Stack>
             </Group>
           </div>
 
