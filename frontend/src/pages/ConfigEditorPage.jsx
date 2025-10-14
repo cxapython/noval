@@ -2,15 +2,16 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { 
   Card, Button, Tabs, Textarea, Loader, Badge, Group, Stack, Center, Box,
-  Breadcrumbs, Anchor, Text as MantineText
+  Breadcrumbs, Anchor, Text as MantineText, SegmentedControl, Alert, Title
 } from '@mantine/core'
 import { 
   IconDeviceFloppy, IconCode, 
-  IconCopy, IconArrowLeft, IconSitemap 
+  IconCopy, IconArrowLeft, IconSitemap, IconInfoCircle
 } from '@tabler/icons-react'
 import { notifications } from '@mantine/notifications'
 import axios from 'axios'
 import SimpleFlowEditorTab from './FlowEditor/SimpleFlowEditorTab'
+import { CONTENT_TYPES } from '../config/contentTypes'
 
 const API_BASE = '/api/crawler'
 
@@ -25,14 +26,15 @@ function ConfigEditorPage() {
   const [jsonError, setJsonError] = useState(null)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [contentType, setContentType] = useState('novel') // 新增：内容类型
 
   useEffect(() => {
     if (filename) {
       loadConfig(filename)
     } else {
-      loadTemplate()
+      loadTemplate(contentType)
     }
-  }, [filename])
+  }, [filename, contentType])
 
   const loadConfig = async (file) => {
     try {
@@ -54,13 +56,59 @@ function ConfigEditorPage() {
     }
   }
 
-  const loadTemplate = async () => {
+  const loadTemplate = async (type = 'novel') => {
     try {
       setLoading(true)
       const response = await axios.get(`${API_BASE}/template`)
       if (response.data.success) {
-        setConfigData(response.data.template)
-        setJsonText(JSON.stringify(response.data.template, null, 2))
+        const template = response.data.template
+        // 根据内容类型更新模板
+        template.content_type = type
+        
+        // 更新字段映射
+        const fieldMappings = {
+          novel: {
+            list_item: '小说',
+            item_title: '小说标题',
+            item_link: '章节链接',
+            content_title: '章节标题',
+            content_body: '章节内容',
+            author: '作者',
+            cover: '封面'
+          },
+          news: {
+            list_item: '新闻',
+            item_title: '新闻标题',
+            item_link: '新闻链接',
+            content_title: '新闻标题',
+            content_body: '新闻内容',
+            author: '作者/来源',
+            cover: '新闻图片'
+          },
+          article: {
+            list_item: '文章',
+            item_title: '文章标题',
+            item_link: '文章链接',
+            content_title: '文章标题',
+            content_body: '文章内容',
+            author: '作者',
+            cover: '文章封面'
+          },
+          blog: {
+            list_item: '博客',
+            item_title: '博客标题',
+            item_link: '博客链接',
+            content_title: '博客标题',
+            content_body: '博客内容',
+            author: '博主',
+            cover: '博客封面'
+          }
+        }
+        
+        template.field_mapping = fieldMappings[type] || fieldMappings.novel
+        
+        setConfigData(template)
+        setJsonText(JSON.stringify(template, null, 2))
       }
     } catch (error) {
       notifications.show({
@@ -276,6 +324,50 @@ function ConfigEditorPage() {
             </Button>
           </Group>
 
+          {/* 新建模式：内容类型选择 */}
+          {!filename && (
+            <Card
+              padding="lg"
+              radius="md"
+              style={{
+                background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%)',
+                border: '2px solid rgba(102, 126, 234, 0.2)',
+              }}
+            >
+              <Stack gap="md">
+                <Group gap="xs">
+                  <IconInfoCircle size={20} color="var(--mantine-color-blue-6)" />
+                  <Title order={5}>选择内容类型</Title>
+                </Group>
+                
+                <SegmentedControl
+                  value={contentType}
+                  onChange={setContentType}
+                  data={[
+                    { value: 'novel', label: CONTENT_TYPES.novel.label },
+                    { value: 'news', label: CONTENT_TYPES.news.label },
+                    { value: 'article', label: CONTENT_TYPES.article.label },
+                    { value: 'blog', label: CONTENT_TYPES.blog.label },
+                  ]}
+                  size="md"
+                  color="blue"
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.8)',
+                    backdropFilter: 'blur(10px)',
+                  }}
+                />
+                
+                <Alert
+                  icon={<IconInfoCircle size={16} />}
+                  color="blue"
+                  variant="light"
+                >
+                  {CONTENT_TYPES[contentType]?.description || '选择内容类型后，模板将自动适配对应的字段名称。'}
+                </Alert>
+              </Stack>
+            </Card>
+          )}
+
           <Tabs value={viewMode} onChange={setViewMode}>
             <Tabs.List>
               <Tabs.Tab 
@@ -293,7 +385,11 @@ function ConfigEditorPage() {
             </Tabs.List>
 
             <Tabs.Panel value="flow" pt="md">
-              <SimpleFlowEditorTab configData={configData} onConfigChange={handleFieldChange} />
+              <SimpleFlowEditorTab 
+                configData={configData} 
+                onConfigChange={handleFieldChange}
+                contentType={configData?.content_type || contentType}
+              />
             </Tabs.Panel>
 
             <Tabs.Panel value="json" pt="md">
