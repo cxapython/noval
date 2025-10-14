@@ -233,35 +233,41 @@ export function getFieldTypes(contentType, pageType) {
       title: { 
         label: fieldLabels.title || '标题', 
         defaultProcess: [{ method: 'strip', params: {} }], 
-        required: true 
+        required: false  // 第一步完全可选
       },
       author: { 
         label: fieldLabels.author || '作者', 
         defaultProcess: [
           { method: 'strip', params: {} }, 
           { method: 'replace', params: { old: '作者：', new: '' } }
-        ] 
+        ],
+        required: false  // 第一步完全可选
       },
       cover_url: { 
         label: fieldLabels.cover_url || '封面/配图URL', 
         defaultProcess: [], 
-        note: '提取图片URL' 
+        note: '提取图片URL',
+        required: false  // 第一步完全可选
       },
       intro: { 
         label: fieldLabels.intro || '简介', 
-        defaultProcess: [{ method: 'strip', params: {} }] 
+        defaultProcess: [{ method: 'strip', params: {} }],
+        required: false  // 第一步完全可选
       },
       status: { 
         label: fieldLabels.status || '状态', 
-        defaultProcess: [{ method: 'strip', params: {} }] 
+        defaultProcess: [{ method: 'strip', params: {} }],
+        required: false  // 第一步完全可选
       },
       category: { 
         label: fieldLabels.category || '分类', 
-        defaultProcess: [{ method: 'strip', params: {} }] 
+        defaultProcess: [{ method: 'strip', params: {} }],
+        required: false  // 第一步完全可选
       },
       tags: { 
         label: fieldLabels.tags || '标签', 
-        defaultProcess: [] 
+        defaultProcess: [],
+        required: false  // 第一步完全可选
       }
     },
     chapter_list: {

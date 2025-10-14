@@ -153,7 +153,7 @@ function ConfigWizard() {
     maxPageXpath: '//ul[@class="pagination"]/li/a[1]/text()',
     maxPageManual: 100
   })
-  const [contentPaginationEnabled, setContentPaginationEnabled] = useState(true)
+  const [contentPaginationEnabled, setContentPaginationEnabled] = useState(false)
   const [contentPaginationConfig, setContentPaginationConfig] = useState({
     maxPageXpath: '//select[@id="page"]/option[last()]/text()',
     maxPageManual: 50
@@ -564,21 +564,27 @@ function ConfigWizard() {
     
     const stepLabels = STEP_TITLES[contentType] || STEP_TITLES.novel;
     
-    // 检查小说信息必需字段
-    Object.entries(currentFieldTypes.novel_info).forEach(([fieldName, config]) => {
-      if (config.required && !novelInfoFields[fieldName]) {
-        missingRequiredFields.push(`${stepLabels[0]}: ${config.label || fieldName}`)
-      }
-    })
+    // 第一步（新闻专题信息等）是完全可选的
+    // 只有在用户配置了至少一个字段时，才检查是否完整
+    const hasNovelInfoFields = Object.keys(novelInfoFields).length > 0;
+    if (hasNovelInfoFields) {
+      // 用户配置了第一步的某些字段，检查必需字段是否完整
+      Object.entries(currentFieldTypes.novel_info).forEach(([fieldName, config]) => {
+        if (config.required && !novelInfoFields[fieldName]) {
+          missingRequiredFields.push(`${stepLabels[0]}: ${config.label || fieldName}`)
+        }
+      })
+    }
+    // 如果用户完全跳过第一步（没有配置任何字段），不检查，允许保存
     
-    // 检查章节列表必需字段
+    // 检查章节列表必需字段（必填）
     Object.entries(currentFieldTypes.chapter_list).forEach(([fieldName, config]) => {
       if (config.required && !chapterListFields[fieldName]) {
         missingRequiredFields.push(`${stepLabels[1]}: ${config.label || fieldName}`)
       }
     })
     
-    // 检查章节内容必需字段
+    // 检查章节内容必需字段（必填）
     Object.entries(currentFieldTypes.chapter_content).forEach(([fieldName, config]) => {
       if (config.required && !chapterContentFields[fieldName]) {
         missingRequiredFields.push(`${stepLabels[2]}: ${config.label || fieldName}`)
@@ -1493,41 +1499,27 @@ function ConfigWizard() {
               >
                 清空选择
               </Button>
-              <Stack gap={4} style={{ alignItems: 'flex-end' }}>
-                <Button
-                  type="primary"
-                  icon={<IconArrowRight />}
-                  onClick={() => {
-                    console.log('点击按钮，当前步骤:', currentStep);
-                    console.log('网站名称:', siteName);
-                    console.log('网站URL:', baseUrl);
-                    if (currentStep === 2) {
-                      console.log('直接调用handleGenerateConfig');
-                      handleGenerateConfig();
-                    } else {
-                      console.log('调用handleNextStep');
-                      handleNextStep();
-                    }
-                  }}
-                  disabled={
-                    currentStep === 0 
-                      ? (!siteName || !baseUrl || siteName.trim() === '' || baseUrl.trim() === '') // 步骤0：验证网站信息（不能为空或只有空格）
-                      : Object.keys(getCurrentFields()).length === 0 // 步骤1和2：验证字段
+              <Button
+                type="primary"
+                icon={<IconArrowRight />}
+                onClick={() => {
+                  console.log('点击按钮，当前步骤:', currentStep);
+                  if (currentStep === 2) {
+                    console.log('直接调用handleGenerateConfig');
+                    handleGenerateConfig();
+                  } else {
+                    console.log('调用handleNextStep');
+                    handleNextStep();
                   }
-                >
-                  {currentStep === 2 ? '生成配置' : '下一步'}
-                </Button>
-                {currentStep === 0 && (!siteName || !baseUrl || siteName.trim() === '' || baseUrl.trim() === '') && (
-                  <Text size="xs" c="dimmed">
-                    请先填写完整的网站信息
-                  </Text>
-                )}
-                {currentStep !== 0 && Object.keys(getCurrentFields()).length === 0 && (
-                  <Text size="xs" c="dimmed">
-                    请至少配置一个字段
-                  </Text>
-                )}
-              </Stack>
+                }}
+                disabled={
+                  currentStep === 0 
+                    ? (!siteName || !baseUrl) // 步骤0：验证网站信息
+                    : Object.keys(getCurrentFields()).length === 0 // 步骤1和2：验证字段
+                }
+              >
+                {currentStep === 2 ? '生成配置' : '下一步'}
+              </Button>
             </Group>
           </div>
 
