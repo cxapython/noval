@@ -276,7 +276,7 @@ fi
 echo ""
 
 # ========================================
-# 10. 初始化数据库
+# 10. 初始化/升级数据库
 # ========================================
 echo "9️⃣ 初始化数据库..."
 
@@ -294,6 +294,52 @@ else
             echo "   ⚠️  数据库表初始化失败（可能已存在或数据库未连接）"
         fi
     fi
+    
+    # 🆕 自动迁移：添加novels表扩展字段（v6新增）
+    echo "   🔄 检查数据库升级..."
+    $PYTHON_BIN -c "
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path.cwd()))
+
+try:
+    from sqlalchemy import text, inspect
+    from backend.models.database import NovelDatabase
+    from shared.utils.config import DB_CONFIG
+    
+    db = NovelDatabase(**DB_CONFIG, silent=True)
+    
+    # 检查novels表是否存在
+    inspector = inspect(db.engine)
+    if 'novels' not in inspector.get_table_names():
+        sys.exit(0)  # 表不存在，由init_reader_tables.py创建
+    
+    # 检查是否需要添加新字段
+    columns = {col['name'] for col in inspector.get_columns('novels')}
+    new_fields = {
+        'intro': ('TEXT', '简介/描述'),
+        'status': ('VARCHAR(50)', '状态（连载中/已完结等）'),
+        'category': ('VARCHAR(100)', '分类（玄幻/都市等）'),
+        'tags': ('VARCHAR(500)', '标签（多个标签用逗号分隔）')
+    }
+    
+    # 添加缺失的字段
+    added = []
+    with db.get_connection() as conn:
+        for field_name, (field_type, field_desc) in new_fields.items():
+            if field_name not in columns:
+                sql = f\"ALTER TABLE novels ADD COLUMN {field_name} {field_type} COMMENT '{field_desc}'\"
+                conn.execute(text(sql))
+                added.append(field_name)
+    
+    if added:
+        print(f'   ✅ 已添加字段: {\", \".join(added)}')
+    
+    db.close()
+except Exception as e:
+    # 忽略迁移错误，不影响启动
+    pass
+" 2>/dev/null || echo "   ℹ️  数据库升级检查完成"
     
     # 初始化认证表和默认管理员
     if [ -f "scripts/init_auth_tables.py" ]; then
