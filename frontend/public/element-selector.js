@@ -37,6 +37,7 @@
   let state = {
     hoveredElement: null,
     selectedElements: new Set(),
+    lastSelectedElement: null, // 新增：最后选择的元素（未确认的临时选择）
     isActive: true,
     xpathMatchCache: new Map() // 新增：XPath匹配数缓存
   };
@@ -147,6 +148,7 @@
       el.classList.remove(CONFIG.selectedHighlightClass);
     });
     state.selectedElements.clear();
+    state.lastSelectedElement = null; // 清除最后选择的元素引用
     removeHoverHighlight();
     state.xpathMatchCache.clear(); // 清空缓存
     log('已清除所有高亮');
@@ -211,13 +213,19 @@
       el => el.tagName === element.tagName
     );
     
+    // 获取完整文本内容
+    const fullTextContent = element.textContent?.trim() || '';
+    const fullInnerText = element.innerText?.trim() || '';
+    
     return {
       tagName: element.tagName.toLowerCase(),
       id: cleanedId,
       className: cleanedClassName,
       attributes: attributes,
-      textContent: element.textContent?.trim().substring(0, 200) || '',
-      innerText: element.innerText?.trim().substring(0, 200) || '',
+      textContent: fullTextContent.substring(0, 200) || '', // 预览用的截取文本
+      textContentFull: fullTextContent, // 完整文本内容
+      innerText: fullInnerText.substring(0, 200) || '', // 预览用的截取文本
+      innerTextFull: fullInnerText, // 完整innerText
       href: element.href || attributes.href || '',
       src: element.src || attributes.src || '',
       alt: attributes.alt || '',
@@ -1247,6 +1255,7 @@
                         generateSimpleXPath(element);
     
     highlightElement(element, 'selected');
+    state.lastSelectedElement = element; // 保存最后选择的元素
     sendMessageToParent('elementSelected', elementInfo);
     
     log('元素已选择:', elementInfo.tagName, elementInfo.cssSelector);
@@ -1317,7 +1326,13 @@
     
     switch (type) {
       case 'xpath-selector-clear':
-        if (data?.cssSelector) {
+        // 优先清除最后选择的元素（临时选择）
+        if (state.lastSelectedElement) {
+          removeSelectedHighlight(state.lastSelectedElement);
+          state.lastSelectedElement = null;
+          log('已清除最后选择的元素（临时选择）');
+        } else if (data?.cssSelector) {
+          // 回退方案：通过CSS选择器查找已确认的元素
           state.selectedElements.forEach(el => {
             const info = extractElementInfo(el);
             if (info.cssSelector === data.cssSelector) {

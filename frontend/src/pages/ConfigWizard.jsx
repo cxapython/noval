@@ -497,11 +497,29 @@ function ConfigWizard() {
   // 进入下一步
   const handleNextStep = () => {
     console.log('执行handleNextStep函数, 当前步骤:', currentStep);
-    const currentFields = getCurrentFields()
     
-    if (Object.keys(currentFields).length === 0) {
-      notifications.show({ title: '提示', message: '请至少配置一个字段', color: 'yellow' })
-      return
+    // 步骤0（新闻专题信息）：只需验证网站信息，字段可选
+    if (currentStep === 0) {
+      if (!siteName || !baseUrl) {
+        notifications.show({ 
+          title: '提示', 
+          message: '请填写网站名称和网站基础URL', 
+          color: 'yellow' 
+        })
+        return
+      }
+      // 网站信息已填写，可以进入下一步（字段是可选的）
+    } else {
+      // 步骤1和2：需要至少配置一个字段
+      const currentFields = getCurrentFields()
+      if (Object.keys(currentFields).length === 0) {
+        notifications.show({ 
+          title: '提示', 
+          message: '请至少配置一个字段', 
+          color: 'yellow' 
+        })
+        return
+      }
     }
 
     if (currentStep < 2) {
@@ -1488,7 +1506,11 @@ function ConfigWizard() {
                     handleNextStep();
                   }
                 }}
-                disabled={Object.keys(getCurrentFields()).length === 0}
+                disabled={
+                  currentStep === 0 
+                    ? (!siteName || !baseUrl) // 步骤0：验证网站信息
+                    : Object.keys(getCurrentFields()).length === 0 // 步骤1和2：验证字段
+                }
               >
                 {currentStep === 2 ? '生成配置' : '下一步'}
               </Button>

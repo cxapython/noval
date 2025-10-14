@@ -27,7 +27,10 @@ import {
   ActionIcon,
   Tooltip,
   TextInput,
-  Select
+  Select,
+  Popover,
+  Box,
+  Paper
 } from '@mantine/core';
 import {
   IconReload,
@@ -35,7 +38,8 @@ import {
   IconX,
   IconTrash,
   IconCopy,
-  IconAlertCircle
+  IconAlertCircle,
+  IconEye
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { API_BASE_URL } from '../../config';
@@ -217,8 +221,8 @@ const VisualXPathSelector = ({
       xpath: xpath,
       xpathInfo: selectedCandidate || { type: 'manual', confidence: 0.5 },
       cssSelector: currentSelection.cssSelector,
-      text: currentSelection.textContent?.substring(0, 50) || '',
-      fullText: currentSelection.textContent || '',
+      text: currentSelection.textContent?.substring(0, 50) || '', // 预览文本
+      fullText: currentSelection.textContentFull || currentSelection.textContent || '', // 使用完整文本
       type: currentSelection.fieldType,
       tagName: currentSelection.tagName,
       attributes: currentSelection.attributes || {}
@@ -377,22 +381,127 @@ const VisualXPathSelector = ({
     
     return (
       <Stack gap="sm">
-        <Card withBorder>
+        <Card withBorder style={{ position: 'relative' }}>
           <Stack gap="xs">
             <Group justify="space-between">
-              <Text size="sm" fw={700}>当前选中元素</Text>
-              <Badge color="blue">{currentSelection.tagName}</Badge>
+              <Group gap="xs">
+                <Text size="sm" fw={700}>当前选中元素</Text>
+                <Badge color="blue">{currentSelection.tagName}</Badge>
+              </Group>
+              <Tooltip label="取消选择" position="left" withArrow>
+                <ActionIcon
+                  variant="subtle"
+                  color="red"
+                  size="lg"
+                  onClick={() => {
+                    // 通知iframe清除元素高亮
+                    if (currentSelection?.cssSelector) {
+                      sendMessageToIframe('clear', { 
+                        cssSelector: currentSelection.cssSelector 
+                      });
+                    }
+                    
+                    // 清空前端状态
+                    setCurrentSelection(null);
+                    setFieldTypeSelection('');
+                    setSelectedXPathIndex(0);
+                    
+                    notifications.show({
+                      title: '✅ 已取消',
+                      message: '当前选择已清除，可以重新选择元素',
+                      color: 'gray',
+                      autoClose: 2000
+                    });
+                  }}
+                  style={{
+                    position: 'absolute',
+                    top: '8px',
+                    right: '8px',
+                    zIndex: 1
+                  }}
+                >
+                  <IconX size={18} />
+                </ActionIcon>
+              </Tooltip>
             </Group>
             
             <Divider />
             
-            <Text size="xs" c="dimmed">文本内容:</Text>
+            <Group justify="space-between" align="flex-start">
+              <Text size="xs" c="dimmed">文本内容:</Text>
+              {currentSelection.textContentFull && currentSelection.textContentFull.length > 100 && (
+                <Popover width={600} position="bottom" withArrow shadow="md">
+                  <Popover.Target>
+                    <ActionIcon 
+                      size="xs" 
+                      variant="subtle" 
+                      color="blue"
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <IconEye size={14} />
+                    </ActionIcon>
+                  </Popover.Target>
+                  <Popover.Dropdown>
+                    <Paper p="md">
+                      <Stack gap="xs">
+                        <Group justify="space-between">
+                          <Text size="sm" fw={700}>完整文本内容</Text>
+                          <Badge size="sm" variant="light">
+                            {currentSelection.textContentFull.length} 字符
+                          </Badge>
+                        </Group>
+                        <Divider />
+                        <ScrollArea h={400} type="auto">
+                          <Text size="sm" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', lineHeight: 1.8 }}>
+                            {currentSelection.textContentFull}
+                          </Text>
+                        </ScrollArea>
+                      </Stack>
+                    </Paper>
+                  </Popover.Dropdown>
+                </Popover>
+              )}
+            </Group>
             <Text size="sm" lineClamp={2}>
               {currentSelection.textContent || '(无文本内容)'}
             </Text>
             
-            <Text size="xs" c="dimmed">CSS选择器:</Text>
-            <Code block>{currentSelection.cssSelector}</Code>
+            <Group justify="space-between" align="flex-start">
+              <Text size="xs" c="dimmed">CSS选择器:</Text>
+              {currentSelection.cssSelector && currentSelection.cssSelector.length > 50 && (
+                <Popover width={500} position="bottom" withArrow shadow="md">
+                  <Popover.Target>
+                    <ActionIcon 
+                      size="xs" 
+                      variant="subtle" 
+                      color="blue"
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <IconEye size={14} />
+                    </ActionIcon>
+                  </Popover.Target>
+                  <Popover.Dropdown>
+                    <Paper p="md">
+                      <Stack gap="xs">
+                        <Text size="sm" fw={700}>完整CSS选择器</Text>
+                        <Divider />
+                        <Code block style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                          {currentSelection.cssSelector}
+                        </Code>
+                      </Stack>
+                    </Paper>
+                  </Popover.Dropdown>
+                </Popover>
+              )}
+            </Group>
+            <Code block style={{ 
+              maxWidth: '100%', 
+              overflow: 'hidden', 
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}>
+              {currentSelection.cssSelector}
+            </Code>
           </Stack>
         </Card>
         
@@ -488,26 +597,18 @@ const VisualXPathSelector = ({
           </Stack>
         </Card>
         
-        <Group grow>
-          <Button
-            variant="outline"
-            color="gray"
-            onClick={() => {
-              setCurrentSelection(null);
-              setFieldTypeSelection('');
-            }}
-          >
-            取消
-          </Button>
-          <Button
-            color="blue"
-            leftSection={<IconCheck size={16} />}
-            onClick={handleConfirmSelection}
-            disabled={!fieldTypeSelection}
-          >
-            确认添加
-          </Button>
-        </Group>
+        <Button
+          fullWidth
+          color="blue"
+          leftSection={<IconCheck size={16} />}
+          onClick={handleConfirmSelection}
+          disabled={!fieldTypeSelection}
+          size="md"
+          variant="gradient"
+          gradient={{ from: 'blue', to: 'cyan', deg: 90 }}
+        >
+          确认添加字段
+        </Button>
       </Stack>
     );
   };
@@ -537,6 +638,39 @@ const VisualXPathSelector = ({
                   </Text>
                 </Stack>
                 <Group gap={5}>
+                  {field.fullText && field.fullText.length > 50 && (
+                    <Popover width={500} position="bottom" withArrow shadow="md">
+                      <Popover.Target>
+                        <Tooltip label="查看完整内容">
+                          <ActionIcon
+                            size="sm"
+                            variant="subtle"
+                            color="blue"
+                          >
+                            <IconEye size={14} />
+                          </ActionIcon>
+                        </Tooltip>
+                      </Popover.Target>
+                      <Popover.Dropdown>
+                        <Paper p="md">
+                          <Stack gap="xs">
+                            <Group justify="space-between">
+                              <Text size="sm" fw={700}>完整提取内容</Text>
+                              <Badge size="sm" variant="light">
+                                {field.fullText.length} 字符
+                              </Badge>
+                            </Group>
+                            <Divider />
+                            <ScrollArea h={300}>
+                              <Text size="sm" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                                {field.fullText}
+                              </Text>
+                            </ScrollArea>
+                          </Stack>
+                        </Paper>
+                      </Popover.Dropdown>
+                    </Popover>
+                  )}
                   <Tooltip label="复制XPath">
                     <ActionIcon
                       size="sm"
@@ -559,9 +693,11 @@ const VisualXPathSelector = ({
                 </Group>
               </Group>
               
-              <Text size="xs" c="dimmed" lineClamp={1}>
-                提取内容：{field.text || '(无文本)'}
-              </Text>
+              <Group justify="space-between" align="flex-start" gap="xs">
+                <Text size="xs" c="dimmed" style={{ flex: 1 }} lineClamp={1}>
+                  提取内容：{field.text || '(无文本)'}
+                </Text>
+              </Group>
               
               <Accordion variant="contained">
                 <Accordion.Item value="xpath">
@@ -602,8 +738,22 @@ const VisualXPathSelector = ({
   
   // 如果有缓存HTML，处理注入脚本后生成blob URL
   useEffect(() => {
-    // 只在可见、有缓存HTML、且还没创建blob URL时执行
-    if (visible && cachedHtml && !blobUrlRef.current) {
+    // 当cachedHtml变化时，清理旧的blob URL
+    if (cachedHtml && blobUrlRef.current) {
+      console.log('🧹 cachedHtml变化，清理旧的blob URL');
+      URL.revokeObjectURL(blobUrlRef.current);
+      blobUrlRef.current = '';
+      setBlobUrl('');
+      // 重置页面加载状态，准备加载新页面
+      setPageLoaded(false);
+      setPageLoading(true);
+    }
+    
+    // 只在可见、有缓存HTML时执行
+    if (visible && cachedHtml) {
+      // 设置加载状态
+      setPageLoading(true);
+      
       notifications.show({
         title: '⚡ 使用缓存',
         message: '复用已渲染的HTML，加载更快',
@@ -630,6 +780,7 @@ const VisualXPathSelector = ({
       })
       .catch(err => {
         console.error('注入脚本失败:', err);
+        setPageLoading(false);
         notifications.show({
           title: '错误',
           message: '处理缓存HTML失败',

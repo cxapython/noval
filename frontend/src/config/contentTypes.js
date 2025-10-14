@@ -128,7 +128,7 @@ export const FIELD_TYPE_LABELS = {
 // 步骤标题映射
 export const STEP_TITLES = {
   novel: {
-    0: '小说基本信息',
+    0: '小说基本信息（可选）',
     1: '章节列表',
     2: '章节内容',
     3: '配置预览'
@@ -156,7 +156,7 @@ export const STEP_TITLES = {
 // 步骤描述映射
 export const STEP_DESCRIPTIONS = {
   novel: {
-    0: '配置标题、作者等',
+    0: '配置标题、作者等（可跳过）',
     1: '配置章节列表解析',
     2: '配置正文内容解析',
     3: '预览并保存配置'
