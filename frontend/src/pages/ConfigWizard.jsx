@@ -788,7 +788,7 @@ function ConfigWizard() {
           </Group>
         </div>
 
-        <StepIndicator currentStep={currentStep} />
+        <StepIndicator currentStep={currentStep} contentType={contentType} />
 
         {/* 步骤0-2：配置各层级字段 */}
         {(currentStep === 0 || currentStep === 1 || currentStep === 2) && (

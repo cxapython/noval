@@ -83,7 +83,7 @@ function Layout({ children }) {
                     textOverflow: 'ellipsis'
                   }}
                 >
-                  {isMobile ? '小说爬虫' : '小说爬虫管理系统'}
+                  {isMobile ? '内容爬虫' : '通用爬虫管理系统'}
                 </Title>
                 {!isMobile && <Text size="10px" c="dimmed" mt={-2}>v4.0.0</Text>}
               </div>
@@ -274,7 +274,7 @@ function Layout({ children }) {
 
       <AppShell.Footer px={isMobile ? 'sm' : 'xl'} py={isMobile ? 'xs' : 'sm'}>
         <Text ta="center" size={isMobile ? '10px' : 'xs'} c="dimmed" fw={500}>
-          {isMobile ? '小说爬虫 ©2025 🚀' : '小说爬虫管理系统 ©2025 | 基于配置驱动的通用爬虫框架 🚀'}
+          {isMobile ? '通用爬虫 ©2025 🚀' : '通用爬虫管理系统 ©2025 | 基于配置驱动的智能爬虫框架 🚀'}
         </Text>
       </AppShell.Footer>
     </AppShell>

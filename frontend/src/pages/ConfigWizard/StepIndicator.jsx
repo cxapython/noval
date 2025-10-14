@@ -1,29 +1,33 @@
 import { Stepper } from '@mantine/core'
+import { STEP_TITLES, STEP_DESCRIPTIONS } from '../../config/contentTypes'
 
 /**
- * 步骤指示器组件（替换 Ant Design Steps）
+ * 步骤指示器组件 - 支持动态内容类型
  */
-function StepIndicator({ currentStep }) {
+function StepIndicator({ currentStep, contentType = 'novel' }) {
+  const stepTitles = STEP_TITLES[contentType] || STEP_TITLES.novel
+  const stepDescriptions = STEP_DESCRIPTIONS[contentType] || STEP_DESCRIPTIONS.novel
+
   return (
     <Stepper 
       active={currentStep} 
       style={{ marginBottom: 32 }}
     >
       <Stepper.Step 
-        label="小说基本信息" 
-        description="配置标题、作者等"
+        label={stepTitles[0]} 
+        description={stepDescriptions[0]}
       />
       <Stepper.Step 
-        label="章节列表" 
-        description="配置章节列表解析"
+        label={stepTitles[1]} 
+        description={stepDescriptions[1]}
       />
       <Stepper.Step 
-        label="章节内容" 
-        description="配置正文内容解析"
+        label={stepTitles[2]} 
+        description={stepDescriptions[2]}
       />
       <Stepper.Step 
-        label="配置预览" 
-        description="预览并保存配置"
+        label={stepTitles[3]} 
+        description={stepDescriptions[3]}
       />
     </Stepper>
   )

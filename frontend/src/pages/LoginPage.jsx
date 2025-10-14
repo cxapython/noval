@@ -131,7 +131,7 @@ function LoginPage({ onLoginSuccess }) {
                     {isLogin ? '欢迎回来' : '创建账号'}
                   </Title>
                   <Text c="dimmed" size="sm" ta="center" mt={5}>
-                    {isLogin ? '登录您的小说爬虫管理系统' : '注册一个新账号开始使用'}
+                    {isLogin ? '登录您的通用爬虫管理系统' : '注册一个新账号开始使用'}
                   </Text>
                 </Box>
 
