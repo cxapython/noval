@@ -445,6 +445,7 @@ function TaskManagerPage() {
                     leftSection={<IconClearAll size={18} />}
                     onClick={handleClearCompleted}
                     variant="light"
+                    color="orange"
                     size="sm"
                   >
                     清理已完成
@@ -455,7 +456,12 @@ function TaskManagerPage() {
                   onClick={() => setCreateModalVisible(true)}
                   size={isMobile ? 'xs' : 'sm'}
                   fullWidth={isMobile}
-                  style={{ flex: isMobile ? 1 : 'none' }}
+                  variant="gradient"
+                  gradient={{ from: 'blue', to: 'cyan', deg: 90 }}
+                  style={{ 
+                    flex: isMobile ? 1 : 'none',
+                    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
+                  }}
                 >
                   {isMobile ? '新建' : '创建任务'}
                 </Button>
@@ -629,6 +635,7 @@ function TaskManagerPage() {
                         <Tooltip label="查看详情">
                           <ActionIcon 
                             variant="light" 
+                            color="cyan"
                             size="lg"
                             onClick={() => handleViewTask(task)}
                           >
