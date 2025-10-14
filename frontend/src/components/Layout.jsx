@@ -95,6 +95,7 @@ function Layout({ children }) {
                 value={getActiveTab()} 
                 onChange={handleTabChange}
                 variant="pills"
+                color="grape"
                 ml="md"
               >
                 <Tabs.List>
