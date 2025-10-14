@@ -3,7 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { 
   Card, Button, Group, Stack, 
   Modal, TextInput, NumberInput, Switch, Tabs,
-  SimpleGrid, Text, Badge, ActionIcon, Title, Box
+  SimpleGrid, Text, Badge, ActionIcon, Title, Box,
+  Skeleton, ThemeIcon, Center
 } from '@mantine/core'
 import { useMediaQuery } from '@mantine/hooks'
 import { 
@@ -267,31 +268,78 @@ function CrawlerManager() {
             </Group>
           </Group>
 
-          {configs.length === 0 ? (
-            <Card 
-              shadow="xs" 
-              padding="xl" 
-              style={{ 
-                textAlign: 'center'
-              }}
+          {loading ? (
+            <SimpleGrid
+              cols={{ base: 1, sm: 2, md: 2, lg: 3, xl: 4 }}
+              spacing="md"
             >
-              <Stack align="center" gap="md">
-                <IconFileText size={64} color="var(--mantine-color-gray-5)" />
-                <Text c="dimmed">暂无配置文件</Text>
-                <Button 
-                  size="lg"
-                  variant="gradient"
-                  gradient={{ from: 'grape', to: 'violet', deg: 90 }}
-                  leftSection={<IconPlus size={18} />} 
-                  onClick={handleCreateNew}
+              {[1, 2, 3, 4].map((i) => (
+                <Card key={i} shadow="sm" padding="lg" radius="md" withBorder>
+                  <Card.Section withBorder inheritPadding py="xs">
+                    <Group justify="space-between">
+                      <Skeleton height={20} width={120} />
+                    </Group>
+                  </Card.Section>
+                  <Stack gap="xs" mt="md" mb="md">
+                    <Skeleton height={14} width="80%" />
+                    <Skeleton height={24} width={100} radius="sm" />
+                  </Stack>
+                  <Stack gap="xs" mt="md">
+                    <Group gap="xs" wrap="nowrap">
+                      <Skeleton height={36} style={{ flex: 1 }} />
+                      <Skeleton height={36} style={{ flex: 1 }} />
+                      <Skeleton height={36} width={36} />
+                    </Group>
+                    <Skeleton height={28} />
+                  </Stack>
+                </Card>
+              ))}
+            </SimpleGrid>
+          ) : configs.length === 0 ? (
+            <Center py={80}>
+              <Stack align="center" gap="xl">
+                <ThemeIcon 
+                  size={140} 
+                  radius="xl" 
+                  variant="light" 
+                  color="grape"
                   style={{
-                    boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+                    background: 'linear-gradient(135deg, rgba(190, 75, 219, 0.1) 0%, rgba(142, 45, 226, 0.1) 100%)',
                   }}
                 >
-                  创建第一个配置
-                </Button>
+                  <IconFileText size={70} stroke={1.5} />
+                </ThemeIcon>
+                <Stack align="center" gap="xs">
+                  <Title order={3} c="dimmed">还没有配置文件</Title>
+                  <Text c="dimmed" size="sm" ta="center">
+                    使用智能向导快速创建配置，或手动新建配置文件
+                  </Text>
+                </Stack>
+                <Group gap="md">
+                  <Button 
+                    size="lg"
+                    variant="gradient"
+                    gradient={{ from: 'grape', to: 'violet', deg: 90 }}
+                    leftSection={<IconFlask size={20} />}
+                    onClick={() => navigate('/crawler/wizard')}
+                    style={{
+                      boxShadow: '0 4px 15px rgba(190, 75, 219, 0.4)',
+                    }}
+                  >
+                    🧙‍♂️ 智能向导
+                  </Button>
+                  <Button 
+                    size="lg"
+                    variant="light"
+                    color="grape"
+                    leftSection={<IconPlus size={20} />} 
+                    onClick={handleCreateNew}
+                  >
+                    手动创建
+                  </Button>
+                </Group>
               </Stack>
-            </Card>
+            </Center>
           ) : (
             <SimpleGrid
               cols={{ base: 1, sm: 2, md: 2, lg: 3, xl: 4 }}
@@ -304,7 +352,7 @@ function CrawlerManager() {
                   padding="lg"
                   radius="md"
                   withBorder
-                  style={{ cursor: 'pointer' }}
+                  className="card-hover"
                 >
                   <Card.Section withBorder inheritPadding py="xs">
                     <Group justify="space-between">

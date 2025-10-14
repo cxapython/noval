@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { 
-  Card, Button, Tabs, Textarea, Loader, Badge, Group, Stack, Center, Box
+  Card, Button, Tabs, Textarea, Loader, Badge, Group, Stack, Center, Box,
+  Breadcrumbs, Anchor, Text as MantineText
 } from '@mantine/core'
 import { 
   IconDeviceFloppy, IconCode, 
@@ -231,6 +232,15 @@ function ConfigEditorPage() {
 
   return (
     <Box className="fade-in" px="xl" pb="xl">
+      <Breadcrumbs mb="md" separator="→">
+        <Anchor onClick={() => navigate('/crawler')} style={{ cursor: 'pointer' }}>
+          爬虫管理
+        </Anchor>
+        <MantineText c="dimmed">
+          {filename ? `编辑配置: ${filename}` : '新建配置'}
+        </MantineText>
+      </Breadcrumbs>
+      
       <Card shadow="sm" padding="lg" radius="md" withBorder>
         <Stack gap="lg">
           <Group justify="space-between">

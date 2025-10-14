@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import {
   Card, Button, TextInput, Textarea, Loader, Alert, Group, Stack,
   Image, Badge, Divider, Tooltip, Checkbox, Radio, Select,
-  Accordion, Text, Modal, NumberInput, Switch, Title, Center, Box, SegmentedControl
+  Accordion, Text, Modal, NumberInput, Switch, Title, Center, Box, SegmentedControl,
+  Breadcrumbs, Anchor
 } from '@mantine/core'
 import {
   IconArrowLeft, IconArrowRight, IconDeviceFloppy,
@@ -772,6 +773,13 @@ function ConfigWizard() {
 
   return (
     <Box className="fade-in" px="xl" pb="xl">
+      <Breadcrumbs mb="md" separator="→">
+        <Anchor onClick={() => navigate('/crawler')} style={{ cursor: 'pointer' }}>
+          爬虫管理
+        </Anchor>
+        <Text c="dimmed">智能配置向导</Text>
+      </Breadcrumbs>
+      
       <Card
         style={{
           background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',

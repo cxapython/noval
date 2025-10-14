@@ -5,7 +5,7 @@ import {
   Modal, TextInput, Textarea, Badge, Grid, Drawer, Radio,
   Slider, Select, Tooltip, Divider, Checkbox, Title, Text,
   Paper, Center, ActionIcon, Box, Progress as MantineProgress,
-  FileButton, Indicator
+  FileButton, Indicator, Skeleton, ThemeIcon
 } from '@mantine/core'
 import { useMediaQuery } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
@@ -936,12 +936,51 @@ function NovelReader() {
           </Group>
           
           {loading ? (
-            <Center style={{ padding: '40px' }}>
-              <Text>加载中...</Text>
-            </Center>
+            <Grid gutter={isMobile ? 'xs' : 'md'}>
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <Grid.Col key={i} span={{ xs: 6, sm: 4, md: 3, lg: 2.4 }}>
+                  <Card shadow="sm" padding={isMobile ? 'sm' : 'lg'}>
+                    <Card.Section>
+                      <Skeleton height={isMobile ? 180 : 240} />
+                    </Card.Section>
+                    <Skeleton height={20} mt="md" radius="sm" />
+                    <Skeleton height={16} mt="xs" radius="sm" width="70%" />
+                    <Skeleton height={14} mt="xs" radius="sm" width="50%" />
+                  </Card>
+                </Grid.Col>
+              ))}
+            </Grid>
           ) : novels.length === 0 ? (
-            <Center style={{ padding: '40px' }}>
-              <Text c="dimmed">暂无小说，请先运行爬虫采集数据</Text>
+            <Center py={80}>
+              <Stack align="center" gap="xl">
+                <ThemeIcon 
+                  size={140} 
+                  radius="xl" 
+                  variant="light" 
+                  color="blue"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)',
+                  }}
+                >
+                  <IconBook size={70} stroke={1.5} />
+                </ThemeIcon>
+                <Stack align="center" gap="xs">
+                  <Title order={3} c="dimmed">还没有小说哦</Title>
+                  <Text c="dimmed" size="sm" ta="center">
+                    前往爬虫管理页面添加配置，开始采集您喜欢的小说吧
+                  </Text>
+                </Stack>
+                <Button 
+                  size="lg" 
+                  variant="gradient"
+                  gradient={{ from: 'blue', to: 'violet', deg: 90 }}
+                  leftSection={<IconBook size={20} />}
+                  onClick={() => navigate('/crawler')}
+                  style={{ boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)' }}
+                >
+                  开始添加小说
+                </Button>
+              </Stack>
             </Center>
           ) : viewMode === 'grid' ? (
             <Grid gutter={isMobile ? 'xs' : 'md'}>
@@ -950,7 +989,8 @@ function NovelReader() {
                   <Card
                     shadow="sm"
                     padding={isMobile ? 'sm' : 'lg'}
-                    style={{ cursor: 'pointer', position: 'relative' }}
+                    className="card-hover"
+                    style={{ position: 'relative' }}
                     onClick={() => navigate(`/reader/${novel.id}`)}
                   >
                     <Badge
@@ -1055,7 +1095,7 @@ function NovelReader() {
                   key={novel.id}
                   shadow="sm"
                   padding="md"
-                  style={{ cursor: 'pointer' }}
+                  className="card-hover"
                   onClick={() => navigate(`/reader/${novel.id}`)}
                 >
                   <Group wrap="nowrap" gap="md">
