@@ -586,7 +586,7 @@ function TaskManagerPage() {
                         </Text>
                       </Grid.Col>
                       <Grid.Col span={4}>
-                        <Text size="xs" c="dimmed">书籍ID</Text>
+                        <Text size="xs" c="dimmed">内容ID</Text>
                         <Text size="sm">{task.book_id}</Text>
                       </Grid.Col>
                       <Grid.Col span={4}>
@@ -666,13 +666,13 @@ function TaskManagerPage() {
 
             <Tabs defaultValue="book_id">
               <Tabs.List>
-                <Tabs.Tab value="book_id">输入书籍ID</Tabs.Tab>
+                <Tabs.Tab value="book_id">输入内容ID</Tabs.Tab>
                 <Tabs.Tab value="start_url">输入完整URL</Tabs.Tab>
               </Tabs.List>
 
               <Tabs.Panel value="book_id" pt="md">
                 <TextInput
-                  label="书籍ID"
+                  label="内容ID"
                   placeholder="例如: 41934"
                   {...createForm.getInputProps('book_id')}
                 />
@@ -748,7 +748,7 @@ function TaskManagerPage() {
                   <div>{renderStatusTag(selectedTask.status)}</div>
                 </Grid.Col>
                 <Grid.Col span={6}>
-                  <Text size="xs" c="dimmed">小说名称</Text>
+                  <Text size="xs" c="dimmed">内容名称</Text>
                   <Text size="sm" fw={600}>{selectedTask.novel_title || '-'}</Text>
                 </Grid.Col>
                 <Grid.Col span={6}>
@@ -793,7 +793,7 @@ function TaskManagerPage() {
               <Grid mt="md">
                 <Grid.Col span={4}>
                   <Paper p="sm" radius="md" withBorder style={{ textAlign: 'center' }}>
-                    <Text size="xs" c="dimmed">总章节</Text>
+                    <Text size="xs" c="dimmed">总条目</Text>
                     <Text size="xl" fw={700}>{selectedTask.total_chapters}</Text>
                   </Paper>
                 </Grid.Col>
@@ -819,7 +819,7 @@ function TaskManagerPage() {
               )}
               {selectedTask.current_chapter && (
                 <Box mt="md">
-                  <Text size="xs" c="dimmed">当前章节</Text>
+                  <Text size="xs" c="dimmed">当前条目</Text>
                   <Text size="sm">{selectedTask.current_chapter}</Text>
                 </Box>
               )}

@@ -47,13 +47,13 @@ function CrawlerManager() {
     validate: {
       book_id: (value, values) => {
         if (!value && !values.start_url) {
-          return '请输入书籍ID或完整URL'
+          return '请输入内容ID或完整URL'
         }
         return null
       },
       start_url: (value, values) => {
         if (!value && !values.book_id) {
-          return '请输入书籍ID或完整URL'
+          return '请输入内容ID或完整URL'
         }
         return null
       }
@@ -390,14 +390,14 @@ function CrawlerManager() {
           <Stack gap="md">
             <Tabs defaultValue="book_id">
               <Tabs.List>
-                <Tabs.Tab value="book_id">书籍ID</Tabs.Tab>
+                <Tabs.Tab value="book_id">内容ID</Tabs.Tab>
                 <Tabs.Tab value="start_url">完整URL</Tabs.Tab>
               </Tabs.List>
 
               <Tabs.Panel value="book_id" pt="md">
                 <TextInput
-                  label="书籍ID"
-                  description="从小说URL中提取的数字ID，例如：41934"
+                  label="内容ID"
+                  description="从URL中提取的数字ID，例如：41934"
                   placeholder="例如：41934"
                   size="md"
                   {...runForm.getInputProps('book_id')}
@@ -407,7 +407,7 @@ function CrawlerManager() {
               <Tabs.Panel value="start_url" pt="md">
                 <TextInput
                   label="起始URL"
-                  description="小说详情页的完整URL，系统会自动提取书籍ID"
+                  description="详情页的完整URL，系统会自动提取内容ID"
                   placeholder="例如：https://m.ikbook8.com/book/41934.html"
                   size="md"
                   {...runForm.getInputProps('start_url')}
@@ -417,7 +417,7 @@ function CrawlerManager() {
 
             <NumberInput
               label="并发线程数"
-              description="同时下载的章节数量，建议5-10"
+              description="同时下载的条目数量，建议5-10"
               min={1}
               max={20}
               size="md"
