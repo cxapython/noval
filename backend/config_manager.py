@@ -52,8 +52,8 @@ class ConfigManager:
         content_type = self.config.get('content_type', 'novel')
         logger.info(f"📋 配置类型: {content_type}")
         
-        # 验证顶层必需字段
-        required_top_level = ['site_info', 'parsers', 'url_templates']
+        # 验证顶层必需字段（url_templates是可选的）
+        required_top_level = ['site_info', 'parsers']
         for field in required_top_level:
             if field not in self.config:
                 errors.append(f'缺少顶层字段: {field}')
@@ -66,24 +66,33 @@ class ConfigManager:
             if 'base_url' not in site_info:
                 errors.append('site_info 缺少 base_url 字段')
         
-        # 验证 parsers
+        # 验证 parsers（novel_info是可选的，其他是必需的）
         if 'parsers' in self.config:
             parsers = self.config['parsers']
-            required_parsers = ['novel_info', 'chapter_list', 'chapter_content']
+            # 必需的解析器（列表和内容必须有）
+            required_parsers = ['chapter_list', 'chapter_content']
             for parser in required_parsers:
                 if parser not in parsers:
                     errors.append(f'parsers 缺少 {parser} 字段')
+            
+            # 可选的解析器（novel_info是可选的）
+            if 'novel_info' not in parsers:
+                logger.info('ℹ️ parsers 未配置 novel_info（第一步信息采集是可选的）')
+            elif not parsers['novel_info']:
+                logger.info('ℹ️ parsers.novel_info 为空（第一步信息采集已跳过）')
         
-        # 验证 url_templates（对于新闻类型，某些字段可能为空，但结构必须存在）
-        if 'url_templates' in self.config:
+        # 验证 url_templates（完全可选，仅记录警告）
+        if 'url_templates' not in self.config:
+            logger.warning('⚠️ 配置中未包含 url_templates，将无法使用URL模板功能')
+        elif self.config['url_templates']:
             url_templates = self.config['url_templates']
+            # 检查常用字段，但不强制要求
             if 'book_detail' not in url_templates:
-                errors.append('url_templates 缺少 book_detail 字段')
-            # 对于news类型，分页字段可能为空，所以只检查存在性
+                logger.debug('ℹ️ url_templates 未配置 book_detail')
             if 'chapter_list_page' not in url_templates:
-                logger.warning('url_templates 缺少 chapter_list_page 字段（新闻类型可能不需要）')
+                logger.debug('ℹ️ url_templates 未配置 chapter_list_page（列表翻页功能将不可用）')
             if 'chapter_content_page' not in url_templates:
-                logger.warning('url_templates 缺少 chapter_content_page 字段')
+                logger.debug('ℹ️ url_templates 未配置 chapter_content_page（内容翻页功能将不可用）')
         
         if errors:
             error_msg = '\n'.join(errors)

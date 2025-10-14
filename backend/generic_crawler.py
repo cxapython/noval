@@ -255,15 +255,16 @@ class GenericNovelCrawler:
             self._log('ERROR', "❌ 获取首页失败")
             return False
 
-        # 解析小说信息
+        # 解析小说信息（可选步骤）
         self.novel_info = self.parse_novel_info(html)
 
-        if not self.novel_info.get('title'):
-            self._log('ERROR', "❌ 解析小说信息失败")
-            return False
-
-        self._log('INFO', f"📚 小说名称: {self.novel_info.get('title')}")
-        self._log('INFO', f"✍️  作者: {self.novel_info.get('author', '未知')}")
+        if self.novel_info and self.novel_info.get('title'):
+            # 有配置novel_info且成功解析
+            self._log('INFO', f"📚 小说名称: {self.novel_info.get('title')}")
+            self._log('INFO', f"✍️  作者: {self.novel_info.get('author', '未知')}")
+        else:
+            # 未配置novel_info或未成功解析（新闻等类型可能不需要）
+            self._log('INFO', f"ℹ️  跳过小说信息解析（可选步骤）")
 
         # 解析章节列表配置
         parsers = self.config_manager.get_parsers()
@@ -738,12 +739,18 @@ class GenericNovelCrawler:
             self.novel_id = existing_novel['id']
             logger.info(f"📚 小说已存在 (ID: {self.novel_id})，将更新章节\n")
         else:
-            # 插入小说信息
+            # 插入小说信息（如果未配置novel_info，使用默认值）
+            title = self.novel_info.get('title') if self.novel_info else None
+            if not title:
+                # 使用网站名称作为默认标题
+                title = f"{self.site_name}内容" if self.site_name else "未命名内容"
+                logger.info(f"ℹ️  使用默认标题: {title}")
+            
             self.novel_id = self.db.insert_novel(
-                self.novel_info.get('title'),
-                self.novel_info.get('author', '未知'),
+                title,
+                self.novel_info.get('author', '未知') if self.novel_info else '未知',
                 self.start_url,
-                cover_url=self.novel_info.get('cover_url', ''),
+                cover_url=self.novel_info.get('cover_url', '') if self.novel_info else '',
                 site_name=self.site_name
             )
             if not self.novel_id:
