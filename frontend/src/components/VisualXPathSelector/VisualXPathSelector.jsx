@@ -39,27 +39,23 @@ import {
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { API_BASE_URL } from '../../config';
+import { getFieldTypes } from '../../config/contentTypes';
 import './VisualXPathSelector.css';
 
-// 字段类型选项配置
+// 根据内容类型动态生成字段类型选项
+const getFieldTypeOptions = (contentType, pageType) => {
+  const fieldTypes = getFieldTypes(contentType, pageType);
+  return Object.entries(fieldTypes).map(([value, config]) => ({
+    value,
+    label: config.label
+  }));
+};
+
+// 默认字段类型选项配置（小说）
 const FIELD_TYPE_OPTIONS = {
-  novel_info: [
-    { value: 'title', label: '小说标题' },
-    { value: 'author', label: '作者' },
-    { value: 'cover_url', label: '封面图片URL' },
-    { value: 'intro', label: '简介' },
-    { value: 'status', label: '状态' },
-    { value: 'category', label: '分类' },
-    { value: 'tags', label: '标签' }
-  ],
-  chapter_list: [
-    { value: 'items', label: '列表项选择器' },
-    { value: 'title', label: '章节标题' },
-    { value: 'url', label: '章节链接' }
-  ],
-  chapter_content: [
-    { value: 'content', label: '正文内容' }
-  ]
+  novel_info: getFieldTypeOptions('novel', 'novel_info'),
+  chapter_list: getFieldTypeOptions('novel', 'chapter_list'),
+  chapter_content: getFieldTypeOptions('novel', 'chapter_content')
 };
 
 const VisualXPathSelector = ({
@@ -69,6 +65,7 @@ const VisualXPathSelector = ({
   cachedHtml = null, // 缓存的HTML，如果提供则不请求URL
   currentFieldType = '',
   pageType = 'novel_info',
+  contentType = 'novel', // 新增：内容类型
   onFieldConfirm
 }) => {
   // ============ 状态管理 ============
@@ -80,6 +77,9 @@ const VisualXPathSelector = ({
   const [iframeKey, setIframeKey] = useState(Date.now()); // 用于强制重新挂载iframe
   const [fieldTypeSelection, setFieldTypeSelection] = useState(''); // 用户选择的字段类型
   const iframeRef = useRef(null);
+  
+  // 动态获取字段类型选项
+  const fieldTypeOptions = getFieldTypeOptions(contentType, pageType);
   
   // ============ 生命周期 ============
   useEffect(() => {
@@ -205,8 +205,7 @@ const VisualXPathSelector = ({
     }
     
     // 获取字段显示名称（label）
-    const fieldOptions = FIELD_TYPE_OPTIONS[pageType] || [];
-    const selectedFieldOption = fieldOptions.find(opt => opt.value === fieldTypeSelection);
+    const selectedFieldOption = fieldTypeOptions.find(opt => opt.value === fieldTypeSelection);
     const fieldLabel = selectedFieldOption?.label || fieldTypeSelection;
     
     // 创建字段对象，name直接使用字段类型的value（如title、author等）
@@ -349,7 +348,7 @@ const VisualXPathSelector = ({
     if (/content/i.test(classStr) && pageType === 'chapter_content') return 'content';
     
     // 默认返回第一个可用的字段类型
-    const options = FIELD_TYPE_OPTIONS[pageType] || [];
+    const options = getFieldTypeOptions(contentType, pageType);
     return options.length > 0 ? options[0].value : '';
   };
   
@@ -466,7 +465,7 @@ const VisualXPathSelector = ({
             <Select
               label="选择字段类型"
               placeholder="请选择字段类型"
-              data={FIELD_TYPE_OPTIONS[pageType] || []}
+              data={fieldTypeOptions}
               value={fieldTypeSelection}
               onChange={setFieldTypeSelection}
               required
@@ -478,7 +477,7 @@ const VisualXPathSelector = ({
               <Alert color="blue" variant="light" p="xs">
                 <Stack gap={4}>
                   <Text size="xs">
-                    ✅ 字段类型：<strong>{FIELD_TYPE_OPTIONS[pageType]?.find(opt => opt.value === fieldTypeSelection)?.label}</strong>
+                    ✅ 字段类型：<strong>{fieldTypeOptions.find(opt => opt.value === fieldTypeSelection)?.label}</strong>
                   </Text>
                   <Text size="xs" c="dimmed">
                     字段名：<Code>{fieldTypeSelection}</Code> （与数据库字段名一致）
@@ -654,6 +653,15 @@ const VisualXPathSelector = ({
   // 优先使用blob URL（缓存HTML），否则使用代理URL
   const proxyUrl = blobUrl || (url ? `${API_BASE_URL}/api/crawler/v5/proxy-page?url=${encodeURIComponent(url)}&wait_time=2&_t=${iframeKey}` : '');
   
+  // 调试日志
+  useEffect(() => {
+    if (visible && proxyUrl) {
+      console.log('🔍 iframe URL:', proxyUrl);
+      console.log('🔍 使用缓存HTML:', !!blobUrl);
+      console.log('🔍 原始URL:', url);
+    }
+  }, [visible, proxyUrl, blobUrl, url]);
+  
   return (
     <Modal
       opened={visible}
@@ -732,6 +740,32 @@ const VisualXPathSelector = ({
                       display: 'block'
                     }}
                     title="页面预览"
+                    onLoad={() => {
+                      console.log('📄 iframe已加载完成');
+                      // 如果5秒后还没收到selectorReady消息，显示警告
+                      setTimeout(() => {
+                        if (!pageLoaded) {
+                          console.warn('⚠️ 脚本可能未正常初始化');
+                          setPageLoading(false);
+                          notifications.show({
+                            title: '⚠️ 页面加载异常',
+                            message: '页面已加载但脚本未响应，请检查浏览器控制台',
+                            color: 'yellow',
+                            autoClose: 5000
+                          });
+                        }
+                      }, 5000);
+                    }}
+                    onError={(e) => {
+                      console.error('❌ iframe加载失败:', e);
+                      setPageLoading(false);
+                      notifications.show({
+                        title: '❌ 页面加载失败',
+                        message: '无法加载目标页面，请检查URL或网络',
+                        color: 'red',
+                        autoClose: 5000
+                      });
+                    }}
                   />
                 </div>
               </Stack>

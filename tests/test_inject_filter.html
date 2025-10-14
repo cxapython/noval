@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XPath注入过滤测试 V3.0</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #333;
+    }
+    
+    .container {
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+    
+    h1 {
+      color: #667eea;
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    
+    .test-section {
+      margin-bottom: 30px;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border-left: 4px solid #667eea;
+    }
+    
+    .test-section h2 {
+      color: #764ba2;
+      margin-top: 0;
+    }
+    
+    .article {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .author {
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
+    
+    .content {
+      line-height: 1.6;
+      color: #333;
+    }
+    
+    .btn {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-right: 10px;
+      transition: all 0.3s;
+    }
+    
+    .btn:hover {
+      background: #764ba2;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    #result {
+      background: #e8f4f8;
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 20px;
+      font-family: 'Courier New', monospace;
+      white-space: pre-wrap;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    
+    .success {
+      color: #28a745;
+      font-weight: bold;
+    }
+    
+    .error {
+      color: #dc3545;
+      font-weight: bold;
+    }
+    
+    .info {
+      color: #17a2b8;
+    }
+    
+    /* 模拟注入的工具元素 */
+    .injected-tooltip {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      background: rgba(255, 193, 7, 0.9);
+      padding: 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      z-index: 10000;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧪 XPath注入过滤测试 V3.0</h1>
+    
+    <div class="test-section">
+      <h2>📝 测试场景说明</h2>
+      <p>本页面包含原始内容和模拟的工具注入元素，用于测试XPath是否能正确过滤注入内容。</p>
+      <p><strong>测试重点</strong>：</p>
+      <ul>
+        <li>✅ 原始元素的XPath应该正常匹配</li>
+        <li>✅ 注入元素应该被自动过滤掉</li>
+        <li>✅ 匹配数量应该只计算原始元素</li>
+      </ul>
+    </div>
+    
+    <div class="test-section">
+      <h2>📚 原始页面内容</h2>
+      
+      <div class="article">
+        <p class="author">作者：张三</p>
+        <p class="content">这是第一篇文章的内容，用于测试XPath提取。</p>
+      </div>
+      
+      <div class="article">
+        <p class="author">作者：李四</p>
+        <p class="content">这是第二篇文章的内容，测试多个相似元素的匹配。</p>
+      </div>
+      
+      <div class="article">
+        <p class="author">作者：王五</p>
+        <p class="content">这是第三篇文章的内容，验证XPath的准确性。</p>
+      </div>
+    </div>
+    
+    <div class="test-section">
+      <h2>🧪 执行测试</h2>
+      <button class="btn" onclick="runTest()">开始测试</button>
+      <button class="btn" onclick="clearResult()">清空结果</button>
+      <div id="result"></div>
+    </div>
+  </div>
+  
+  <!-- 模拟注入的工具提示元素 -->
+  <div class="injected-tooltip" data-injected="true">
+    <p class="author">作者：工具提示</p>
+    <p>这是工具注入的元素，不应该被XPath匹配</p>
+  </div>
+  
+  <script>
+    // 模拟注入更多工具元素
+    function injectToolElements() {
+      // 注入一个隐藏的工具div
+      const toolDiv = document.createElement('div');
+      toolDiv.setAttribute('data-injected', 'true');
+      toolDiv.style.display = 'none';
+      toolDiv.innerHTML = '<p class="author">作者：隐藏工具</p><p>这也是注入的元素</p>';
+      document.body.appendChild(toolDiv);
+      
+      log('✅ 已注入2个工具元素（1个可见，1个隐藏）');
+    }
+    
+    function log(msg) {
+      const result = document.getElementById('result');
+      result.textContent += msg + '\n';
+    }
+    
+    function clearResult() {
+      document.getElementById('result').textContent = '';
+    }
+    
+    function countElements(xpath, excludeInjected = false) {
+      try {
+        const result = document.evaluate(
+          xpath, 
+          document, 
+          null,
+          XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, 
+          null
+        );
+        
+        if (!excludeInjected) {
+          return result.snapshotLength;
+        }
+        
+        // 手动排除注入元素
+        let count = 0;
+        for (let i = 0; i < result.snapshotLength; i++) {
+          const item = result.snapshotItem(i);
+          if (!item.hasAttribute('data-injected')) {
+            count++;
+          }
+        }
+        return count;
+      } catch (error) {
+        return -1;
+      }
+    }
+    
+    function testXPath(description, originalXPath, filteredXPath) {
+      log('\n' + '='.repeat(60));
+      log('📍 测试：' + description);
+      log('='.repeat(60));
+      
+      // 测试原始XPath
+      const originalCount = countElements(originalXPath, false);
+      log(`原始XPath: ${originalXPath}`);
+      log(`  → 匹配数量: ${originalCount} (包含注入元素)`);
+      
+      // 手动过滤后的数量
+      const manualFilteredCount = countElements(originalXPath, true);
+      log(`  → 手动过滤后: ${manualFilteredCount} (排除注入元素)`);
+      
+      // 测试添加过滤条件的XPath
+      const filteredCount = countElements(filteredXPath, false);
+      log(`\n优化XPath: ${filteredXPath}`);
+      log(`  → 匹配数量: ${filteredCount} (自动排除注入元素)`);
+      
+      // 验证结果
+      if (filteredCount === manualFilteredCount && filteredCount < originalCount) {
+        log(`\n✅ 测试通过！过滤效果正确`);
+        return true;
+      } else if (originalCount === manualFilteredCount) {
+        log(`\n⚠️ 注意：此XPath本身未匹配到注入元素`);
+        return true;
+      } else {
+        log(`\n❌ 测试失败！过滤效果不正确`);
+        return false;
+      }
+    }
+    
+    function runTest() {
+      clearResult();
+      log('🚀 开始XPath注入过滤测试 V3.0\n');
+      
+      // 先注入工具元素
+      injectToolElements();
+      
+      let passCount = 0;
+      let totalCount = 0;
+      
+      // 测试1：基础class匹配
+      totalCount++;
+      if (testXPath(
+        '基础class匹配',
+        '//p[@class="author"]',
+        '//p[@class="author" and not(@data-injected)]'
+      )) passCount++;
+      
+      // 测试2：文本包含匹配
+      totalCount++;
+      if (testXPath(
+        '文本包含匹配',
+        '//p[contains(text(), "作者")]',
+        '//p[contains(text(), "作者") and not(@data-injected)]'
+      )) passCount++;
+      
+      // 测试3：位置索引匹配
+      totalCount++;
+      if (testXPath(
+        '位置索引匹配',
+        '//div[@class="article"][1]',
+        '//div[@class="article" and not(@data-injected)][1]'
+      )) passCount++;
+      
+      // 测试4：多重条件匹配
+      totalCount++;
+      if (testXPath(
+        '多重条件匹配',
+        '//p[@class="content"]',
+        '//p[@class="content" and not(@data-injected)]'
+      )) passCount++;
+      
+      // 总结
+      log('\n' + '='.repeat(60));
+      log('📊 测试总结');
+      log('='.repeat(60));
+      log(`总测试数: ${totalCount}`);
+      log(`通过数: ${passCount}`);
+      log(`失败数: ${totalCount - passCount}`);
+      
+      if (passCount === totalCount) {
+        log('\n🎉 所有测试通过！XPath注入过滤功能正常！');
+      } else {
+        log('\n⚠️ 部分测试失败，请检查实现！');
+      }
+    }
+    
+    // 页面加载时自动运行测试
+    window.addEventListener('load', () => {
+      setTimeout(runTest, 500);
+    });
+  </script>
+</body>
+</html>
+

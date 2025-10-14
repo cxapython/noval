@@ -32,15 +32,25 @@ class ConfigManager:
             
             with open(config_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
-                logger.info(f"✅ 配置文件加载成功: {self.config_file}")
+                
+                # 兼容旧版配置：自动添加content_type字段
+                if 'content_type' not in config:
+                    config['content_type'] = 'novel'
+                    logger.info(f"⚠️ 旧版配置文件，自动设置 content_type = 'novel'")
+                
+                logger.info(f"✅ 配置文件加载成功: {self.config_file} (类型: {config.get('content_type', 'novel')})")
                 return config
         except Exception as e:
             logger.error(f"❌ 配置文件加载失败: {e}")
             raise
     
     def validate_config(self) -> bool:
-        """验证配置文件格式"""
+        """验证配置文件格式（兼容v6新格式和旧格式）"""
         errors = []
+        
+        # content_type 是可选字段（v6新增，旧配置可能没有）
+        content_type = self.config.get('content_type', 'novel')
+        logger.info(f"📋 配置类型: {content_type}")
         
         # 验证顶层必需字段
         required_top_level = ['site_info', 'parsers', 'url_templates']
@@ -64,15 +74,16 @@ class ConfigManager:
                 if parser not in parsers:
                     errors.append(f'parsers 缺少 {parser} 字段')
         
-        # 验证 url_templates
+        # 验证 url_templates（对于新闻类型，某些字段可能为空，但结构必须存在）
         if 'url_templates' in self.config:
             url_templates = self.config['url_templates']
             if 'book_detail' not in url_templates:
                 errors.append('url_templates 缺少 book_detail 字段')
+            # 对于news类型，分页字段可能为空，所以只检查存在性
             if 'chapter_list_page' not in url_templates:
-                errors.append('url_templates 缺少 chapter_list_page 字段')
+                logger.warning('url_templates 缺少 chapter_list_page 字段（新闻类型可能不需要）')
             if 'chapter_content_page' not in url_templates:
-                errors.append('url_templates 缺少 chapter_content_page 字段')
+                logger.warning('url_templates 缺少 chapter_content_page 字段')
         
         if errors:
             error_msg = '\n'.join(errors)
@@ -89,6 +100,10 @@ class ConfigManager:
     def get_parsers(self) -> Dict:
         """获取解析器配置"""
         return self.config.get('parsers', {})
+    
+    def get_content_type(self) -> str:
+        """获取内容类型"""
+        return self.config.get('content_type', 'novel')
     
     def get_url_templates(self) -> Dict:
         """获取URL模板"""

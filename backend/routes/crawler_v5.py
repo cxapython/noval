@@ -60,16 +60,45 @@ def load_xpath_generator_script():
 
 # ============ 脚本注入 ============
 
-def inject_scripts(html: str, selector_script: str, xpath_script: str) -> str:
+def inject_scripts(html: str, selector_script: str, xpath_script: str, base_url: str = None) -> str:
     """
-    在HTML中注入脚本
-    优先在</body>前注入，如果没有body标签则在</html>前注入
+    在HTML中注入脚本和base标签
+    优先在</body>前注入脚本，在<head>中注入base标签修复资源路径
     """
     if not selector_script:
         logger.warning("⚠️ 选择器脚本为空，跳过注入")
         return html
     
-    # 构建注入的脚本块
+    # 1. 注入base标签到<head>中，修复资源路径
+    if base_url:
+        import re
+        from urllib.parse import urljoin, urlparse
+        
+        # 提取base URL（去除路径，只保留协议+域名）
+        parsed = urlparse(base_url)
+        base_href = f"{parsed.scheme}://{parsed.netloc}/"
+        
+        base_tag = f'<base href="{base_href}">'
+        
+        # 在<head>标签后注入base
+        if '<head>' in html.lower():
+            pattern = re.compile(r'(<head[^>]*>)', re.IGNORECASE)
+            match = pattern.search(html)
+            if match:
+                pos = match.end()
+                html = html[:pos] + '\n' + base_tag + '\n' + html[pos:]
+                logger.info(f"✅ base标签已注入: {base_href}")
+        else:
+            # 如果没有head标签，在<html>后添加
+            if '<html' in html.lower():
+                pattern = re.compile(r'(<html[^>]*>)', re.IGNORECASE)
+                match = pattern.search(html)
+                if match:
+                    pos = match.end()
+                    html = html[:pos] + f'\n<head>\n{base_tag}\n</head>\n' + html[pos:]
+                    logger.info(f"✅ 已创建head标签并注入base: {base_href}")
+    
+    # 2. 构建注入的脚本块
     injection = f"""
     <!-- V5 可视化爬虫 - 注入脚本 START -->
     <script type="text/javascript">
@@ -232,8 +261,8 @@ def proxy_page():
                 
                 logger.info(f"✅ 页面加载成功: {title}")
                 
-                # 注入脚本
-                injected_html = inject_scripts(html, selector_script, xpath_script)
+                # 注入脚本和base标签（修复资源路径）
+                injected_html = inject_scripts(html, selector_script, xpath_script, base_url=url)
                 
                 # 保存到缓存
                 HTML_CACHE[cache_key] = {
@@ -519,8 +548,8 @@ def inject_cached_html():
         if not selector_script:
             return Response('元素选择器脚本加载失败', status=500)
         
-        # 注入脚本
-        injected_html = inject_scripts(html, selector_script, xpath_script)
+        # 注入脚本和base标签（修复资源路径）
+        injected_html = inject_scripts(html, selector_script, xpath_script, base_url=url)
         
         logger.info(f"✅ HTML脚本注入成功 (原始: {len(html)} bytes, 注入后: {len(injected_html)} bytes)")
         

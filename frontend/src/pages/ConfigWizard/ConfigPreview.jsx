@@ -5,6 +5,7 @@ import { notifications } from '@mantine/notifications'
 import axios from 'axios'
 import CodeEditor from '../../components/CodeEditor'
 import { API_BASE_URL } from '../../config'
+import { CONTENT_TYPES, STEP_TITLES } from '../../config/contentTypes'
 
 const API_BASE = `${API_BASE_URL}/api/crawler`
 
@@ -15,6 +16,7 @@ function ConfigPreview({
   config,
   siteName,
   baseUrl,
+  contentType = 'novel',
   novelInfoFields,
   chapterListFields,
   chapterContentFields,
@@ -148,7 +150,15 @@ function ConfigPreview({
           <Table mt="md">
             <Table.Tbody>
               <Table.Tr>
-                <Table.Td width={150}><strong>网站名称</strong></Table.Td>
+                <Table.Td width={150}><strong>内容类型</strong></Table.Td>
+                <Table.Td>
+                  <Badge color="cyan" size="lg">
+                    {CONTENT_TYPES[contentType]?.label || '小说'}
+                  </Badge>
+                </Table.Td>
+              </Table.Tr>
+              <Table.Tr>
+                <Table.Td><strong>网站名称</strong></Table.Td>
                 <Table.Td>{siteName}</Table.Td>
               </Table.Tr>
               <Table.Tr>
@@ -156,7 +166,7 @@ function ConfigPreview({
                 <Table.Td>{baseUrl}</Table.Td>
               </Table.Tr>
               <Table.Tr>
-                <Table.Td><strong>小说信息字段</strong></Table.Td>
+                <Table.Td><strong>{STEP_TITLES[contentType]?.[0] || '基本信息'}字段</strong></Table.Td>
                 <Table.Td>
                   <Group>
                     {Object.keys(novelInfoFields).map(field => (
@@ -171,7 +181,7 @@ function ConfigPreview({
                 </Table.Td>
               </Table.Tr>
               <Table.Tr>
-                <Table.Td><strong>章节列表字段</strong></Table.Td>
+                <Table.Td><strong>{STEP_TITLES[contentType]?.[1] || '列表'}字段</strong></Table.Td>
                 <Table.Td>
                   <Group>
                     {Object.keys(chapterListFields).map(field => (
@@ -186,7 +196,7 @@ function ConfigPreview({
                 </Table.Td>
               </Table.Tr>
               <Table.Tr>
-                <Table.Td><strong>章节内容字段</strong></Table.Td>
+                <Table.Td><strong>{STEP_TITLES[contentType]?.[2] || '内容'}字段</strong></Table.Td>
                 <Table.Td>
                   <Group>
                     {Object.keys(chapterContentFields).map(field => (

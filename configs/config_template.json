@@ -1,11 +1,25 @@
 {
-  "_comment": "通用小说爬虫配置模板",
+  "_comment": "通用内容爬虫配置模板（支持小说、新闻、文章等）",
   "_description": "复制此模板并修改为目标网站的配置",
+  
+  "content_type": "novel",
+  "_comment_content_type": "内容类型: novel=小说, news=新闻, article=文章, blog=博客",
   
   "site_info": {
     "name": "网站标识（英文，用于Redis键）",
     "base_url": "https://example.com",
     "description": "网站描述"
+  },
+  
+  "field_mapping": {
+    "_comment": "字段显示名称映射（可选，用于前端显示）",
+    "list_item": "小说/新闻",
+    "item_title": "标题",
+    "item_link": "链接",
+    "content_title": "标题",
+    "content_body": "内容",
+    "author": "作者",
+    "cover": "封面"
   },
   
   "url_templates": {

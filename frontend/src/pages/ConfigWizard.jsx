@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Card, Button, TextInput, Textarea, Loader, Alert, Group, Stack,
   Image, Badge, Divider, Tooltip, Checkbox, Radio, Select,
-  Accordion, Text, Modal, NumberInput, Switch, Title, Center, Box
+  Accordion, Text, Modal, NumberInput, Switch, Title, Center, Box, SegmentedControl
 } from '@mantine/core'
 import {
   IconArrowLeft, IconArrowRight, IconDeviceFloppy,
@@ -22,25 +22,27 @@ import ConfigPreview from './ConfigWizard/ConfigPreview'
 import StepIndicator from './ConfigWizard/StepIndicator'
 import VisualXPathSelector from '../components/VisualXPathSelector'
 import { API_BASE_URL } from '../config'
+import { 
+  CONTENT_TYPES, 
+  getFieldTypes, 
+  STEP_TITLES, 
+  STEP_DESCRIPTIONS,
+  URL_TEMPLATE_HINTS 
+} from '../config/contentTypes'
 
 const API_BASE = `${API_BASE_URL}/api/crawler`
 
-// 字段类型定义（仅包含数据库支持的字段）
-const FIELD_TYPES = {
-  novel_info: {
-    title: { label: '小说标题', defaultProcess: [{ method: 'strip', params: {} }], required: true },
-    author: { label: '作者', defaultProcess: [{ method: 'strip', params: {} }, { method: 'replace', params: { old: '作者：', new: '' } }] },
-    cover_url: { label: '封面图片URL', defaultProcess: [], note: '提取图片URL' }
-  },
-  chapter_list: {
-    items: { label: '列表项选择器', defaultProcess: [], note: '选择所有章节项的容器' },
-    title: { label: '章节标题', defaultProcess: [{ method: 'strip', params: {} }] },
-    url: { label: '章节链接', defaultProcess: [] }
-  },
-  chapter_content: {
-    content: { label: '正文内容', defaultProcess: [{ method: 'join', params: { separator: '\n' } }], required: true }
-  }
+// 字段类型定义函数（动态生成，根据内容类型）
+const getFieldTypesForContentType = (contentType) => {
+  return {
+    novel_info: getFieldTypes(contentType, 'novel_info'),
+    chapter_list: getFieldTypes(contentType, 'chapter_list'),
+    chapter_content: getFieldTypes(contentType, 'chapter_content')
+  };
 }
+
+// 默认字段类型（小说）
+const FIELD_TYPES = getFieldTypesForContentType('novel')
 
 // 处理XPath属性提取的公共函数
 const processXPathExpression = (expression, attributeType, customAttribute, selectedFieldType) => {
@@ -104,6 +106,10 @@ const processXPathExpression = (expression, attributeType, customAttribute, sele
 function ConfigWizard() {
    // 使用 App hook 替代静态 message
   const navigate = useNavigate()
+  
+  // 内容类型选择
+  const [contentType, setContentType] = useState('novel')
+  const [currentFieldTypes, setCurrentFieldTypes] = useState(FIELD_TYPES)
   
   // 步骤控制：0=小说信息, 1=章节列表, 2=章节内容, 3=配置预览
   const [currentStep, setCurrentStep] = useState(0)
@@ -185,6 +191,12 @@ function ConfigWizard() {
     if (currentStep === 2) return chapterContentFields
     return {}
   }
+  
+  // 当内容类型变化时，更新字段类型配置
+  useEffect(() => {
+    const newFieldTypes = getFieldTypesForContentType(contentType);
+    setCurrentFieldTypes(newFieldTypes);
+  }, [contentType])
 
   // 设置当前步骤的已识别字段
   const setCurrentFields = (fields) => {
@@ -284,7 +296,7 @@ function ConfigWizard() {
 
     const pageType = getCurrentPageType()
     const currentFields = getCurrentFields()
-    const fieldInfo = FIELD_TYPES[pageType][selectedFieldType]
+    const fieldInfo = currentFieldTypes[pageType][selectedFieldType]
     
     // 使用公共函数处理XPath表达式
     const result = processXPathExpression(selectedXpath, attributeType, customAttribute, selectedFieldType);
@@ -354,7 +366,7 @@ function ConfigWizard() {
     console.log('📥 收到可视化选择器的字段:', fields);
     
     const pageType = getCurrentPageType();
-    const fieldTypes = FIELD_TYPES[pageType];
+    const fieldTypes = currentFieldTypes[pageType];
     const currentFields = getCurrentFields();
     const newFields = { ...currentFields }; // 创建新对象，避免直接修改状态
     const addedFields = [];
@@ -531,24 +543,26 @@ function ConfigWizard() {
     // 检查必需字段
     const missingRequiredFields = []
     
+    const stepLabels = STEP_TITLES[contentType] || STEP_TITLES.novel;
+    
     // 检查小说信息必需字段
-    Object.entries(FIELD_TYPES.novel_info).forEach(([fieldName, config]) => {
+    Object.entries(currentFieldTypes.novel_info).forEach(([fieldName, config]) => {
       if (config.required && !novelInfoFields[fieldName]) {
-        missingRequiredFields.push(`小说信息: ${config.label || fieldName}`)
+        missingRequiredFields.push(`${stepLabels[0]}: ${config.label || fieldName}`)
       }
     })
     
     // 检查章节列表必需字段
-    Object.entries(FIELD_TYPES.chapter_list).forEach(([fieldName, config]) => {
+    Object.entries(currentFieldTypes.chapter_list).forEach(([fieldName, config]) => {
       if (config.required && !chapterListFields[fieldName]) {
-        missingRequiredFields.push(`章节列表: ${config.label || fieldName}`)
+        missingRequiredFields.push(`${stepLabels[1]}: ${config.label || fieldName}`)
       }
     })
     
     // 检查章节内容必需字段
-    Object.entries(FIELD_TYPES.chapter_content).forEach(([fieldName, config]) => {
+    Object.entries(currentFieldTypes.chapter_content).forEach(([fieldName, config]) => {
       if (config.required && !chapterContentFields[fieldName]) {
-        missingRequiredFields.push(`章节内容: ${config.label || fieldName}`)
+        missingRequiredFields.push(`${stepLabels[2]}: ${config.label || fieldName}`)
       }
     })
     
@@ -614,11 +628,14 @@ function ConfigWizard() {
       }
     }
     
+    const contentTypeInfo = CONTENT_TYPES[contentType] || CONTENT_TYPES.novel;
+    
     const config = {
+      content_type: contentType,
       site_info: {
         name: siteName,
         base_url: baseUrl,
-        description: `${siteName}小说网站`
+        description: `${siteName}${contentTypeInfo.label.replace(/[📚📰📝✍️]/g, '').trim()}网站`
       },
       url_templates: {
         book_detail: urlTemplates.bookDetail,
@@ -730,23 +747,26 @@ function ConfigWizard() {
     }
   }
 
-  // 步骤定义
+  // 步骤定义（动态生成，基于内容类型）
+  const stepTitles = STEP_TITLES[contentType] || STEP_TITLES.novel;
+  const stepDescriptions = STEP_DESCRIPTIONS[contentType] || STEP_DESCRIPTIONS.novel;
+  
   const steps = [
     {
-      title: '小说基本信息',
-      description: '配置标题、作者等'
+      title: stepTitles[0],
+      description: stepDescriptions[0]
     },
     {
-      title: '章节列表',
-      description: '配置章节列表解析'
+      title: stepTitles[1],
+      description: stepDescriptions[1]
     },
     {
-      title: '章节内容',
-      description: '配置正文内容解析'
+      title: stepTitles[2],
+      description: stepDescriptions[2]
     },
     {
-      title: '配置预览',
-      description: '预览并保存配置'
+      title: stepTitles[3],
+      description: stepDescriptions[3]
     }
   ]
 
@@ -774,9 +794,9 @@ function ConfigWizard() {
         {(currentStep === 0 || currentStep === 1 || currentStep === 2) && (
           <Card 
             title={
-              currentStep === 0 ? '📚 步骤1：配置小说基本信息' :
-              currentStep === 1 ? '📑 步骤2：配置章节列表' :
-              '📄 步骤3：配置章节内容'
+              currentStep === 0 ? `${CONTENT_TYPES[contentType]?.icon || '📚'} 步骤1：${stepTitles[0]}` :
+              currentStep === 1 ? `${CONTENT_TYPES[contentType]?.icon || '📑'} 步骤2：${stepTitles[1]}` :
+              `${CONTENT_TYPES[contentType]?.icon || '📄'} 步骤3：${stepTitles[2]}`
             }
             size="small"
           >
@@ -795,6 +815,30 @@ function ConfigWizard() {
               showIcon
               style={{ marginBottom: 24 }}
             />
+
+            {/* 内容类型选择（仅在第一步显示） */}
+            {currentStep === 0 && (
+              <Card title="📋 选择内容类型" size="small" style={{ marginBottom: 24 }}>
+                <Stack>
+                  <Text size="sm" c="dimmed">
+                    选择要爬取的内容类型，系统会自动调整字段名称和配置选项
+                  </Text>
+                  <SegmentedControl
+                    value={contentType}
+                    onChange={setContentType}
+                    data={Object.values(CONTENT_TYPES).map(type => ({
+                      value: type.value,
+                      label: type.label
+                    }))}
+                    size="md"
+                    fullWidth
+                  />
+                  <Alert color="blue" variant="light">
+                    {CONTENT_TYPES[contentType]?.description}
+                  </Alert>
+                </Stack>
+              </Card>
+            )}
 
             {/* 网站基本信息（仅在第一步显示） */}
             {currentStep === 0 && (
@@ -869,18 +913,19 @@ function ConfigWizard() {
                     
                     {/* 目标URL输入框，当选择不重新渲染时隐藏 */}
                     {(currentStep !== 1 || rerenderOption || !novelInfoUrl) && (
-                      <TextInput
-                        label="目标URL"
-                        description={
-                          currentStep === 0 ? '小说详情页URL' :
-                          currentStep === 1 ? '章节列表页URL（通常和详情页相同）' :
-                          '任一章节内容页URL'
-                        }
-                        placeholder={
-                          currentStep === 0 ? '例如：https://m.ikbook8.com/book/41934.html' :
-                          currentStep === 1 ? '例如：https://m.ikbook8.com/book/41934.html' :
-                          '例如：https://m.ikbook8.com/novel/41934/1.html'
-                        }
+                    <TextInput
+                      label="目标URL"
+                      description={
+                        currentStep === 0 ? `${stepTitles[0]}页面URL` :
+                        currentStep === 1 ? `${stepTitles[1]}页面URL` :
+                        `${stepTitles[2]}页面URL`
+                      }
+                      placeholder={
+                        URL_TEMPLATE_HINTS[contentType]?.book_detail ||
+                        URL_TEMPLATE_HINTS[contentType]?.chapter_list_page ||
+                        URL_TEMPLATE_HINTS[contentType]?.chapter_content_page ||
+                        '例如：https://example.com/page'
+                      }
                         value={targetUrl}
                         onChange={(e) => setTargetUrl(e.target.value)}
                         required
@@ -966,7 +1011,7 @@ function ConfigWizard() {
             {/* 已识别字段显示 */}
             <RecognizedFieldsList
               fields={getCurrentFields()}
-              fieldTypes={FIELD_TYPES}
+              fieldTypes={currentFieldTypes}
               pageType={getCurrentPageType()}
               onEditField={handleEditField}
               onEditProcess={setEditingProcess}
@@ -977,7 +1022,7 @@ function ConfigWizard() {
             <Card title="字段识别" size="small" style={{ marginBottom: 24 }}>
               {editingField && (
                 <Alert
-                  title={`正在修改字段：${FIELD_TYPES[getCurrentPageType()][editingField]?.label}`}
+                  title={`正在修改字段：${currentFieldTypes[getCurrentPageType()][editingField]?.label}`}
                   color="yellow"
                   withCloseButton
                   onClose={() => {
@@ -1006,7 +1051,7 @@ function ConfigWizard() {
                       notifications.show({ title: '提示', message: '图片URL可能在不同属性中(src, data-src, data-original等)，请根据实际情况选择', color: 'blue' });
                     }
                   }}
-                  data={Object.entries(FIELD_TYPES[getCurrentPageType()]).map(([key, info]) => ({
+                  data={Object.entries(currentFieldTypes[getCurrentPageType()]).map(([key, info]) => ({
                     value: key,
                     label: `${info.label}${info.note ? ` (${info.note})` : ''}${key === 'url' || key === 'next_page' ? ' (可能需要@href属性)' : ''}${key === 'cover_url' ? ' (可能需要指定图片属性)' : ''}`,
                     disabled: !!getCurrentFields()[key] && editingField !== key
@@ -1085,10 +1130,10 @@ function ConfigWizard() {
                         // 设置选中的XPath
                         setSelectedXpath(manualXpath)
                         // 直接保存字段
-                        if (manualXpath) {
-                          const pageType = getCurrentPageType()
-                          const currentFields = getCurrentFields()
-                          const fieldInfo = FIELD_TYPES[pageType][selectedFieldType]
+                        if (manualXpath) {                      
+                      const pageType = getCurrentPageType()
+                      const currentFields = getCurrentFields()
+                      const fieldInfo = currentFieldTypes[pageType][selectedFieldType]
                           
                           // 使用公共函数处理XPath表达式
                           const result = processXPathExpression(manualXpath, attributeType, customAttribute, selectedFieldType);
@@ -1219,7 +1264,7 @@ function ConfigWizard() {
               {selectedXpath && !manualCssOption && (
                 <div>
                   <Alert
-                    title={`已选择XPath用于字段：${FIELD_TYPES[getCurrentPageType()][selectedFieldType]?.label}`}
+                    title={`已选择XPath用于字段：${currentFieldTypes[getCurrentPageType()][selectedFieldType]?.label}`}
                     color="green"
                     mt="md"
                   >
@@ -1383,10 +1428,11 @@ function ConfigWizard() {
             config={generatedConfig}
             siteName={siteName}
             baseUrl={baseUrl}
+            contentType={contentType}
             novelInfoFields={novelInfoFields}
             chapterListFields={chapterListFields}
             chapterContentFields={chapterContentFields}
-            fieldTypes={FIELD_TYPES}
+            fieldTypes={currentFieldTypes}
             saveStatus={saveStatus}
             saveMessage={saveMessage}
             saving={saving}
@@ -1561,7 +1607,7 @@ function ConfigWizard() {
         <PostProcessRuleModal
           visible={!!editingProcess}
           fieldName={editingProcess}
-          fieldLabel={editingProcess && FIELD_TYPES[getCurrentPageType()][editingProcess]?.label}
+          fieldLabel={editingProcess && currentFieldTypes[getCurrentPageType()][editingProcess]?.label}
           processRules={editingProcess && getCurrentFields()[editingProcess]?.process || []}
           onSave={(newProcess) => handleUpdateProcess(editingProcess, newProcess)}
           onCancel={() => setEditingProcess(null)}
@@ -1575,6 +1621,7 @@ function ConfigWizard() {
           cachedHtml={pageData?.html} // 传递已渲染的HTML，避免重复请求
           currentFieldType={selectedFieldType}
           pageType={getCurrentPageType()}
+          contentType={contentType}
           onFieldConfirm={handleVisualFieldConfirm}
         />
       </Card>
