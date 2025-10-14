@@ -748,10 +748,14 @@ class GenericNovelCrawler:
             
             self.novel_id = self.db.insert_novel(
                 title,
-                self.novel_info.get('author', '未知') if self.novel_info else '未知',
-                self.start_url,
+                author=self.novel_info.get('author', '未知') if self.novel_info else '未知',
+                source_url=self.start_url,
                 cover_url=self.novel_info.get('cover_url', '') if self.novel_info else '',
-                site_name=self.site_name
+                site_name=self.site_name,
+                intro=self.novel_info.get('intro') if self.novel_info else None,
+                status=self.novel_info.get('status') if self.novel_info else None,
+                category=self.novel_info.get('category') if self.novel_info else None,
+                tags=self.novel_info.get('tags') if self.novel_info else None
             )
             if not self.novel_id:
                 logger.error("❌ 保存小说信息失败")

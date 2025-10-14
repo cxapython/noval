@@ -157,13 +157,18 @@ class NovelDatabase:
             novel = session.query(Novel).filter(Novel.source_url == source_url).first()
             return novel.to_dict() if novel else None
     
-    def create_novel(self, title, author=None, cover_url=None, source_url=None, site_name=None):
-        """创建小说"""
+    def create_novel(self, title, author=None, cover_url=None, source_url=None, site_name=None,
+                     intro=None, status=None, category=None, tags=None):
+        """创建小说（支持扩展字段）"""
         with self.get_session() as session:
             novel = Novel(
                 title=title,
                 author=author,
                 cover_url=cover_url,
+                intro=intro,
+                status=status,
+                category=category,
+                tags=tags,
                 source_url=source_url,
                 site_name=site_name
             )
@@ -172,8 +177,9 @@ class NovelDatabase:
             novel_id = novel.id
             return novel_id
     
-    def update_novel_info(self, novel_id, title=None, author=None, cover_url=None):
-        """更新小说信息"""
+    def update_novel_info(self, novel_id, title=None, author=None, cover_url=None,
+                          intro=None, status=None, category=None, tags=None):
+        """更新小说信息（支持扩展字段）"""
         with self.get_session() as session:
             novel = session.query(Novel).filter(Novel.id == novel_id).first()
             if not novel:
@@ -185,6 +191,14 @@ class NovelDatabase:
                 novel.author = author
             if cover_url is not None:
                 novel.cover_url = cover_url
+            if intro is not None:
+                novel.intro = intro
+            if status is not None:
+                novel.status = status
+            if category is not None:
+                novel.category = category
+            if tags is not None:
+                novel.tags = tags
             
             return True
     
@@ -197,9 +211,11 @@ class NovelDatabase:
                 return True
             return False
     
-    def insert_novel(self, title, author=None, source_url=None, cover_url=None, site_name=None):
-        """插入小说（兼容旧接口）"""
-        return self.create_novel(title, author, cover_url, source_url, site_name)
+    def insert_novel(self, title, author=None, source_url=None, cover_url=None, site_name=None,
+                     intro=None, status=None, category=None, tags=None):
+        """插入小说（兼容旧接口，支持扩展字段）"""
+        return self.create_novel(title, author, cover_url, source_url, site_name,
+                                intro, status, category, tags)
     
     def update_novel_stats(self, novel_id):
         """更新小说统计信息（总章节数、总字数）"""

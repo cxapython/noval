@@ -41,6 +41,10 @@ class Novel(Base):
     title = Column(String(255), nullable=False, index=True, comment='小说标题')
     author = Column(String(100), nullable=True, comment='作者')
     cover_url = Column(Text, nullable=True, comment='封面URL')
+    intro = Column(Text, nullable=True, comment='简介/描述')
+    status = Column(String(50), nullable=True, comment='状态（连载中/已完结等）')
+    category = Column(String(100), nullable=True, comment='分类（玄幻/都市等）')
+    tags = Column(String(500), nullable=True, comment='标签（多个标签用逗号分隔）')
     source_url = Column(Text, nullable=True, comment='来源URL')
     site_name = Column(String(100), nullable=True, index=True, comment='网站标识(用于Redis键)')
     total_chapters = Column(Integer, default=0, comment='总章节数')
@@ -63,6 +67,10 @@ class Novel(Base):
             'title': self.title,
             'author': self.author,
             'cover_url': self.cover_url,
+            'intro': self.intro,
+            'status': self.status,
+            'category': self.category,
+            'tags': self.tags,
             'source_url': self.source_url,
             'site_name': self.site_name,
             'total_chapters': self.total_chapters,
