@@ -268,6 +268,9 @@ function ConfigEditorPage() {
               onClick={handleSave}
               loading={saving}
               disabled={!!jsonError}
+              variant="gradient"
+              gradient={{ from: 'teal', to: 'cyan', deg: 90 }}
+              style={{ boxShadow: '0 4px 12px rgba(20, 184, 166, 0.3)' }}
             >
               保存配置
             </Button>

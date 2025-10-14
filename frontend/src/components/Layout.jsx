@@ -228,6 +228,7 @@ function Layout({ children }) {
             active={getActiveTab() === '/tasks'}
             onClick={() => handleMobileNavClick('/tasks')}
             variant="filled"
+            color="grape"
           />
           <NavLink
             label="爬虫配置"
@@ -235,6 +236,7 @@ function Layout({ children }) {
             active={getActiveTab() === '/crawler'}
             onClick={() => handleMobileNavClick('/crawler')}
             variant="filled"
+            color="grape"
           />
           <NavLink
             label="小说阅读"
@@ -242,6 +244,7 @@ function Layout({ children }) {
             active={getActiveTab() === '/reader'}
             onClick={() => handleMobileNavClick('/reader')}
             variant="filled"
+            color="grape"
           />
           
           <Menu.Divider my="sm" />

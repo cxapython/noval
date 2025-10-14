@@ -794,7 +794,12 @@ function TaskManagerPage() {
               >
                 取消
               </Button>
-              <Button type="submit">
+              <Button 
+                type="submit"
+                variant="gradient"
+                gradient={{ from: 'blue', to: 'cyan', deg: 90 }}
+                style={{ boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)' }}
+              >
                 创建
               </Button>
             </Group>
@@ -872,20 +877,47 @@ function TaskManagerPage() {
               />
               <Grid mt="md">
                 <Grid.Col span={4}>
-                  <Paper p="sm" radius="md" withBorder style={{ textAlign: 'center' }}>
-                    <Text size="xs" c="dimmed">总条目</Text>
+                  <Paper 
+                    p="sm" 
+                    radius="md" 
+                    withBorder 
+                    style={{ 
+                      textAlign: 'center',
+                      background: 'linear-gradient(135deg, rgba(156, 163, 175, 0.1) 0%, rgba(107, 114, 128, 0.1) 100%)',
+                      borderTop: '3px solid #6b7280'
+                    }}
+                  >
+                    <Text size="xs" c="dimmed" fw={500}>总条目</Text>
                     <Text size="xl" fw={700}>{selectedTask.total_chapters}</Text>
                   </Paper>
                 </Grid.Col>
                 <Grid.Col span={4}>
-                  <Paper p="sm" radius="md" withBorder style={{ textAlign: 'center' }}>
-                    <Text size="xs" c="dimmed">已完成</Text>
+                  <Paper 
+                    p="sm" 
+                    radius="md" 
+                    withBorder 
+                    style={{ 
+                      textAlign: 'center',
+                      background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(22, 163, 74, 0.1) 100%)',
+                      borderTop: '3px solid #22c55e'
+                    }}
+                  >
+                    <Text size="xs" c="dimmed" fw={500}>已完成</Text>
                     <Text size="xl" fw={700} c="green">{selectedTask.completed_chapters}</Text>
                   </Paper>
                 </Grid.Col>
                 <Grid.Col span={4}>
-                  <Paper p="sm" radius="md" withBorder style={{ textAlign: 'center' }}>
-                    <Text size="xs" c="dimmed">失败</Text>
+                  <Paper 
+                    p="sm" 
+                    radius="md" 
+                    withBorder 
+                    style={{ 
+                      textAlign: 'center',
+                      background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.1) 100%)',
+                      borderTop: '3px solid #ef4444'
+                    }}
+                  >
+                    <Text size="xs" c="dimmed" fw={500}>失败</Text>
                     <Text size="xl" fw={700} c="red">{selectedTask.failed_chapters}</Text>
                   </Paper>
                 </Grid.Col>
