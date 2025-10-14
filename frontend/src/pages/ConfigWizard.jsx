@@ -166,6 +166,13 @@ function ConfigWizard() {
     chapterContentPage: '/book/{book_id}/{chapter_id}_{page}.html'
   })
   
+  // URL模板启用状态
+  const [urlTemplateEnabled, setUrlTemplateEnabled] = useState({
+    bookDetail: false,
+    chapterListPage: false,
+    chapterContentPage: false
+  })
+  
 // 配置预览和保存
   const [generatedConfig, setGeneratedConfig] = useState(null)
   const [siteName, setSiteName] = useState('') // 网站名称
@@ -655,6 +662,18 @@ function ConfigWizard() {
     
     const contentTypeInfo = CONTENT_TYPES[contentType] || CONTENT_TYPES.novel;
     
+    // 只包含已启用的URL模板
+    const enabledUrlTemplates = {};
+    if (urlTemplateEnabled.bookDetail && urlTemplates.bookDetail) {
+      enabledUrlTemplates.book_detail = urlTemplates.bookDetail;
+    }
+    if (urlTemplateEnabled.chapterListPage && urlTemplates.chapterListPage) {
+      enabledUrlTemplates.chapter_list_page = urlTemplates.chapterListPage;
+    }
+    if (urlTemplateEnabled.chapterContentPage && urlTemplates.chapterContentPage) {
+      enabledUrlTemplates.chapter_content_page = urlTemplates.chapterContentPage;
+    }
+    
     const config = {
       content_type: contentType,
       site_info: {
@@ -662,11 +681,7 @@ function ConfigWizard() {
         base_url: baseUrl,
         description: `${siteName}${contentTypeInfo.label.replace(/[📚📰📝✍️]/g, '').trim()}网站`
       },
-      url_templates: {
-        book_detail: urlTemplates.bookDetail,
-        chapter_list_page: urlTemplates.chapterListPage,
-        chapter_content_page: urlTemplates.chapterContentPage
-      },
+      url_templates: enabledUrlTemplates,
       request_config: {
         headers: {
           'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15'
@@ -940,6 +955,8 @@ function ConfigWizard() {
               <URLTemplateForm
                 urlTemplates={urlTemplates}
                 setUrlTemplates={setUrlTemplates}
+                urlTemplateEnabled={urlTemplateEnabled}
+                setUrlTemplateEnabled={setUrlTemplateEnabled}
                 contentType={contentType}
               />
             )}
