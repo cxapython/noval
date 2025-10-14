@@ -3,7 +3,8 @@ import {
   Card, Button, Group, Stack, Modal, TextInput, NumberInput,
   Switch, Tabs, Progress, Text, Title, Grid, 
   Tooltip, Drawer, Badge, ActionIcon, Select,
-  Table as MantineTable, Paper, RingProgress, Center, Box
+  Table as MantineTable, Paper, RingProgress, Center, Box,
+  Skeleton, ThemeIcon
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import {
@@ -464,45 +465,89 @@ function TaskManagerPage() {
           {/* 统计卡片 */}
           <Grid gutter={isMobile ? 'xs' : 'md'}>
             <Grid.Col span={{ base: 6, sm: 6, md: 3 }}>
-              <Paper shadow="xs" p={isMobile ? 'sm' : 'md'} radius="md" withBorder>
+              <Paper 
+                shadow="sm" 
+                p={isMobile ? 'sm' : 'md'} 
+                radius="md" 
+                withBorder
+                style={{
+                  background: 'linear-gradient(135deg, rgba(156, 163, 175, 0.1) 0%, rgba(107, 114, 128, 0.1) 100%)',
+                  borderTop: '3px solid #6b7280',
+                }}
+              >
                 <Group gap="xs">
-                  <IconClock size={isMobile ? 20 : 24} color="var(--mantine-color-gray-6)" />
+                  <ThemeIcon size={isMobile ? 40 : 48} radius="md" variant="light" color="gray">
+                    <IconClock size={isMobile ? 20 : 24} />
+                  </ThemeIcon>
                   <div>
-                    <Text size="xs" c="dimmed">总任务</Text>
-                    <Text size={isMobile ? 'lg' : 'xl'} fw={700}>{stats.total}</Text>
+                    <Text size="xs" c="dimmed" fw={500}>总任务</Text>
+                    <Text size={isMobile ? 'xl' : '28px'} fw={700}>{stats.total}</Text>
                   </div>
                 </Group>
               </Paper>
             </Grid.Col>
             <Grid.Col span={{ base: 6, sm: 6, md: 3 }}>
-              <Paper shadow="xs" p={isMobile ? 'sm' : 'md'} radius="md" withBorder>
+              <Paper 
+                shadow="sm" 
+                p={isMobile ? 'sm' : 'md'} 
+                radius="md" 
+                withBorder
+                style={{
+                  background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%)',
+                  borderTop: '3px solid #3b82f6',
+                }}
+              >
                 <Group gap="xs">
-                  <IconPlayerPlay size={isMobile ? 20 : 24} color="var(--mantine-color-blue-6)" />
+                  <ThemeIcon size={isMobile ? 40 : 48} radius="md" variant="light" color="blue">
+                    <IconPlayerPlay size={isMobile ? 20 : 24} />
+                  </ThemeIcon>
                   <div>
-                    <Text size="xs" c="dimmed">运行中</Text>
-                    <Text size={isMobile ? 'lg' : 'xl'} fw={700} c="blue">{stats.running}</Text>
+                    <Text size="xs" c="dimmed" fw={500}>运行中</Text>
+                    <Text size={isMobile ? 'xl' : '28px'} fw={700} c="blue">{stats.running}</Text>
                   </div>
                 </Group>
               </Paper>
             </Grid.Col>
             <Grid.Col span={{ base: 6, sm: 6, md: 3 }}>
-              <Paper shadow="xs" p={isMobile ? 'sm' : 'md'} radius="md" withBorder>
+              <Paper 
+                shadow="sm" 
+                p={isMobile ? 'sm' : 'md'} 
+                radius="md" 
+                withBorder
+                style={{
+                  background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(22, 163, 74, 0.1) 100%)',
+                  borderTop: '3px solid #22c55e',
+                }}
+              >
                 <Group gap="xs">
-                  <IconCircleCheck size={isMobile ? 20 : 24} color="var(--mantine-color-green-6)" />
+                  <ThemeIcon size={isMobile ? 40 : 48} radius="md" variant="light" color="green">
+                    <IconCircleCheck size={isMobile ? 20 : 24} />
+                  </ThemeIcon>
                   <div>
-                    <Text size="xs" c="dimmed">已完成</Text>
-                    <Text size="xl" fw={700} c="green">{stats.completed}</Text>
+                    <Text size="xs" c="dimmed" fw={500}>已完成</Text>
+                    <Text size={isMobile ? 'xl' : '28px'} fw={700} c="green">{stats.completed}</Text>
                   </div>
                 </Group>
               </Paper>
             </Grid.Col>
             <Grid.Col span={{ base: 12, sm: 6, md: 3 }}>
-              <Paper shadow="xs" p="md" radius="md" withBorder>
+              <Paper 
+                shadow="sm" 
+                p={isMobile ? 'sm' : 'md'} 
+                radius="md" 
+                withBorder
+                style={{
+                  background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.1) 100%)',
+                  borderTop: '3px solid #ef4444',
+                }}
+              >
                 <Group gap="xs">
-                  <IconCircleX size={24} color="var(--mantine-color-red-6)" />
+                  <ThemeIcon size={isMobile ? 40 : 48} radius="md" variant="light" color="red">
+                    <IconCircleX size={isMobile ? 20 : 24} />
+                  </ThemeIcon>
                   <div>
-                    <Text size="xs" c="dimmed">失败</Text>
-                    <Text size="xl" fw={700} c="red">{stats.failed}</Text>
+                    <Text size="xs" c="dimmed" fw={500}>失败</Text>
+                    <Text size={isMobile ? 'xl' : '28px'} fw={700} c="red">{stats.failed}</Text>
                   </div>
                 </Group>
               </Paper>
@@ -512,9 +557,37 @@ function TaskManagerPage() {
           {/* 任务列表 */}
           <Stack gap="md">
             {tasks.length === 0 ? (
-              <Paper shadow="xs" p="xl" style={{ textAlign: 'center' }}>
-                <Text c="dimmed">暂无任务</Text>
-              </Paper>
+              <Center py={80}>
+                <Stack align="center" gap="xl">
+                  <ThemeIcon 
+                    size={140} 
+                    radius="xl" 
+                    variant="light" 
+                    color="blue"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%)',
+                    }}
+                  >
+                    <IconPlayerPlay size={70} stroke={1.5} />
+                  </ThemeIcon>
+                  <Stack align="center" gap="xs">
+                    <Title order={3} c="dimmed">还没有运行任务</Title>
+                    <Text c="dimmed" size="sm" ta="center">
+                      点击"创建任务"按钮，开始您的第一个爬虫任务
+                    </Text>
+                  </Stack>
+                  <Button 
+                    size="lg" 
+                    variant="gradient"
+                    gradient={{ from: 'blue', to: 'cyan', deg: 90 }}
+                    leftSection={<IconPlus size={20} />}
+                    onClick={() => setCreateModalVisible(true)}
+                    style={{ boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)' }}
+                  >
+                    创建第一个任务
+                  </Button>
+                </Stack>
+              </Center>
             ) : (
               tasks.map((task) => (
                 <Paper key={task.task_id} shadow="xs" p="lg" radius="md" withBorder>
