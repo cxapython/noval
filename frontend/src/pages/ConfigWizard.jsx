@@ -1030,8 +1030,11 @@ function ConfigWizard() {
                     onClick={() => setVisualSelectorVisible(true)}
                     fullWidth
                     variant="gradient"
-                    gradient={{ from: 'blue', to: 'cyan' }}
-                    style={{ marginBottom: 16 }}
+                    gradient={{ from: 'blue', to: 'violet', deg: 90 }}
+                    style={{ 
+                      marginBottom: 16,
+                      boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+                    }}
                   >
                     🎯 打开可视化元素选择器（推荐）
                   </Button>
