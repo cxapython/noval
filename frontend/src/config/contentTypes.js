@@ -181,7 +181,79 @@ export const STEP_DESCRIPTIONS = {
   }
 };
 
-// URL模板提示文案
+// URL模板标签配置
+export const URL_TEMPLATE_LABELS = {
+  novel: {
+    book_detail: {
+      label: '书籍详情页URL模板（第1页）',
+      description: '示例：/book/{book_id} 或 /book/{book_id}.html。这是起始页，用于获取小说信息和第一页章节列表',
+      placeholder: '/book/{book_id}'
+    },
+    chapter_list_page: {
+      label: '章节列表翻页URL模板（第2页起）',
+      description: '示例：/book/{book_id}/{page}/ 或 /book/{book_id}_{page}。从第2页开始使用，{page}≥2',
+      placeholder: '/book/{book_id}/{page}/'
+    },
+    chapter_content_page: {
+      label: '章节内容翻页URL模板（第2页起）',
+      description: '示例：/book/{book_id}/{chapter_id}_{page}.html 或 /chapter/{book_id}/{chapter_id}/{page}。章节内容第2页开始使用',
+      placeholder: '/book/{book_id}/{chapter_id}_{page}.html'
+    }
+  },
+  news: {
+    book_detail: {
+      label: '新闻专题/首页URL模板',
+      description: '示例：/ 或 /topic/{book_id}。用于获取新闻专题信息（可选）',
+      placeholder: '/'
+    },
+    chapter_list_page: {
+      label: '新闻列表URL模板',
+      description: '示例：/ 或 /news/list。用于获取新闻列表，通常与首页相同',
+      placeholder: '/'
+    },
+    chapter_content_page: {
+      label: '新闻详情URL模板',
+      description: '示例：/news/{chapter_id}.html 或 /article/{chapter_id}',
+      placeholder: '/news/{chapter_id}.html'
+    }
+  },
+  article: {
+    book_detail: {
+      label: '专栏首页URL模板',
+      description: '示例：/column/{book_id} 或 /category/{book_id}。用于获取专栏信息（可选）',
+      placeholder: '/column/{book_id}'
+    },
+    chapter_list_page: {
+      label: '文章列表URL模板',
+      description: '示例：/column/{book_id}/list 或 /category/{book_id}',
+      placeholder: '/column/{book_id}/list'
+    },
+    chapter_content_page: {
+      label: '文章详情URL模板',
+      description: '示例：/article/{chapter_id}.html',
+      placeholder: '/article/{chapter_id}.html'
+    }
+  },
+  blog: {
+    book_detail: {
+      label: '博客首页URL模板',
+      description: '示例：/ 或 /blog。用于获取博客信息（可选）',
+      placeholder: '/'
+    },
+    chapter_list_page: {
+      label: '博文列表翻页URL模板',
+      description: '示例：/page/{page} 或 /blog/page/{page}。从第2页开始使用，{page}≥2',
+      placeholder: '/page/{page}'
+    },
+    chapter_content_page: {
+      label: '博文详情URL模板',
+      description: '示例：/post/{chapter_id}.html 或 /{chapter_id}',
+      placeholder: '/post/{chapter_id}.html'
+    }
+  }
+};
+
+// URL模板提示文案（兼容旧代码）
 export const URL_TEMPLATE_HINTS = {
   novel: {
     book_detail: '例如：https://m.ikbook8.com/book/41934.html',
@@ -305,6 +377,7 @@ export default {
   FIELD_TYPE_LABELS,
   STEP_TITLES,
   STEP_DESCRIPTIONS,
+  URL_TEMPLATE_LABELS,
   URL_TEMPLATE_HINTS,
   getFieldLabel,
   getFieldTypes

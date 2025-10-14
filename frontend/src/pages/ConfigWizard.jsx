@@ -940,6 +940,7 @@ function ConfigWizard() {
               <URLTemplateForm
                 urlTemplates={urlTemplates}
                 setUrlTemplates={setUrlTemplates}
+                contentType={contentType}
               />
             )}
 
