@@ -18,6 +18,49 @@
   max-width: 500px;
 }
 
+/* 拖拽分隔条样式 */
+.resize-handle {
+  width: 6px;
+  cursor: col-resize;
+  background-color: transparent;
+  transition: background-color 0.2s;
+  position: relative;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.resize-handle:hover {
+  background-color: #228be6;
+}
+
+.resize-handle.resizing {
+  background-color: #228be6;
+}
+
+.resize-handle-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.resize-handle-line {
+  width: 2px;
+  height: 30px;
+  background-color: #dee2e6;
+  border-radius: 1px;
+}
+
+.resize-handle.resizing .resize-handle-line {
+  background-color: #fff;
+}
+
 /* iframe样式优化 */
 .visual-xpath-selector iframe {
   display: block;

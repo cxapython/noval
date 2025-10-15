@@ -103,6 +103,25 @@
         z-index: 10000;
         box-shadow: 0 2px 4px rgba(0,0,0,0.2);
       }
+      
+      .xpath-test-highlight {
+        outline: 3px solid #ff9800 !important;
+        outline-offset: 2px !important;
+        background-color: rgba(255, 152, 0, 0.15) !important;
+        animation: xpath-pulse 1s ease-in-out infinite;
+        position: relative !important;
+      }
+      
+      @keyframes xpath-pulse {
+        0%, 100% { 
+          outline-color: #ff9800;
+          box-shadow: 0 0 5px rgba(255, 152, 0, 0.5);
+        }
+        50% { 
+          outline-color: #ff5722;
+          box-shadow: 0 0 15px rgba(255, 87, 34, 0.8);
+        }
+      }
     `;
     document.head.appendChild(style);
     log('样式已注入');
@@ -150,8 +169,16 @@
     state.selectedElements.clear();
     state.lastSelectedElement = null; // 清除最后选择的元素引用
     removeHoverHighlight();
+    clearTestHighlights(); // 清除测试高亮
     state.xpathMatchCache.clear(); // 清空缓存
     log('已清除所有高亮');
+  }
+  
+  function clearTestHighlights() {
+    document.querySelectorAll('.xpath-test-highlight').forEach(el => {
+      el.classList.remove('xpath-test-highlight');
+    });
+    log('已清除测试高亮');
   }
   
   // ============ 工具class过滤 ============
@@ -1369,6 +1396,108 @@
             selectedCount: state.selectedElements.size
           }
         });
+        break;
+        
+      case 'xpath-selector-select-parent':
+        // 选择当前元素的父元素
+        if (state.lastSelectedElement && state.lastSelectedElement.parentElement) {
+          const parentElement = state.lastSelectedElement.parentElement;
+          
+          // 跳过body和html元素
+          if (parentElement.tagName === 'BODY' || parentElement.tagName === 'HTML') {
+            log('⚠️ 已到达顶层元素，无法继续向上选择');
+            sendMessageToParent('selectParentFailed', { 
+              reason: '已到达顶层元素（BODY或HTML）' 
+            });
+            break;
+          }
+          
+          // 清除当前选择的高亮
+          removeSelectedHighlight(state.lastSelectedElement);
+          
+          // 提取父元素信息并生成XPath
+          const parentInfo = extractElementInfo(parentElement);
+          parentInfo.xpathCandidates = generateEnhancedXPath(parentElement);
+          parentInfo.xpath = parentInfo.xpathCandidates.length > 0 ? 
+                             parentInfo.xpathCandidates[0].xpath : 
+                             generateSimpleXPath(parentElement);
+          
+          // 高亮父元素
+          highlightElement(parentElement, 'selected');
+          state.lastSelectedElement = parentElement;
+          
+          // 发送父元素信息到父窗口
+          sendMessageToParent('elementSelected', parentInfo);
+          
+          log('✅ 已选择父元素:', parentInfo.tagName, parentInfo.cssSelector);
+        } else {
+          log('⚠️ 无法选择父元素：没有当前选中的元素或父元素不存在');
+          sendMessageToParent('selectParentFailed', { 
+            reason: '没有当前选中的元素' 
+          });
+        }
+        break;
+        
+      case 'xpath-selector-test-xpath':
+        // 测试XPath，高亮所有匹配的元素
+        const xpath = data.xpath;
+        
+        if (!xpath) {
+          sendMessageToParent('xpathTestFailed', { 
+            xpath: '',
+            reason: 'XPath为空' 
+          });
+          break;
+        }
+        
+        log('🧪 开始测试XPath:', xpath);
+        
+        const result = evaluateXPath(xpath);
+        
+        if (!result) {
+          sendMessageToParent('xpathTestFailed', { 
+            xpath,
+            reason: 'XPath语法错误或执行失败' 
+          });
+          break;
+        }
+        
+        const matchCount = result.snapshotLength;
+        const matchedElements = [];
+        
+        // 清除之前的测试高亮
+        clearTestHighlights();
+        
+        // 高亮所有匹配的元素（最多10个）
+        const displayCount = Math.min(matchCount, 10);
+        for (let i = 0; i < displayCount; i++) {
+          const el = result.snapshotItem(i);
+          if (el && el.classList) {
+            el.classList.add('xpath-test-highlight');
+            matchedElements.push({
+              tagName: el.tagName?.toLowerCase() || '',
+              text: el.textContent?.substring(0, 50) || '',
+              className: el.className || '',
+              index: i
+            });
+          }
+        }
+        
+        log('✅ XPath测试完成，匹配', matchCount, '个元素，显示', displayCount, '个');
+        
+        // 发送测试结果
+        sendMessageToParent('xpathTestResult', {
+          xpath,
+          matchCount,
+          matchedElements,
+          displayCount
+        });
+        
+        // 3秒后自动清除测试高亮
+        setTimeout(() => {
+          clearTestHighlights();
+          log('⏱️ 自动清除测试高亮');
+        }, 3000);
         break;
     }
   }

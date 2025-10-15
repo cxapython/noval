@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react'
-import axios from 'axios'
+import axios from '../utils/axios'
 
 const AuthContext = createContext(null)
 
@@ -7,15 +7,6 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [token, setToken] = useState(localStorage.getItem('auth_token'))
-
-  // 设置axios默认header
-  useEffect(() => {
-    if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
-    } else {
-      delete axios.defaults.headers.common['Authorization']
-    }
-  }, [token])
 
   // 验证 token
   useEffect(() => {
@@ -29,10 +20,8 @@ export function AuthProvider({ children }) {
       }
 
       try {
-        // 验证 token 是否有效
-        const response = await axios.get('/api/auth/verify', {
-          headers: { Authorization: `Bearer ${storedToken}` }
-        })
+        // 验证 token 是否有效（拦截器会自动添加token）
+        const response = await axios.get('/api/auth/verify')
         
         if (response.data.success) {
           setUser(response.data.user)
@@ -64,7 +53,6 @@ export function AuthProvider({ children }) {
     setToken(null)
     localStorage.removeItem('auth_token')
     localStorage.removeItem('user')
-    delete axios.defaults.headers.common['Authorization']
   }
 
   return (

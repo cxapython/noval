@@ -12,7 +12,7 @@ import {
   IconCircleCheck, IconPlus, IconTrash,
   IconFlask, IconEdit, IconCode, IconClick
 } from '@tabler/icons-react'
-import axios from 'axios'
+import axios from '../utils/axios'
 import { notifications } from '@mantine/notifications'
 import { PostProcessRuleModal, PostProcessRuleInline } from '../components/PostProcessRuleEditor'
 import PaginationConfigForm from '../components/PaginationConfigForm'
@@ -251,7 +251,17 @@ function ConfigWizard() {
           }
         }
         
-        notifications.show({ title: '成功', message: '页面渲染成功！', color: 'green' })
+        notifications.show({ 
+          title: '✅ 渲染成功', 
+          message: '正在自动打开可视化选择器...', 
+          color: 'green',
+          autoClose: 2000
+        })
+        
+        // 🎯 渲染成功后自动打开可视化选择器
+        setTimeout(() => {
+          setVisualSelectorVisible(true)
+        }, 500) // 延迟500ms，让用户看到成功提示
       } else {
         notifications.show({ title: '错误', message: '渲染失败: ' + response.data.error, color: 'red' })
       }
@@ -950,43 +960,13 @@ function ConfigWizard() {
               />
             )}
 
-            {/* URL模板配置（仅在第一步显示） */}
-            {currentStep === 0 && (
-              <URLTemplateForm
-                urlTemplates={urlTemplates}
-                setUrlTemplates={setUrlTemplates}
-                urlTemplateEnabled={urlTemplateEnabled}
-                setUrlTemplateEnabled={setUrlTemplateEnabled}
-                contentType={contentType}
-              />
-            )}
-
               {/* 页面渲染区 */}
             <Card title="渲染目标页面" size="small" style={{ marginBottom: 24 }}>
               <Stack>
-                {/* 选择配置模式 - 是否需要渲染页面 */}
-                <div>
-                  <Text size="sm" fw={500} mb="xs">配置模式选择</Text>
-                  <Radio.Group 
-                    value={!manualCssOption ? 'render' : 'manual'} 
-                    onChange={(value) => {
-                      setManualCssOption(value === 'manual')
-                      // 切换模式时清空已生成的XPath建议
-                      setXpathSuggestions([])
-                      setSelectedXpath(null)
-                    }}
-                  >
-                    <Group>
-                      <Radio value="render" label="渲染页面配置" />
-                      <Radio value="manual" label="手动输入XPath" />
-                    </Group>
-                  </Radio.Group>
-                  <Text size="sm" c="dimmed" mt="xs">
-                    {!manualCssOption ? '通过渲染页面，智能生成XPath建议' : '直接手动输入XPath，无需渲染页面'}
-                  </Text>
-                </div>
+                {/* 默认走渲染页面配置模式，移除了配置模式选择以节省空间 */}
+                {/* 用户可以在下方的"手动输入模式（高级）"中直接输入xpath */}
                 
-                {/* 仅在非手动模式下显示渲染相关选项 */}
+                {/* 渲染相关选项 */}
                 {!manualCssOption && (
                   <>
                     {/* 重新渲染选项 - 仅在章节列表页面显示 */}
@@ -1058,28 +1038,23 @@ function ConfigWizard() {
 
               {!manualCssOption && pageData && (
                 <div style={{ marginTop: 24 }}>
-                  <Divider label="渲染结果" />
                   <Alert
-                    title={`页面标题: ${pageData.title}`}
+                    title={`✅ 渲染成功 - 页面标题: ${pageData.title}`}
                     color="green"
-                    style={{ marginBottom: 16, marginTop: 16 }}
-                  />
-                  
-                  {/* V5: 可视化选择器入口 */}
-                  <Button
-                    size="lg"
-                    leftSection={<IconClick size={20} />}
-                    onClick={() => setVisualSelectorVisible(true)}
-                    fullWidth
-                    variant="gradient"
-                    gradient={{ from: 'blue', to: 'violet', deg: 90 }}
-                    style={{ 
-                      marginBottom: 16,
-                      boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
-                    }}
+                    style={{ marginBottom: 16 }}
                   >
-                    🎯 打开可视化元素选择器（推荐）
-                  </Button>
+                    <Group gap="xs" mt="xs">
+                      <Text size="sm">可视化选择器已自动打开</Text>
+                      <Button
+                        size="xs"
+                        variant="light"
+                        leftSection={<IconClick size={14} />}
+                        onClick={() => setVisualSelectorVisible(true)}
+                      >
+                        重新打开
+                      </Button>
+                    </Group>
+                  </Alert>
                   
                   {/* 保留截图预览，折叠显示 */}
                   <Accordion variant="contained">
@@ -1100,9 +1075,6 @@ function ConfigWizard() {
                             style={{ width: '100%' }}
                           />
                         </div>
-                        <Alert color="blue" mt="sm">
-                          您也可以继续使用传统方式：在下方输入CSS选择器或元素文本，生成XPath建议。
-                        </Alert>
                       </Accordion.Panel>
                     </Accordion.Item>
                   </Accordion>
@@ -1172,129 +1144,142 @@ function ConfigWizard() {
                   size="md"
                 />
 
-                {!manualCssOption && (
-                  <div>
-                    <Text size="sm" fw={500} mb="xs">XPath生成方式</Text>
-                    <Badge color="blue">智能生成XPath</Badge>
-                  </div>
-                )}
+                {/* 优化后的输入区域 - 默认使用可视化选择器 */}
+                <Alert color="blue" icon={<IconClick size={16} />}>
+                  <Text size="sm" fw={500}>推荐使用可视化选择器</Text>
+                  <Text size="xs" c="dimmed">点击页面元素即可自动生成XPath，无需手动输入</Text>
+                </Alert>
                 
-                {/* 根据选择的模式显示不同的表单 */}
-                {!manualCssOption ? (
-                  // 智能生成模式
-                  <>
-                    <TextInput
-                      label="CSS选择器（推荐）"
-                      placeholder="例如：div.book-info > h1"
-                      value={cssSelector}
-                      onChange={(e) => setCssSelector(e.target.value)}
-                      size="md"
-                    />
-
-                    <TextInput
-                      label="或者输入元素文本"
-                      placeholder="例如：洪荒：开局斩杀混沌魔神"
-                      value={elementText}
-                      onChange={(e) => setElementText(e.target.value)}
-                      size="md"
-                    />
-
-                    <Button
-                      leftSection={<IconBolt size={16} />}
-                      onClick={handleGenerateXpath}
-                      loading={xpathLoading}
-                      fullWidth
-                      size="lg"
-                      variant="glass"
-                      style={{
-                        background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.8) 0%, rgba(118, 75, 162, 0.8) 100%)',
-                        backdropFilter: 'blur(10px)',
-                        color: 'white',
-                        fontWeight: 600,
-                      }}
-                    >
-                      {xpathLoading ? '✨ 生成中...' : '✨ 生成XPath建议'}
-                    </Button>
-                  </>
-                ) : (
-                  // 手动配置模式
-                  <>
-                    <TextInput
-                      label="直接输入XPath表达式"
-                      placeholder="例如：//div[@class='book-info']/h1"
-                      value={manualXpath}
-                      onChange={(e) => setManualXpath(e.target.value)}
-                      size="md"
-                    />
-                    <Alert
-                      title="XPath手动输入提示"
-                      color="blue"
-                      style={{ marginBottom: 16 }}
-                    >
-                      直接输入XPath表达式，然后配置属性提取方式，最后点击下方的按钮保存字段。
-                    </Alert>
-                    
-                    {/* 使用属性提取选择器组件 */}
-                    <AttributeExtractorSelector
-                      attributeType={attributeType}
-                      setAttributeType={setAttributeType}
-                      customAttribute={customAttribute}
-                      setCustomAttribute={setCustomAttribute}
-                    />
-                    <Button
-                      type="primary"
-                      size="large"
-                      icon={<IconDeviceFloppy />}
-                      onClick={() => {
-                        // 设置选中的XPath
-                        setSelectedXpath(manualXpath)
-                        // 直接保存字段
-                        if (manualXpath) {                      
-                      const pageType = getCurrentPageType()
-                      const currentFields = getCurrentFields()
-                      const fieldInfo = currentFieldTypes[pageType][selectedFieldType]
+                {/* 手动输入模式（高级） */}
+                <Accordion variant="separated">
+                  <Accordion.Item value="manual">
+                    <Accordion.Control>
+                      <Group gap="xs">
+                        <IconCode size={16} />
+                        <Text size="sm" fw={500}>手动输入模式（高级）</Text>
+                      </Group>
+                    </Accordion.Control>
+                    <Accordion.Panel>
+                      <Stack gap="md">
+                        {/* 方式1: 直接输入XPath */}
+                        <div>
+                          <Text size="sm" fw={500} mb="xs">方式1: 直接输入XPath</Text>
+                          <TextInput
+                            label="XPath表达式"
+                            placeholder="例如：//div[@class='book-info']/h1"
+                            value={manualXpath}
+                            onChange={(e) => setManualXpath(e.target.value)}
+                            size="md"
+                          />
+                          <Alert
+                            title="XPath手动输入提示"
+                            color="blue"
+                            mt="xs"
+                            size="xs"
+                          >
+                            直接输入XPath表达式，然后配置属性提取方式，最后点击保存。
+                          </Alert>
                           
-                          // 使用公共函数处理XPath表达式
-                          const result = processXPathExpression(manualXpath, attributeType, customAttribute, selectedFieldType);
-                          
-                          // 如果处理无效，直接返回
-                          if (!result.valid) {
-                            return;
-                          }
-                          
-                          // 创建字段配置
-                          const fieldConfig = {
-                            type: 'xpath',
-                            expression: result.expression,
-                            index: selectedFieldType === 'tags' || selectedFieldType === 'items' || selectedFieldType === 'content' ? 999 : -1,
-                            process: fieldInfo.defaultProcess,
-                            default: null,
-                            ...result.extraConfig
-                          }
-                      
-                          setCurrentFields({
-                            ...currentFields,
-                            [selectedFieldType]: fieldConfig
-                          })
-                      
-                          notifications.show({ title: '成功', message: `已保存字段: ${fieldInfo.label}`, color: 'green' })
-                          
-                          // 清空当前选择，准备识别下一个字段
-                          setManualXpath('')
-                          setEditingField(null)
-                          // 重置属性提取方式为自动
-                          setAttributeType('auto')
-                          setCustomAttribute('')
-                        } else {
-                          notifications.show({ title: '提示', message: '请输入XPath表达式', color: 'yellow' })
-                        }
-                      }}
-                      block
-                    >
-                      保存此字段
-                    </Button>
-                  </>
-                )}
+                          {/* 使用属性提取选择器组件 */}
+                          <Box mt="md">
+                            <AttributeExtractorSelector
+                              attributeType={attributeType}
+                              setAttributeType={setAttributeType}
+                              customAttribute={customAttribute}
+                              setCustomAttribute={setCustomAttribute}
+                            />
+                          </Box>
+                          <Button
+                            leftSection={<IconDeviceFloppy size={16} />}
+                            onClick={() => {
+                              // 设置选中的XPath
+                              setSelectedXpath(manualXpath)
+                              // 直接保存字段
+                              if (manualXpath) {                      
+                                const pageType = getCurrentPageType()
+                                const currentFields = getCurrentFields()
+                                const fieldInfo = currentFieldTypes[pageType][selectedFieldType]
+                                
+                                // 使用公共函数处理XPath表达式
+                                const result = processXPathExpression(manualXpath, attributeType, customAttribute, selectedFieldType);
+                                
+                                // 如果处理无效，直接返回
+                                if (!result.valid) {
+                                  return;
+                                }
+                                
+                                // 创建字段配置
+                                const fieldConfig = {
+                                  type: 'xpath',
+                                  expression: result.expression,
+                                  index: selectedFieldType === 'tags' || selectedFieldType === 'items' || selectedFieldType === 'content' ? 999 : -1,
+                                  process: fieldInfo.defaultProcess,
+                                  default: null,
+                                  ...result.extraConfig
+                                }
+                            
+                                setCurrentFields({
+                                  ...currentFields,
+                                  [selectedFieldType]: fieldConfig
+                                })
+                            
+                                notifications.show({ title: '成功', message: `已保存字段: ${fieldInfo.label}`, color: 'green' })
+                                
+                                // 清空当前选择，准备识别下一个字段
+                                setManualXpath('')
+                                setEditingField(null)
+                                // 重置属性提取方式为自动
+                                setAttributeType('auto')
+                                setCustomAttribute('')
+                              } else {
+                                notifications.show({ title: '提示', message: '请输入XPath表达式', color: 'yellow' })
+                              }
+                            }}
+                            fullWidth
+                            mt="sm"
+                          >
+                            保存此字段
+                          </Button>
+                        </div>
+                        
+                        <Divider label="或" />
+                        
+                        {/* 方式2: 智能生成XPath (DevTool复制) */}
+                        <div>
+                          <Text size="sm" fw={500} mb="xs">方式2: 智能生成XPath（DevTool复制）</Text>
+                          <TextInput
+                            label="CSS选择器"
+                            placeholder="例如：div.book-info > h1（从DevTool复制）"
+                            value={cssSelector}
+                            onChange={(e) => setCssSelector(e.target.value)}
+                            size="md"
+                            mb="sm"
+                          />
+                          <TextInput
+                            label="或输入元素文本"
+                            placeholder="例如：洪荒：开局斩杀混沌魔神"
+                            value={elementText}
+                            onChange={(e) => setElementText(e.target.value)}
+                            size="md"
+                            mb="sm"
+                          />
+                          <Button
+                            leftSection={<IconBolt size={16} />}
+                            onClick={handleGenerateXpath}
+                            loading={xpathLoading}
+                            fullWidth
+                            variant="light"
+                          >
+                            {xpathLoading ? '✨ 生成中...' : '✨ 生成XPath建议'}
+                          </Button>
+                          <Alert color="gray" size="xs" mt="xs">
+                            <Text size="xs">在DevTool中右键元素 → Copy → Copy selector，粘贴到上方输入框</Text>
+                          </Alert>
+                        </div>
+                      </Stack>
+                    </Accordion.Panel>
+                  </Accordion.Item>
+                </Accordion>
 
               {xpathSuggestions.length > 0 && (
                 <>
@@ -1413,8 +1398,8 @@ function ConfigWizard() {
           </Card>
 
 
-          {/* 高级配置面板 - 仅在章节列表和章节内容步骤显示 */}
-          {(currentStep === 1 || currentStep === 2) && (
+          {/* 高级配置面板 - 在所有步骤显示可选的高级配置 */}
+          {(currentStep === 0 || currentStep === 1 || currentStep === 2) && (
             <Card 
               title={
                 <Group>
@@ -1425,6 +1410,17 @@ function ConfigWizard() {
               size="small" 
               style={{ marginBottom: 24 }}
             >
+              {/* URL模板配置（仅在第一步显示） */}
+              {currentStep === 0 && (
+                <URLTemplateForm
+                  urlTemplates={urlTemplates}
+                  setUrlTemplates={setUrlTemplates}
+                  urlTemplateEnabled={urlTemplateEnabled}
+                  setUrlTemplateEnabled={setUrlTemplateEnabled}
+                  contentType={contentType}
+                />
+              )}
+              
               {/* 章节列表分页配置 */}
               {currentStep === 1 && (
                 <Stack>

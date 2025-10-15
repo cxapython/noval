@@ -9,7 +9,7 @@ import {
   IconCopy, IconArrowLeft, IconSitemap, IconInfoCircle
 } from '@tabler/icons-react'
 import { notifications } from '@mantine/notifications'
-import axios from 'axios'
+import axios from '../utils/axios'
 import SimpleFlowEditorTab from './FlowEditor/SimpleFlowEditorTab'
 import { CONTENT_TYPES } from '../config/contentTypes'
 

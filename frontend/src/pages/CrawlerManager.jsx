@@ -16,7 +16,7 @@ import {
 import { notifications } from '@mantine/notifications'
 import { modals } from '@mantine/modals'
 import { useForm } from '@mantine/form'
-import axios from 'axios'
+import axios from '../utils/axios'
 import CodeEditor from '../components/CodeEditor'
 
 const API_BASE = '/api/crawler'
@@ -46,6 +46,7 @@ function CrawlerManager() {
   // 运行爬虫对话框状态
   const [runModalVisible, setRunModalVisible] = useState(false)
   const [currentConfigFilename, setCurrentConfigFilename] = useState('')
+  const [currentContentType, setCurrentContentType] = useState('novel')  // 当前配置的内容类型
   
   // Mantine useForm
   const runForm = useForm({
@@ -57,12 +58,23 @@ function CrawlerManager() {
     },
     validate: {
       book_id: (value, values) => {
+        // 如果是新闻类型，不验证book_id
+        if (currentContentType in ['news', 'article', 'blog']) {
+          return null
+        }
         if (!value && !values.start_url) {
           return '请输入内容ID或完整URL'
         }
         return null
       },
       start_url: (value, values) => {
+        // 如果是新闻类型，必须提供URL
+        if (currentContentType in ['news', 'article', 'blog']) {
+          if (!value) {
+            return '新闻/文章类型必须提供完整URL'
+          }
+          return null
+        }
         if (!value && !values.book_id) {
           return '请输入内容ID或完整URL'
         }
@@ -132,10 +144,34 @@ function CrawlerManager() {
     })
   }
 
-  const handleRun = (config) => {
-    setCurrentConfigFilename(config.filename)
-    runForm.reset()
-    setRunModalVisible(true)
+  const handleRun = async (config) => {
+    try {
+      setCurrentConfigFilename(config.filename)
+      
+      // 读取配置文件以获取content_type
+      const response = await axios.get(`${API_BASE}/config/${config.filename}`)
+      if (response.data.success) {
+        const configData = response.data.config
+        const contentType = configData.content_type || 'novel'
+        setCurrentContentType(contentType)
+        
+        // 根据类型重置表单
+        runForm.reset()
+        
+        // 如果是新闻类型，默认切换到URL标签
+        if (['news', 'article', 'blog'].includes(contentType)) {
+          runForm.setFieldValue('book_id', '')  // 清空book_id
+        }
+      }
+      
+      setRunModalVisible(true)
+    } catch (error) {
+      notifications.show({
+        title: '错误',
+        message: '读取配置失败: ' + error.message,
+        color: 'red'
+      })
+    }
   }
 
   const handleRunSubmit = async () => {
@@ -466,6 +502,9 @@ function CrawlerManager() {
           <Group gap="xs">
             <IconPlayerPlay color="var(--mantine-color-green-6)" />
             <Text fw={600}>运行爬虫</Text>
+            {['news', 'article', 'blog'].includes(currentContentType) && (
+              <Badge color="blue" size="sm">新闻/文章模式</Badge>
+            )}
           </Group>
         }
         size="lg"
@@ -473,32 +512,45 @@ function CrawlerManager() {
       >
         <form onSubmit={runForm.onSubmit(handleRunSubmit)}>
           <Stack gap="md">
-            <Tabs defaultValue="book_id">
-              <Tabs.List>
-                <Tabs.Tab value="book_id">内容ID</Tabs.Tab>
-                <Tabs.Tab value="start_url">完整URL</Tabs.Tab>
-              </Tabs.List>
+            {['news', 'article', 'blog'].includes(currentContentType) ? (
+              // 新闻/文章类型：只显示URL输入
+              <TextInput
+                label="文章列表页URL"
+                description="输入文章列表页或单篇文章的完整URL"
+                placeholder="例如：https://tech.163.com/"
+                size="md"
+                required
+                {...runForm.getInputProps('start_url')}
+              />
+            ) : (
+              // 小说类型：显示ID或URL切换
+              <Tabs defaultValue="book_id">
+                <Tabs.List>
+                  <Tabs.Tab value="book_id">内容ID</Tabs.Tab>
+                  <Tabs.Tab value="start_url">完整URL</Tabs.Tab>
+                </Tabs.List>
 
-              <Tabs.Panel value="book_id" pt="md">
-                <TextInput
-                  label="内容ID"
-                  description="从URL中提取的数字ID，例如：41934"
-                  placeholder="例如：41934"
-                  size="md"
-                  {...runForm.getInputProps('book_id')}
-                />
-              </Tabs.Panel>
+                <Tabs.Panel value="book_id" pt="md">
+                  <TextInput
+                    label="内容ID"
+                    description="从URL中提取的数字ID，例如：41934"
+                    placeholder="例如：41934"
+                    size="md"
+                    {...runForm.getInputProps('book_id')}
+                  />
+                </Tabs.Panel>
 
-              <Tabs.Panel value="start_url" pt="md">
-                <TextInput
-                  label="起始URL"
-                  description="详情页的完整URL，系统会自动提取内容ID"
-                  placeholder="例如：https://m.ikbook8.com/book/41934.html"
-                  size="md"
-                  {...runForm.getInputProps('start_url')}
-                />
-              </Tabs.Panel>
-            </Tabs>
+                <Tabs.Panel value="start_url" pt="md">
+                  <TextInput
+                    label="起始URL"
+                    description="详情页的完整URL，系统会自动提取内容ID"
+                    placeholder="例如：https://m.ikbook8.com/book/41934.html"
+                    size="md"
+                    {...runForm.getInputProps('start_url')}
+                  />
+                </Tabs.Panel>
+              </Tabs>
+            )}
 
             <NumberInput
               label="并发线程数"

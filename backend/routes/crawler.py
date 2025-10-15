@@ -415,50 +415,87 @@ def render_page():
         
         logger.info(f"📸 开始渲染页面: {url}")
         
+        # 使用 with 语句自动管理 playwright 生命周期
         with sync_playwright() as p:
-            # 启动浏览器（服务器环境配置）
-            browser = p.chromium.launch(
-                headless=True,
-                args=[
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-gpu'
-                ]
-            )
-            page = browser.new_page(
-                viewport={'width': 1280, 'height': 1024},
-                user_agent='Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15'
-            )
+            browser = None
+            page = None
             
             try:
+                # 启动浏览器（服务器环境配置）
+                browser = p.chromium.launch(
+                    headless=True,
+                    args=[
+                        '--no-sandbox',
+                        '--disable-setuid-sandbox',
+                        '--disable-dev-shm-usage',
+                        '--disable-gpu',
+                        '--disable-blink-features=AutomationControlled'
+                    ]
+                )
+                
+                # 使用PC版User-Agent
+                page = browser.new_page(
+                    viewport={'width': 1920, 'height': 1080},
+                    user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36'
+                )
+                
+                # 隐藏webdriver特征
+                page.add_init_script("""
+                    Object.defineProperty(navigator, 'webdriver', {
+                        get: () => undefined
+                    });
+                """)
+                
+                logger.info(f"🌐 正在访问: {url}")
+                
                 # 访问页面
-                page.goto(url, wait_until='networkidle', timeout=30000)
+                try:
+                    page.goto(url, wait_until='domcontentloaded', timeout=30000)
+                    # 等待页面稳定
+                    page.wait_for_timeout(2000)
+                except Exception as goto_error:
+                    logger.warning(f"⚠️  页面加载警告: {goto_error}")
+                    # 即使加载失败，也尝试获取已加载的内容
                 
                 # 获取页面HTML
                 html = page.content()
+                logger.info(f"📄 HTML长度: {len(html)} 字符")
                 
                 # 获取截图
-                screenshot_bytes = page.screenshot(full_page=True)
+                screenshot_bytes = page.screenshot(full_page=False)
                 screenshot_base64 = base64.b64encode(screenshot_bytes).decode('utf-8')
                 
                 # 获取页面标题
                 title = page.title()
                 
+                # 在退出 with 块之前关闭 page 和 browser
+                page.close()
                 browser.close()
                 
-                logger.info(f"✅ 页面渲染成功: {title}")
+                logger.success(f"✅ 页面渲染成功: {title}")
                 
                 return jsonify({
                     'success': True,
                     'title': title,
-                    'html': html[:50000],  # 限制HTML大小
+                    'html': html[:100000],  # 限制到100KB
                     'html_length': len(html),
                     'screenshot': f'data:image/png;base64,{screenshot_base64}'
                 })
                 
             except Exception as e:
-                browser.close()
+                logger.error(f"❌ 渲染异常: {e}")
+                import traceback
+                logger.error(traceback.format_exc())
+                
+                # 尝试清理资源
+                try:
+                    if page:
+                        page.close()
+                    if browser:
+                        browser.close()
+                except:
+                    pass
+                
                 raise e
                 
     except Exception as e:
@@ -785,7 +822,7 @@ def test_config():
 
 @crawler_bp.route('/run-crawler', methods=['POST'])
 def run_crawler():
-    """运行爬虫（通过任务管理器）"""
+    """运行爬虫（通过任务管理器）- 支持小说和新闻类型"""
     try:
         data = request.json
         config_filename = data.get('config_filename', '').strip()
@@ -797,27 +834,44 @@ def run_crawler():
         if not config_filename:
             return jsonify({'success': False, 'error': '配置文件名不能为空'}), 400
         
-        if not book_id and not start_url:
-            return jsonify({'success': False, 'error': '请提供书籍ID或完整URL'}), 400
-        
         config_path = CONFIG_DIR / config_filename
         if not config_path.exists():
             return jsonify({'success': False, 'error': '配置文件不存在'}), 404
         
-        # 如果提供了完整URL，从URL中提取book_id
-        if start_url and not book_id:
-            # 尝试从URL中提取ID（假设格式为 /book/12345.html 或类似）
-            import re
-            match = re.search(r'/(\d+)', start_url)
-            if match:
-                book_id = match.group(1)
-            else:
-                return jsonify({'success': False, 'error': '无法从URL中提取书籍ID'}), 400
+        # 读取配置文件，获取content_type
+        import json
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config_data = json.load(f)
+        
+        content_type = config_data.get('content_type', 'novel')  # 默认为小说类型
+        
+        # 根据content_type验证必需参数
+        if content_type in ['news', 'article', 'blog']:
+            # 新闻/文章类型：需要完整URL
+            if not start_url:
+                return jsonify({'success': False, 'error': '新闻/文章类型需要提供完整URL'}), 400
+            # 使用URL作为标识
+            identifier = start_url
+        else:
+            # 小说类型：需要book_id
+            if not book_id and not start_url:
+                return jsonify({'success': False, 'error': '请提供书籍ID或完整URL'}), 400
+            
+            # 如果提供了完整URL，尝试从中提取book_id
+            if start_url and not book_id:
+                import re
+                match = re.search(r'/(\d+)', start_url)
+                if match:
+                    book_id = match.group(1)
+                else:
+                    return jsonify({'success': False, 'error': '无法从URL中提取书籍ID'}), 400
+            
+            identifier = book_id
         
         # 创建任务
         task_id = task_manager.create_task(
             config_filename=config_filename,
-            book_id=book_id,
+            book_id=identifier,  # 对于新闻类型，这里存储URL
             max_workers=max_workers,
             use_proxy=use_proxy
         )
@@ -850,28 +904,54 @@ def run_crawler():
                         }
                     })
             
-            # 创建爬虫实例
-            from backend.generic_crawler import GenericNovelCrawler
-            crawler = GenericNovelCrawler(
-                config_file=str(config_path),
-                book_id=task_obj.book_id,
-                max_workers=task_obj.max_workers,
-                use_proxy=task_obj.use_proxy,
-                progress_callback=progress_callback,
-                log_callback=log_callback,
-                stop_flag=task_obj.stop_flag
-            )
+            # 根据content_type选择爬虫类型
+            if content_type in ['news', 'article', 'blog']:
+                # 使用文章爬虫
+                from backend.generic_article_crawler import GenericArticleCrawler
+                crawler = GenericArticleCrawler(
+                    config_file=str(config_path),
+                    start_url=task_obj.book_id,  # 这里存的是URL
+                    max_workers=task_obj.max_workers,
+                    use_proxy=task_obj.use_proxy,
+                    progress_callback=progress_callback,
+                    log_callback=log_callback,
+                    stop_flag=task_obj.stop_flag
+                )
+                
+                # 在解析完列表后更新任务信息
+                original_parse = crawler.parse_article_list
+                def wrapped_parse():
+                    result = original_parse()
+                    if result and crawler.site_info_data:
+                        task_obj.novel_title = crawler.site_info_data.get('title', crawler.site_name)
+                        task_obj.novel_author = crawler.site_info_data.get('author', '未知')
+                    return result
+                
+                crawler.parse_article_list = wrapped_parse
+            else:
+                # 使用小说爬虫
+                from backend.generic_crawler import GenericNovelCrawler
+                crawler = GenericNovelCrawler(
+                    config_file=str(config_path),
+                    book_id=task_obj.book_id,
+                    max_workers=task_obj.max_workers,
+                    use_proxy=task_obj.use_proxy,
+                    progress_callback=progress_callback,
+                    log_callback=log_callback,
+                    stop_flag=task_obj.stop_flag
+                )
+                
+                # 在解析完小说信息后更新任务信息
+                original_parse_chapter_list = crawler.parse_chapter_list
+                def wrapped_parse_chapter_list():
+                    result = original_parse_chapter_list()
+                    if result and crawler.novel_info:
+                        task_obj.novel_title = crawler.novel_info.get('title', '')
+                        task_obj.novel_author = crawler.novel_info.get('author', '')
+                    return result
+                
+                crawler.parse_chapter_list = wrapped_parse_chapter_list
             
-            # 在解析完小说信息后更新任务信息
-            original_parse_chapter_list = crawler.parse_chapter_list
-            def wrapped_parse_chapter_list():
-                result = original_parse_chapter_list()
-                if result and crawler.novel_info:
-                    task_obj.novel_title = crawler.novel_info.get('title', '')
-                    task_obj.novel_author = crawler.novel_info.get('author', '')
-                return result
-            
-            crawler.parse_chapter_list = wrapped_parse_chapter_list
             return crawler
         
         # 启动任务
@@ -881,13 +961,16 @@ def run_crawler():
             return jsonify({
                 'success': True,
                 'task_id': task_id,
-                'message': f'爬虫任务已启动，Book ID: {book_id}'
+                'message': f'爬虫任务已启动 ({content_type}类型)',
+                'content_type': content_type
             })
         else:
             return jsonify({'success': False, 'error': '任务启动失败'}), 500
         
     except Exception as e:
         logger.error(f"❌ 启动爬虫失败: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

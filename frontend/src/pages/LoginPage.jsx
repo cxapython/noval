@@ -7,7 +7,7 @@ import {
 import { useMediaQuery } from '@mantine/hooks'
 import { IconLock, IconUser, IconAlertCircle } from '@tabler/icons-react'
 import { notifications } from '@mantine/notifications'
-import axios from 'axios'
+import axios from '../utils/axios'
 import { useAuth } from '../contexts/AuthContext'
 
 function LoginPage({ onLoginSuccess }) {

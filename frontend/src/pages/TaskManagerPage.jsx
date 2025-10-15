@@ -17,6 +17,7 @@ import { modals } from '@mantine/modals';
 import { useForm } from '@mantine/form';
 import io from 'socket.io-client';
 import { API_BASE_URL, SOCKET_CONFIG } from '../config';
+import { crawlerService } from '../services';
 
 // API基础URL (从配置文件导入)
 
@@ -143,8 +144,7 @@ function TaskManagerPage() {
   const fetchTasks = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/crawler/tasks`);
-      const data = await response.json();
+      const data = await crawlerService.getTasks();
       if (data.success) {
         setTasks(data.tasks);
       } else {
@@ -168,8 +168,7 @@ function TaskManagerPage() {
   // 获取配置列表
   const fetchConfigs = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/crawler/configs`);
-      const data = await response.json();
+      const data = await crawlerService.getConfigs();
       if (data.success) {
         setConfigs(data.configs);
       }

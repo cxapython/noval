@@ -18,7 +18,7 @@ import {
   IconSwitchHorizontal, IconGridDots, IconLayoutList,
   IconUpload
 } from '@tabler/icons-react'
-import axios from 'axios'
+import axios from '../utils/axios'
 import coverCache from '../utils/coverCache'
 import './NovelReader.css'
 
